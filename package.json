@@ -1,0 +1,43 @@
+{
+  "name": "kendihikayem",
+  "version": "0.1.0",
+  "private": true,
+  "description": "KendiHikayem — cocuga ozel AI masal uygulamasi (TR)",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "turbo run test",
+    "contract:check": "turbo run contract:check",
+    "db:migrate": "pnpm --filter @kendihikayem/db run db:migrate",
+    "db:seed": "pnpm --filter @kendihikayem/db run db:seed",
+    "infra:up": "docker compose -f infra/docker/compose.yml up -d",
+    "infra:down": "docker compose -f infra/docker/compose.yml down"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.1",
+    "@types/node": "22.18.13",
+    "eslint": "9.39.5",
+    "eslint-import-resolver-typescript": "3.10.1",
+    "eslint-plugin-boundaries": "7.2.0",
+    "globals": "16.5.0",
+    "prettier": "3.6.2",
+    "turbo": "2.10.9",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.46.4",
+    "vitest": "3.2.4"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "unrs-resolver"
+    ]
+  }
+}
