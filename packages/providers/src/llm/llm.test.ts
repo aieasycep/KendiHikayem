@@ -22,7 +22,7 @@ import { z } from 'zod';
 import { AnthropicLlmAdapter } from './anthropic';
 import { OpenAiLlmAdapter } from './openai';
 import { completeStructuredOn, parseJson } from './structured';
-import { SchemaValidationError } from './types';
+import { SchemaValidationError, type StructuredLlmInput } from './types';
 import { toJsonSchema } from './schema';
 import type { FetchLike, HttpResponseLike } from './http';
 import type { LlmPurpose } from '../core/adapters';
@@ -223,10 +223,11 @@ describe('Anthropic adapter — the request', () => {
 
   it('attaches the structured-output schema when one is supplied', async () => {
     const { fetchImpl, calls } = stubFetch([{ body: ANTHROPIC_OK }]);
-    await anthropic(fetchImpl).complete(
-      { ...fillInput, jsonSchema: { type: 'object', properties: {}, required: [] } },
-      ctx,
-    );
+    const structured: StructuredLlmInput = {
+      ...fillInput,
+      jsonSchema: { type: 'object', properties: {}, required: [] },
+    };
+    await anthropic(fetchImpl).complete(structured, ctx);
     expect(calls[0]?.body['output_config']).toMatchObject({
       format: { type: 'json_schema', schema: { type: 'object' } },
     });
@@ -384,10 +385,12 @@ describe('the two-provider route', () => {
 
   it('sends a strict json_schema and subtracts cached tokens from the prompt total', async () => {
     const { fetchImpl, calls } = stubFetch([{ body: OPENAI_OK }]);
-    const result = await openai(fetchImpl).complete(
-      { ...fillInput, jsonSchema: { type: 'object', properties: {}, required: [] }, schemaName: 'kitap' },
-      ctx,
-    );
+    const structured: StructuredLlmInput = {
+      ...fillInput,
+      jsonSchema: { type: 'object', properties: {}, required: [] },
+      schemaName: 'kitap',
+    };
+    const result = await openai(fetchImpl).complete(structured, ctx);
 
     expect(calls[0]?.body['response_format']).toMatchObject({
       type: 'json_schema',

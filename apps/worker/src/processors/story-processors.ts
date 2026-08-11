@@ -95,10 +95,12 @@ export const storyFillProcessor: StoryProcessor = async (runtime, job) => {
 
   for (const page of result.pages) {
     // Progressive delivery: the reader can open a page as soon as its TEXT exists, long
-    // before its illustration does (contract/src/story.ts).
+    // before its illustration does (contract/src/story.ts). The contract's `page.ready`
+    // carries the text itself, so the client renders without a round trip.
     await appendJobEvent(runtime.db, context.jobId, 'page.ready', {
       storyId: context.storyId,
       pageNo: page.pageNo,
+      textTr: page.textTr,
     });
   }
   await progress(
@@ -141,6 +143,7 @@ export const storyPageRewriteProcessor: StoryProcessor = async (runtime, job) =>
   await appendJobEvent(runtime.db, context.jobId, 'page.ready', {
     storyId: context.storyId,
     pageNo: result.pageNo,
+    textTr: result.textTr,
   });
   await progress(runtime, context.jobId, 1, 1, 'Sayfa hazır');
 

@@ -27,7 +27,7 @@
  *      declaration order and reject unknown keywords, so it must not be sent there.
  */
 
-import { z } from 'zod';
+import type { z } from 'zod';
 
 export interface JsonSchema {
   type?: 'object' | 'array' | 'string' | 'number' | 'integer' | 'boolean';

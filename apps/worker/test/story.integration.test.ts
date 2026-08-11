@@ -18,7 +18,6 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import type { Job } from 'bullmq';
 import type { DbHandle } from '@kendihikayem/db';
@@ -35,7 +34,7 @@ import type { JobPayload } from '../src/queues';
 import { buildRuntime, fakeAdaptersFromEnv, type WorkerRuntime } from '../src/runtime';
 import { PROCESSORS } from '../src/processors/index';
 import { runFillStage } from '../src/processors/story-generation';
-import { enqueueJob, getJobSteps, transitionJob } from '../src/jobs/repository';
+import { enqueueJob, getJobSteps } from '../src/jobs/repository';
 import { requestHash } from '../src/jobs/hashing';
 import { reserveCost } from '../src/cost/reservation';
 import { createTestUser, deleteTestUser, newIdempotencyKey, openDb, testEnv } from './helpers';
