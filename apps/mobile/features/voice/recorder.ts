@@ -3,7 +3,7 @@
  *
  * Wraps expo-audio's `useAudioRecorder` with:
  *   · runtime RECORD_AUDIO permission handling (denied state surfaces in UI)
- *   · recording-friendly audio mode (`allowsRecording`, plays in silent mode)
+ *   · a recording-friendly audio mode (`allowsRecording`, plays in silent mode)
  *   · a 120 ms metering stream feeding the live dB meter (features/voice/meter.ts)
  *   · a hard duration cap so a forgotten recorder cannot run for minutes
  *
@@ -37,9 +37,16 @@ export const VOICE_RECORDING_OPTIONS: RecordingOptions = {
 export type MicPermission = 'unknown' | 'granted' | 'denied';
 
 export interface FinishedRecording {
-  uri: string;
+  /** null when the platform produced no file (extremely rare). */
+  uri: string | null;
   durationMs: number;
   stats: MeterStats;
+}
+
+interface MeterState {
+  stats: MeterStats;
+  /** Last ~40 normalized dB samples for the bar visual. */
+  recentDb: number[];
 }
 
 export interface VoiceRecorderApi {
@@ -49,12 +56,13 @@ export interface VoiceRecorderApi {
   durationMs: number;
   /** Rolling stats for the meter UI; recomputed every metering tick. */
   stats: MeterStats;
-  /** Last ~40 normalized dB samples for the bar visual. */
   recentDb: number[];
   start: () => Promise<boolean>;
-  /** Resolves with the finished file, or undefined if nothing was recording. */
+  /** Resolves with the finished take; undefined when nothing was recording. */
   stop: () => Promise<FinishedRecording | undefined>;
 }
+
+const EMPTY_METER: MeterState = { stats: computeMeterStats([]), recentDb: [] };
 
 export function useVoiceRecorder(maxDurationMs = 60_000): VoiceRecorderApi {
   const recorder = useAudioRecorder(VOICE_RECORDING_OPTIONS);
@@ -62,14 +70,18 @@ export function useVoiceRecorder(maxDurationMs = 60_000): VoiceRecorderApi {
 
   const [permission, setPermission] = useState<MicPermission>('unknown');
   const samplesRef = useRef<number[]>([]);
-  const [stats, setStats] = useState<MeterStats>(() => computeMeterStats([]));
+  const [meter, setMeter] = useState<MeterState>(EMPTY_METER);
   const stopGuard = useRef(false);
 
-  // Feed the meter while recording.
+  // Feed the meter while recording. `durationMillis` advances every poll tick,
+  // so this effect runs once per tick even when the level itself is unchanged.
   useEffect(() => {
     if (!state.isRecording) return;
     samplesRef.current.push(normalizeDb(state.metering));
-    setStats(computeMeterStats(samplesRef.current));
+    setMeter({
+      stats: computeMeterStats(samplesRef.current),
+      recentDb: samplesRef.current.slice(-40),
+    });
   }, [state.isRecording, state.metering, state.durationMillis]);
 
   const start = useCallback(async (): Promise<boolean> => {
@@ -81,7 +93,7 @@ export function useVoiceRecorder(maxDurationMs = 60_000): VoiceRecorderApi {
     setPermission('granted');
     await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
     samplesRef.current = [];
-    setStats(computeMeterStats([]));
+    setMeter(EMPTY_METER);
     stopGuard.current = false;
     await recorder.prepareToRecordAsync();
     recorder.record();
@@ -95,9 +107,8 @@ export function useVoiceRecorder(maxDurationMs = 60_000): VoiceRecorderApi {
     await recorder.stop();
     // Recording no longer needs the mic; release it for playback screens.
     await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
-    const uri = recorder.uri;
-    if (uri === null || durationMs <= 0) return undefined;
-    return { uri, durationMs, stats: computeMeterStats(samplesRef.current) };
+    // Stats are computed from the ref INSIDE the callback — never a stale render.
+    return { uri: recorder.uri, durationMs, stats: computeMeterStats(samplesRef.current) };
   }, [recorder]);
 
   // Hard cap: stop automatically when the limit is hit.
@@ -110,8 +121,8 @@ export function useVoiceRecorder(maxDurationMs = 60_000): VoiceRecorderApi {
     permission,
     isRecording: state.isRecording,
     durationMs: state.durationMillis,
-    stats,
-    recentDb: samplesRef.current.slice(-40),
+    stats: meter.stats,
+    recentDb: meter.recentDb,
     start,
     stop,
   };

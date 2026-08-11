@@ -57,8 +57,11 @@ export default function Ortam(): ReactNode {
     stopTimer.current = setTimeout(() => {
       void (async () => {
         const finished = await recorder.stop();
-        const stats = finished?.stats ?? recorder.stats;
-        setResult({ stats, verdict: ambientVerdict(stats) });
+        if (finished === undefined) {
+          setTestState('bekliyor');
+          return;
+        }
+        setResult({ stats: finished.stats, verdict: ambientVerdict(finished.stats) });
         setTestState('bitti');
       })();
     }, TEST_MS);

@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -37,13 +37,16 @@ export default function Ozet(): ReactNode {
   const [error, setError] = useState<ApiError | undefined>(undefined);
   const intentKey = useRef<string | undefined>(undefined);
   const autoFired = useRef(false);
+  /** Re-entrancy guard as a ref so `create` stays identity-stable. */
+  const busyRef = useRef(false);
 
   const themeTitle =
     themes.data?.find((theme) => theme.code === draft.themeCode)?.titleTr ?? draft.themeCode ?? '—';
   const heroLabel = draft.heroIsChild ? `${draft.childName} (kendisi)` : draft.heroName;
 
-  const create = async (): Promise<void> => {
-    if (busy) return;
+  const create = useCallback(async (): Promise<void> => {
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     setError(undefined);
     intentKey.current ??= newIdempotencyKey('hikaye');
@@ -59,9 +62,10 @@ export default function Ozet(): ReactNode {
       });
     } catch (err) {
       setError(err as ApiError);
+      busyRef.current = false;
       setBusy(false);
     }
-  };
+  }, [draft, router]);
 
   const onCreatePress = (): void => {
     if (session.phase !== 'user') {
@@ -72,13 +76,13 @@ export default function Ozet(): ReactNode {
   };
 
   // Returning from S07 verified: fire the creation once, automatically.
+  // `create` is useCallback-stable per draft; autoFired guards re-entry anyway.
   useEffect(() => {
     if (devam === '1' && session.phase === 'user' && !autoFired.current) {
       autoFired.current = true;
       void create();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [devam, session.phase]);
+  }, [devam, session.phase, create]);
 
   return (
     <Screen>

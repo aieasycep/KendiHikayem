@@ -57,7 +57,13 @@ export function TakeRecorder({
   const finish = async (): Promise<void> => {
     setPhase('gonderiliyor');
     const finished = await recorder.stop();
-    if (finished === undefined) {
+    if (finished === undefined || finished.uri === null || finished.durationMs <= 0) {
+      setError({
+        code: 'COK_KISA',
+        messageTr: 'Kayıt alınamadı. Kaydı başlatıp metnin tamamını okuduktan sonra bitirin.',
+        retryable: true,
+        traceId: 'yerel-kayit',
+      });
       setPhase('hazir');
       return;
     }

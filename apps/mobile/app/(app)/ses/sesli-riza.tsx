@@ -47,10 +47,12 @@ export default function SesliRiza(): ReactNode {
     },
   });
 
+  // `setScript` is identity-stable (VoiceFlowProvider useCallback), so this
+  // effect runs exactly once per fetched script — no loop, no suppression.
+  const { setScript } = flow;
   useEffect(() => {
-    if (script.data !== undefined) flow.setScript(script.data);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [script.data]);
+    if (script.data !== undefined) setScript(script.data);
+  }, [script.data, setScript]);
 
   return (
     <Screen>

@@ -10,7 +10,7 @@
  * (onboarding) group and the (app)/sihirbaz group keeps the draft alive.
  */
 
-import { createContext, useContext, useMemo, useReducer, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useReducer, type ReactNode } from 'react';
 
 import type { AgeBand, PageCount } from '@kendihikayem/contract';
 
@@ -91,14 +91,19 @@ const DraftContext = createContext<DraftContextValue | undefined>(undefined);
 
 export function WizardDraftProvider({ children }: { children: ReactNode }): ReactNode {
   const [draft, dispatch] = useReducer(reducer, INITIAL);
+  // Stable actions (dispatch is stable): safe as effect dependencies.
+  const patch = useCallback((value: Partial<WizardDraft>) => {
+    dispatch({ type: 'patch', patch: value });
+  }, []);
+  const setBuilderField = useCallback((field: string, code: string) => {
+    dispatch({ type: 'setBuilderField', field, code });
+  }, []);
+  const reset = useCallback(() => {
+    dispatch({ type: 'reset' });
+  }, []);
   const value = useMemo<DraftContextValue>(
-    () => ({
-      draft,
-      patch: (patch) => dispatch({ type: 'patch', patch }),
-      setBuilderField: (field, code) => dispatch({ type: 'setBuilderField', field, code }),
-      reset: () => dispatch({ type: 'reset' }),
-    }),
-    [draft],
+    () => ({ draft, patch, setBuilderField, reset }),
+    [draft, patch, setBuilderField, reset],
   );
   return <DraftContext.Provider value={value}>{children}</DraftContext.Provider>;
 }
