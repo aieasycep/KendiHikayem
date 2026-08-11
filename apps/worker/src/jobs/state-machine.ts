@@ -99,9 +99,16 @@ const STEP_TRANSITIONS: Record<JobStepStatus, readonly JobStepStatus[]> = {
   running: ['succeeded', 'failed', 'running'],
   /** A permanently failed page can be retried by the parent from the reader (SPEC §8.2). */
   failed: ['running'],
-  succeeded: [],
-  /** `skipped` = content_cache hit. The step never ran and cost nothing. */
-  skipped: [],
+  /**
+   * `succeeded → running` is legal ONLY because `beginStep` checks the input hash first:
+   * an unchanged input is reused and never reaches here. What does reach here is the
+   * regeneration path — the parent edits page 3's text, that step's `input_hash` changes,
+   * and it must rerun while the other eleven come back from `content_cache`
+   * (SPEC §6.2 rule 4). Making this terminal would make editing a page impossible.
+   */
+  succeeded: ['running'],
+  /** Same reasoning: `skipped` was a cache hit, and the cache key can stop matching. */
+  skipped: ['running'],
 };
 
 export function canTransitionStep(from: JobStepStatus, to: JobStepStatus): boolean {
