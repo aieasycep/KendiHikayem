@@ -25,8 +25,6 @@ import {
   type ApiError,
 } from '@kendihikayem/contract';
 
-import { DEMO_STORIES, DEMO_VOICE_PROFILES, type DemoStory } from './fixtures';
-
 export type ApiMode = 'mock' | 'live';
 
 interface ExtraConfig {
@@ -110,25 +108,5 @@ export function toApiError(error: unknown): ApiError {
   });
 }
 
-/* ── Legacy demo-data shims ─────────────────────────────────────────────────
- * The kitaplık / hikaye stub screens (owner: F2) still render DemoStory fixtures.
- * Keep these until F2 migrates them to the contract client; new code must not
- * use them.
- * ─────────────────────────────────────────────────────────────────────────── */
-
-const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
-
-export async function listStories(): Promise<DemoStory[]> {
-  await delay(250);
-  return DEMO_STORIES;
-}
-
-export async function getStory(id: string): Promise<DemoStory | undefined> {
-  await delay(150);
-  return DEMO_STORIES.find((story) => story.id === id);
-}
-
-export async function listVoiceProfiles(): Promise<typeof DEMO_VOICE_PROFILES> {
-  await delay(150);
-  return DEMO_VOICE_PROFILES;
-}
+/* Legacy DemoStory shims were removed once every screen moved to the contract
+ * client (mock data now comes from @kendihikayem/mock through msw). */

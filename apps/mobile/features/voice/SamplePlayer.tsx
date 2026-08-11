@@ -48,7 +48,9 @@ export function SamplePlayer({
       return;
     }
     try {
-      player.seekTo(0);
+      player.seekTo(0).catch(() => {
+        /* seeking an unloaded source may reject — play() below still tries */
+      });
       player.play();
     } catch {
       setFailed(true);
