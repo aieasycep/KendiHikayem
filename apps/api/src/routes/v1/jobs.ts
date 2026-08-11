@@ -28,9 +28,11 @@ import {
 import {
   type JobRow,
   type JobStepRow,
+  type Timestamp,
   cancelJob,
   getJob,
   getJobSteps,
+  toDate,
 } from '@kendihikayem/worker';
 
 import { forbidden, notFound } from '../../errors';
@@ -45,8 +47,8 @@ function brand<T>(value: string): T {
   return value as T;
 }
 
-function brandDate<T>(value: Date): T {
-  return value.toISOString() as T;
+function brandDate<T>(value: Timestamp): T {
+  return toDate(value).toISOString() as T;
 }
 
 /**
@@ -172,7 +174,7 @@ export async function listJobs(
   return {
     items: jobs,
     nextCursor:
-      hasMore && last ? Buffer.from(last.queued_at.toISOString()).toString('base64url') : null,
+      hasMore && last ? Buffer.from(toDate(last.queued_at).toISOString()).toString('base64url') : null,
   };
 }
 

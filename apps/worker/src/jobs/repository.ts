@@ -41,6 +41,14 @@ export type JobKind =
   | 'privacy_export'
   | 'privacy_delete';
 
+/**
+ * ⚠️ TIMESTAMPS ARE `Date | string`. Raw `db.execute` (as opposed to a Drizzle select)
+ * hands back whatever postgres.js parsed, and for a `timestamptz` in a raw query that is a
+ * STRING. Typing these as `Date` compiles and then throws `toISOString is not a function`
+ * at runtime, so the type says what is actually there and callers use `toDate()`.
+ */
+export type Timestamp = Date | string;
+
 export type JobRow = {
   id: string;
   user_id: string;
@@ -67,10 +75,10 @@ export type JobRow = {
   actual_cost_usd: string;
   reservation_id: string | null;
   correlation_id: string;
-  next_retry_at: Date | null;
-  queued_at: Date;
-  started_at: Date | null;
-  finished_at: Date | null;
+  next_retry_at: Timestamp | null;
+  queued_at: Timestamp;
+  started_at: Timestamp | null;
+  finished_at: Timestamp | null;
 };
 
 export type JobStepRow = {
@@ -87,11 +95,16 @@ export type JobStepRow = {
   provider_request_id: string | null;
   cost_usd: string;
   error: Record<string, unknown> | null;
-  started_at: Date | null;
-  finished_at: Date | null;
+  started_at: Timestamp | null;
+  finished_at: Timestamp | null;
 };
 
 /** Priority lanes. Lower runs first (schema/jobs.ts). */
+/** Coerces a `timestamptz` value from a raw query into a `Date`. */
+export function toDate(value: Timestamp): Date {
+  return value instanceof Date ? value : new Date(value);
+}
+
 export const PRIORITY = {
   paid: 50,
   free: 100,

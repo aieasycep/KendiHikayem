@@ -66,7 +66,6 @@ export function buildServer(options: BuildServerOptions): BuiltServer {
     // Fastify's default 100 MB body limit is far too generous for a JSON API; the only
     // large uploads in this product are presigned straight to S3 and never touch us.
     bodyLimit: 1_048_576,
-    disableRequestLogging: true,
   });
 
   const sse = new SseHub(options.db);
@@ -183,6 +182,28 @@ export function buildServer(options: BuildServerOptions): BuiltServer {
     // ts-rest validates requests against the contract; response validation stays off in
     // production (it doubles serialisation cost) and is enabled in tests.
     responseValidation: false,
+
+    /**
+     * ts-rest answers a failed request validation itself, with ITS OWN body shape, without
+     * going through `setErrorHandler`. Left alone, a missing `Idempotency-Key` would return
+     * a 400 in a shape no client knows how to read — breaking contract rule 1 at exactly the
+     * moment a client most needs a usable error. So it is translated here.
+     */
+    requestValidationErrorHandler: (error, request, reply) => {
+      const traceId = request.traceId ?? 'trace-yok';
+      const first =
+        error.headers?.issues[0] ??
+        error.body?.issues[0] ??
+        error.query?.issues[0] ??
+        error.pathParams?.issues[0];
+
+      void reply.status(422).send(
+        buildApiError('VALIDATION_FAILED', traceId, {
+          detail: first ? `${first.path.join('.')}: ${first.message}` : 'request validation failed',
+          ...(first && first.path.length > 0 ? { field: first.path.join('.') } : {}),
+        }),
+      );
+    },
   });
 
   app.addHook('onClose', async () => sse.stop());

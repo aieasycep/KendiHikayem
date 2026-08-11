@@ -16,7 +16,7 @@ import type { ServerResponse } from 'node:http';
 
 import type { Database } from '@kendihikayem/db';
 import { SSE_HEARTBEAT_MS, serializeServerEvent } from '@kendihikayem/contract';
-import { readJobEventsSince } from '@kendihikayem/worker';
+import { readJobEventsSince, toDate } from '@kendihikayem/worker';
 
 /**
  * The slice of `FastifyReply` an SSE stream needs. Structural on purpose: ts-rest hands
@@ -113,7 +113,7 @@ export class SseHub {
             serializeServerEvent({
               seq: event.seq,
               type: event.type,
-              at: event.created_at.toISOString(),
+              at: toDate(event.created_at).toISOString(),
               ...event.payload,
             } as Parameters<typeof serializeServerEvent>[0]),
           );

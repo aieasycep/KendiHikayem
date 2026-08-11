@@ -19,8 +19,8 @@ import { notFound } from '../../errors';
 
 type EntitlementsRow = {
   plan_code: string;
-  period_start: Date;
-  period_end: Date;
+  period_start: Date | string;
+  period_end: Date | string;
   stories_used: number;
   credits_balance: number;
   story_quota: number | null;

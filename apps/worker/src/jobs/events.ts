@@ -27,7 +27,7 @@ export type JobEventRow = {
   seq: number;
   type: string;
   payload: Record<string, unknown>;
-  created_at: Date;
+  created_at: Date | string;
 };
 
 /**
@@ -117,7 +117,7 @@ export type OutboxRow = {
   status: string;
   attempts: number;
   available_at: Date;
-  created_at: Date;
+  created_at: Date | string;
 };
 
 /**
