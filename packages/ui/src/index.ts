@@ -2,8 +2,10 @@
  * @kendihikayem/ui — tasarım sistemi. Sahibi: F2 (SPEC §12).
  *
  * Katmanlar:
- *   tokens/     renk, tipografi, boşluk, yarıçap, hareket — ham değerler
- *   theme       ThemeProvider / ThemeScope / useTheme — gündüz + gece
+ *   brand       BRAND_NAME / BRAND_TAGLINE — marka adı tek sabitten okunur
+ *   tokens/     renk, tipografi (Fraunces + Nunito), boşluk, yarıçap, hareket
+ *   theme       ThemeProvider / ThemeScope / useTheme — gündüz + gece + fontsReady
+ *   icons/      react-native-svg ikonları (Figma setinden; yenisi buraya eklenir)
  *   primitives/ Text, Button, Card, Chip, Input, Sheet, ProgressBar, Skeleton,
  *               EmptyState, ErrorState, Badge, ListRow, Screen, Row
  *   patterns/   MediaImage (404'a dayanıklı görsel), JobProgressCard
@@ -21,10 +23,15 @@
 
 export const PACKAGE_NAME = '@kendihikayem/ui' as const;
 
+// marka — ekranlara ad gömülmez, bu sabit kullanılır
+export { BRAND_NAME, BRAND_TAGLINE } from './brand';
+
 // tokens
 export { palette, light, dark, type ColorRoles } from './tokens/colors';
 export {
   typeScale,
+  brandTypeScale,
+  fontFamilies,
   readerFontFamily,
   readerTextStyle,
   type TypeVariant,
@@ -57,6 +64,21 @@ export { Badge, type BadgeProps, type BadgeTone } from './primitives/Badge';
 export { ListRow, type ListRowProps } from './primitives/ListRow';
 export { Screen, type ScreenProps } from './primitives/Screen';
 export { Row, type RowProps } from './primitives/Row';
+
+// icons — react-native-svg tabanlı ortak set (Figma kaynağından)
+export {
+  HomeIcon,
+  LibraryIcon,
+  PlusIcon,
+  ProfileIcon,
+  ChevronRightIcon,
+  PlayIcon,
+  MoonIcon,
+  SparkleIcon,
+  StorybookLogo,
+  type IconProps,
+  type FillableIconProps,
+} from './icons';
 
 // patterns
 export { MediaImage, type MediaImageProps } from './patterns/MediaImage';

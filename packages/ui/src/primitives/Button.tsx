@@ -76,7 +76,8 @@ export function Button({
       style={({ pressed }) => [
         styles.base,
         {
-          borderRadius: radius.pill,
+          // Tasarım dili: butonlar hap değil, yumuşak köşeli dikdörtgen (Figma 14-16).
+          borderRadius: compact ? radius.sm : radius.md,
           minHeight: compact ? 40 : touchTarget.minHeight + 4,
           paddingHorizontal: compact ? 16 : 24,
           backgroundColor: backgroundFor(pressed),

@@ -16,13 +16,17 @@ export const spacing = {
   xxl: 48,
 } as const;
 
+/**
+ * Yarıçap ölçeği — Figma `--radius: 16px` tabanlı: sm = taban-4, md = taban,
+ * lg = taban+4, xl = taban+8 (hero kart 24).
+ */
 export const radius = {
-  sm: 8,
-  md: 14,
-  lg: 22,
-  xl: 32,
+  sm: 12,
+  md: 16,
+  lg: 20,
+  xl: 24,
   /** Kapak görselleri — kitap hissi için hafif köşe. */
-  cover: 12,
+  cover: 14,
   pill: 999,
 } as const;
 
@@ -48,10 +52,25 @@ export const motion = {
 } as const;
 
 /**
- * Gölge yerine kenarlık + hafif elevation: koyu temada gölge görünmez,
- * kenarlık her iki temada da yüzey ayrımını taşır.
+ * Kenarlık + tasarımdaki yumuşak gölge: kenarlık koyu temada yüzey ayrımını
+ * taşır, gölge gündüz temasında kartlara Figma'daki "kalkık kâğıt" hissini verir.
+ * (Figma: 0 2px 8px rgba(0,0,0,0.04) / 0 4px 16px rgba(0,0,0,0.06)).
  */
 export const elevation = {
-  card: { borderWidth: 1 },
-  raised: { borderWidth: 1, elevation: 3 },
+  card: {
+    borderWidth: 1,
+    shadowColor: '#2C2825',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  raised: {
+    borderWidth: 1,
+    shadowColor: '#2C2825',
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
 } as const;
