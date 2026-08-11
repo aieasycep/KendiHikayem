@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useMemo, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, View, type TextStyle } from 'react-native';
 
+import { clampPageCount } from '@kendihikayem/contract';
 import type { StorySummary, StoryTheme } from '@kendihikayem/contract';
 import {
   ChevronRightIcon,
@@ -117,6 +118,11 @@ export default function AnaSayfa(): ReactNode {
         ageBand: child.ageBand,
         heroName: draft.heroIsChild ? child.givenName : draft.heroName,
         reuseCharacterId: undefined,
+        // Sayfa sayısı yaş bandına bağlı: 0-2 yalnızca 6 veya 8 sayfa kabul
+        // eder. Bu kısayol W01'i atladığı için oradaki kıstırmaya güvenemeyiz —
+        // 12 sayfada kalmış bir taslakla 0-2 çocuğu seçmek üretim adımında
+        // 422 verirdi. Kaynak: contract `clampPageCount`.
+        pageCount: clampPageCount(child.ageBand, draft.pageCount),
       });
       // Nonce her dokunuşta değişir: W01 aynı oturumda ikinci kez açıldığında
       // da atlama efekti yeniden tetiklenir (sihirbaz/index.tsx).
