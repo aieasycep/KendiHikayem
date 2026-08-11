@@ -36,6 +36,12 @@ export interface AudioRenderFlowInput {
   renditionId: string;
   chunks: AudioChunk[];
   voice: { kind: 'cloned' | 'system'; providerVoiceId: string };
+  /**
+   * `voice_provider_bindings.id` for a cloned voice. Carried so every rendered chunk can
+   * touch it: the LRU sweep evicts by last-used time, and a voice a family plays nightly
+   * must never be the one that gets dropped (SPEC §14 R5).
+   */
+  bindingId?: string;
   tier: 'draft' | 'quality';
   priority?: number;
 }
@@ -60,8 +66,12 @@ export function buildAudioRenderFlow(input: AudioRenderFlowInput): FlowJob {
         storyId: input.storyId,
         renditionId: input.renditionId,
         chunkIndex: chunk.index,
+        // A POINTER, not the text (see `queues.ts`): the processor re-derives the chunk
+        // from `story_pages`, so an edit between enqueue and render is picked up instead
+        // of narrating a stale page.
         textHash: chunk.textHash,
         voice: input.voice,
+        ...(input.bindingId ? { bindingId: input.bindingId } : {}),
         tier: input.tier,
       },
     } satisfies JobPayload,
@@ -85,6 +95,7 @@ export function buildAudioRenderFlow(input: AudioRenderFlowInput): FlowJob {
         storyId: input.storyId,
         renditionId: input.renditionId,
         chunkCount: children.length,
+        tier: input.tier,
       },
     } satisfies JobPayload,
     opts: { ...DEFAULT_JOB_OPTIONS, priority, jobId: queueJobId(input.jobId, 'concat') },

@@ -253,7 +253,7 @@ function lowPass(samples: Float32Array, sampleRate: number, cutoffHz: number): F
   const dt = 1 / sampleRate;
   const alpha = dt / (rc + dt);
 
-  let current = Float32Array.from(samples);
+  const current = Float32Array.from(samples);
   for (let pass = 0; pass < 2; pass += 1) {
     let value = current[0] ?? 0;
     for (let i = 0; i < current.length; i += 1) {

@@ -225,9 +225,18 @@ importers:
       '@kendihikayem/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@kendihikayem/media':
+        specifier: workspace:*
+        version: link:../../packages/media
+      '@kendihikayem/pdf':
+        specifier: workspace:*
+        version: link:../../packages/pdf
       '@kendihikayem/providers':
         specifier: workspace:*
         version: link:../../packages/providers
+      '@kendihikayem/safety':
+        specifier: workspace:*
+        version: link:../../packages/safety
       '@kendihikayem/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -308,6 +317,9 @@ importers:
         specifier: 1.5.4
         version: 1.5.4
     devDependencies:
+      '@kendihikayem/mock':
+        specifier: workspace:*
+        version: link:../mock
       '@types/qrcode':
         specifier: 1.5.6
         version: 1.5.6

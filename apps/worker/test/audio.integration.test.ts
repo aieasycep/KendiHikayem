@@ -412,7 +412,6 @@ describe('the deletion chain really deletes', () => {
     `);
     expect(due.length).toBeGreaterThanOrEqual(7); // 1 provider + 5 objects + 1 db_rows
     const stuck = due.filter((task) => task.status !== 'completed');
-    // eslint-disable-next-line no-console -- diagnostics when the chain does not finish
     if (stuck.length > 0) console.log('[deletion] stuck:', JSON.stringify(stuck, null, 2));
     expect(stuck).toEqual([]);
 
@@ -622,7 +621,6 @@ describe('editing one page re-renders one chunk', () => {
     expect(second.concat.pageCount).toBe(12);
     expect(second.concat.totalDurationMs).toBeGreaterThan(0);
 
-    // eslint-disable-next-line no-console -- the measurement is the point of this test
     console.log(
       `[cache] 12 chunks, one page edited → ${cached} cache hits, ${rendered} re-render, ` +
         `saved_usd=${saved.toFixed(5)}`,
