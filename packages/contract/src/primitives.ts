@@ -692,7 +692,7 @@ export const commonErrorResponses = {
  * enjeksiyonunun en kolay girişidir; burada gevşeklik K1 katmanını delerdi.
  */
 export const HUMAN_NAME_PATTERN =
-  /^[A-Za-zÇĞİÖŞÜçğıöşü]+(?:[ '\-][A-Za-zÇĞİÖŞÜçğıöşü]+){0,2}$/u;
+  /^[A-Za-zÇĞİÖŞÜçğıöşü]+(?:[ '-][A-Za-zÇĞİÖŞÜçğıöşü]+){0,2}$/u;
 
 export const humanNameSchema = z
   .string()

@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { z } from 'zod';
+import type { z } from 'zod';
 
 import { apiContract, endpoints, WRITE_ENDPOINT_KEYS, COSTLY_ENDPOINT_KEYS } from './endpoints';
 import type { EndpointKey } from './endpoints';
