@@ -14,7 +14,7 @@ import { useFonts } from 'expo-font';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -78,8 +78,8 @@ const STARS = Array.from({ length: 28 }, (_, i) => ({
  * kendiliğinden kapanır — dokunma beklemez, fontlara takılmaz.
  */
 function BrandSplash({ fontsReady }: { fontsReady: boolean }): ReactNode {
-  const float = useRef(new Animated.Value(0)).current;
-  const pulse = useRef(new Animated.Value(0.35)).current;
+  const [float] = useState(() => new Animated.Value(0));
+  const [pulse] = useState(() => new Animated.Value(0.35));
 
   useEffect(() => {
     const floatLoop = Animated.loop(

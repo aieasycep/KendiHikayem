@@ -7,6 +7,7 @@ import { Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
 import type { ReactElement, ReactNode } from 'react';
 
 import { useTheme } from '../theme';
+import { elevation } from '../tokens/layout';
 
 export interface CardProps {
   children: ReactNode;
@@ -32,6 +33,8 @@ export function Card({
   const { colors, radius, spacing } = useTheme();
 
   const baseStyle: ViewStyle = {
+    // Tasarımdaki "kalkık kâğıt" hissi: yumuşak gölge + ince kenarlık.
+    ...elevation.card,
     backgroundColor: selected ? colors.surfaceRaised : colors.surface,
     borderRadius: radius.md,
     borderWidth: selected ? 2 : 1,

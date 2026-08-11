@@ -40,7 +40,8 @@ export function Chip({
       style={({ pressed }) => [
         styles.base,
         {
-          borderRadius: radius.pill,
+          // Tasarım dili: çipler yumuşak köşeli (Figma 12), hap değil.
+          borderRadius: radius.sm,
           backgroundColor: selected
             ? colors.primary
             : pressed
