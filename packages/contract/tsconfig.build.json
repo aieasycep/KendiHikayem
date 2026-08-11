@@ -1,0 +1,24 @@
+{
+  /**
+   * `pnpm build` — sözleşmeyi CommonJS'e derler.
+   *
+   * Neden CJS: `scripts/openapi-cli` OpenAPI'yi Zod şemalarından ÜRETMEK için
+   * sözleşmeyi ÇALIŞTIRMAK zorunda. Kaynak dosyalar uzantısız relative import
+   * kullanır (Metro/Vite/tsc bunu ister); Node ESM uzantısız import çözemez,
+   * CJS çözer. Böylece contract:check hiçbir ek çalıştırıcıya (tsx vb.) muhtaç
+   * olmadan, yalnızca tsc + node ile çalışır.
+   */
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist",
+    "rootDir": ".",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "verbatimModuleSyntax": false,
+    "isolatedModules": false,
+    "declaration": false,
+    "sourceMap": false
+  },
+  "include": ["src/**/*.ts", "scripts/**/*.ts"]
+}

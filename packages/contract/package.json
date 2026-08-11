@@ -12,8 +12,10 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run --passWithNoTests",
-    "contract:check": "node -e \"console.error('contract:check henuz baglanmadi. A0-CONTRACT: Zod semasindan OpenAPI yeniden uretilip openapi.snapshot.yaml ile byte-es karsilastirilacak (SPEC S3, kural 3).'); process.exit(0)\""
+    "build": "tsc -p tsconfig.build.json && node scripts/finalize-build.cjs",
+    "openapi:write": "pnpm run build && node dist/scripts/openapi-cli.js write",
+    "contract:check": "pnpm run build && node dist/scripts/openapi-cli.js check",
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@ts-rest/core": "3.52.1",
