@@ -54,3 +54,7 @@ infra/docker/data/
 # generated media scratch
 tmp/
 .cache/
+
+# python (demo medya üreticileri)
+__pycache__/
+*.pyc
