@@ -11,6 +11,7 @@ import {
   Screen,
   Skeleton,
   Text,
+  fontFamilies,
   palette,
   useTheme,
 } from '@kendihikayem/ui';
@@ -20,21 +21,20 @@ import { useChildren, useStories } from '../../features/library/hooks';
 import { useSession } from '../../lib/session';
 
 /**
- * H01 Ana Sayfa — uygulamanın açılış ekranı (Figma `Home.tsx` taşıması).
+ * H01 Ana Sayfa — uygulamanın açılış ekranı (Figma `Home.tsx` BİREBİR taşıması).
  *
- * Rakip analizi + kullanıcı talebi: uygulama pazarlama sayfasıyla değil, içerik
- * dolu bir ana sayfayla karşılar. Bölümler:
- *   1. Sıcak karşılama + seçili çocuk avatarı
+ * Bölümler tasarımdaki sırayla:
+ *   1. Karşılama ("İyi akşamlar 👋" — tasarımdaki sabit metin) + çocuk avatarı
  *   2. Hero: "«çocuk» için bir hikâye oluştur" (tek birincil eylem)
  *   3. Çocuğa göre öneriler (katalog temaları — sözleşmeden gelir)
- *   4. Kaldığın yerden devam et (yarım kalan masal)
+ *   4. Kaldığın yerden devam et ("%N tamamlandı" + ilerleme çubuğu)
  *   5. En son oluşturdukların (yatay şerit)
  *   6. Bu gece için kategoriler (katalog temaları)
  *
  * VERİ: her bölüm `packages/mock` fixture'larını sözleşme uçları üzerinden
  * okur (stories.list, children.list, catalog.themes) — ekrana sabit dizi
- * gömülmez. "Hikâye oluştur" eylemi misafiri onboarding akışına, oturumlu
- * kullanıcıyı sihirbaza götürür; onboarding kaybolmadı, giriş noktası değişti.
+ * gömülmez. "Hikâye oluştur" eylemi misafiri ilk-masal akışına (kim-icin),
+ * oturumlu kullanıcıyı sihirbaza götürür.
  */
 
 /** Ürün standardı: her masal 12 sayfadır (SPEC — sihirbaz da bunu üretir). */
@@ -52,20 +52,10 @@ function coverVisual(index: number): { tint: string; emoji: string } {
   };
 }
 
-function greetingTr(hour: number): { hello: string; question: string } {
-  if (hour >= 5 && hour < 12) {
-    return { hello: 'Günaydın 👋', question: 'Bugün hangi masala\nyolculuk ediyoruz?' };
-  }
-  if (hour >= 12 && hour < 18) {
-    return { hello: 'İyi günler 👋', question: 'Bugün hangi masala\nyolculuk ediyoruz?' };
-  }
-  return { hello: 'İyi akşamlar 👋', question: 'Bu gece hangi masala\nyolculuk ediyoruz?' };
-}
-
 export default function AnaSayfa(): ReactNode {
   const router = useRouter();
   const session = useSession();
-  const { colors, radius, type } = useTheme();
+  const { colors, radius, type, fontsReady } = useTheme();
 
   const childrenQuery = useChildren();
   const storiesQuery = useStories();
@@ -89,35 +79,41 @@ export default function AnaSayfa(): ReactNode {
     [stories],
   );
 
-  const greeting = greetingTr(new Date().getHours());
   const childName = child?.givenName;
 
-  /** Hikâye oluşturma girişi: misafir → onboarding akışı, kullanıcı → sihirbaz. */
+  /** Figma devam kartı: "%68 tamamlandı" — yüzde son okunan sayfadan türetilir. */
+  const continuePercent = Math.min(
+    100,
+    Math.round(((continueStory?.lastReadPageNo ?? 0) / STORY_PAGE_COUNT) * 100),
+  );
+
+  /** Hikâye oluşturma girişi: misafir → ilk-masal akışı, kullanıcı → sihirbaz. */
   const startCreate = (): void => {
     if (session.phase === 'user') router.push('/(app)/sihirbaz');
-    else router.push('/(onboarding)/karsilama');
+    else router.push('/(onboarding)/kim-icin');
   };
 
   const openStory = (story: StorySummary): void => {
     router.push({ pathname: '/(app)/hikaye/[id]', params: { id: story.id as string } });
   };
 
-  /** Fraunces başlık stili — kart başlıkları için küçültülmüş serif. */
-  const serifSm: TextStyle = { ...type.heading, fontSize: 15, lineHeight: 20 };
+  /** Fraunces kart başlıkları — Figma: devam kartı 16, şerit kartı 13. */
+  const serifCard: TextStyle = { ...type.heading, fontSize: 16, lineHeight: 21 };
+  const serifRail: TextStyle = { ...type.heading, fontSize: 13, lineHeight: 17 };
 
   return (
     <Screen flush testID="anasayfa">
-      {/* ── 1. Karşılama ──────────────────────────────────────── */}
+      {/* ── 1. Karşılama (Figma: sabit akşam selamı) ──────────── */}
       <LinearGradient
-        colors={['rgba(176, 156, 224, 0.16)', 'rgba(176, 156, 224, 0)']}
+        colors={['rgba(176, 156, 224, 0.15)', 'rgba(176, 156, 224, 0)']}
         style={styles.header}
       >
         <View style={styles.headerTexts}>
           <Text variant="caption" tone="muted">
-            {greeting.hello}
+            İyi akşamlar 👋
           </Text>
-          <Text variant="title" accessibilityRole="header">
-            {greeting.question}
+          <Text variant="title" accessibilityRole="header" style={styles.headerTitle}>
+            Bu gece hangi masala{'\n'}yolculuk ediyoruz?
           </Text>
         </View>
         {child !== undefined ? (
@@ -132,7 +128,10 @@ export default function AnaSayfa(): ReactNode {
                 🧒
               </Text>
             </LinearGradient>
-            <Text variant="caption" style={{ color: colors.primary, fontSize: 12 }}>
+            <Text
+              variant="caption"
+              style={{ color: colors.primary, fontSize: 11, lineHeight: 15, fontWeight: '700' }}
+            >
               {child.givenName}
             </Text>
           </View>
@@ -175,11 +174,19 @@ export default function AnaSayfa(): ReactNode {
                 ? `${childName} için bir hikâye oluştur`
                 : 'Çocuğun için bir hikâye oluştur'}
             </Text>
-            <View style={[styles.heroCta, { borderRadius: radius.sm }]}>
+            <View style={styles.heroCta}>
               <Text style={styles.heroCtaEmoji} accessibilityElementsHidden>
                 ✨
               </Text>
-              <Text variant="label" style={{ color: colors.primary, fontSize: 14 }}>
+              <Text
+                style={[
+                  styles.heroCtaText,
+                  { color: colors.primary },
+                  fontsReady
+                    ? { fontFamily: fontFamilies.bodyExtraBold }
+                    : styles.heroCtaTextFallback,
+                ]}
+              >
                 Masalımı Oluştur
               </Text>
             </View>
@@ -194,7 +201,7 @@ export default function AnaSayfa(): ReactNode {
             {childName !== undefined ? `${childName} için öneriler` : 'Sana özel öneriler'}
           </Text>
           <Pressable accessibilityRole="button" onPress={startCreate} hitSlop={8}>
-            <Text variant="caption" style={{ color: colors.primary, fontWeight: '700' }}>
+            <Text variant="caption" style={[styles.linkAll, { color: colors.primary }]}>
               Tümü
             </Text>
           </Pressable>
@@ -214,6 +221,7 @@ export default function AnaSayfa(): ReactNode {
                 onPress={startCreate}
                 style={({ pressed }) => [
                   styles.suggestion,
+                  styles.cardShadowSm,
                   {
                     backgroundColor: pressed ? colors.surfaceMuted : colors.surface,
                     borderColor: colors.border,
@@ -232,10 +240,15 @@ export default function AnaSayfa(): ReactNode {
                   </Text>
                 </View>
                 <View style={styles.suggestionTexts}>
-                  <Text variant="label" numberOfLines={1}>
+                  <Text variant="label" numberOfLines={1} style={styles.suggestionTitle}>
                     {theme.titleTr}
                   </Text>
-                  <Text variant="caption" tone="muted" numberOfLines={1}>
+                  <Text
+                    variant="caption"
+                    tone="muted"
+                    numberOfLines={1}
+                    style={styles.suggestionSub}
+                  >
                     {theme.subtitleTr}
                   </Text>
                 </View>
@@ -254,7 +267,7 @@ export default function AnaSayfa(): ReactNode {
           </Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${continueStory.title} — ${continueStory.lastReadPageNo}. sayfada kaldınız, dinlemeye devam et`}
+            accessibilityLabel={`${continueStory.title} — yüzde ${continuePercent} tamamlandı, dinlemeye devam et`}
             onPress={() => {
               router.push({
                 pathname: '/(app)/hikaye/[id]/oynat',
@@ -263,6 +276,7 @@ export default function AnaSayfa(): ReactNode {
             }}
             style={({ pressed }) => [
               styles.continueCard,
+              styles.cardShadowMd,
               {
                 backgroundColor: colors.surface,
                 borderColor: colors.border,
@@ -282,16 +296,16 @@ export default function AnaSayfa(): ReactNode {
               </Text>
             </LinearGradient>
             <View style={styles.continueBody}>
-              <Text style={serifSm} numberOfLines={1}>
+              <Text style={serifCard} numberOfLines={1}>
                 {continueStory.title}
               </Text>
               <Row gap="xs">
-                <Text variant="caption" tone="muted" numberOfLines={1}>
+                <Text variant="caption" tone="muted" numberOfLines={1} style={styles.meta12}>
                   {continueStory.voiceLabels[0] ?? 'Sistem sesi'}
                 </Text>
                 <View style={[styles.metaDot, { backgroundColor: colors.inkMuted }]} />
-                <Text variant="caption" tone="accent">
-                  {continueStory.lastReadPageNo}. sayfada kaldınız
+                <Text variant="caption" tone="accent" style={[styles.meta12, styles.metaStrong]}>
+                  %{continuePercent} tamamlandı
                 </Text>
               </Row>
               <View style={[styles.progressTrack, { backgroundColor: colors.surfaceMuted }]}>
@@ -299,17 +313,7 @@ export default function AnaSayfa(): ReactNode {
                   colors={[palette.purple600, palette.lavender]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
-                  style={[
-                    styles.progressFill,
-                    {
-                      width: `${Math.min(
-                        100,
-                        Math.round(
-                          ((continueStory.lastReadPageNo ?? 0) / STORY_PAGE_COUNT) * 100,
-                        ),
-                      )}%`,
-                    },
-                  ]}
+                  style={[styles.progressFill, { width: `${continuePercent}%` }]}
                 />
               </View>
             </View>
@@ -330,7 +334,7 @@ export default function AnaSayfa(): ReactNode {
             }}
             hitSlop={8}
           >
-            <Text variant="caption" style={{ color: colors.primary, fontWeight: '700' }}>
+            <Text variant="caption" style={[styles.linkAll, { color: colors.primary }]}>
               Tümü
             </Text>
           </Pressable>
@@ -365,6 +369,7 @@ export default function AnaSayfa(): ReactNode {
                   }}
                   style={({ pressed }) => [
                     styles.storyCard,
+                    styles.cardShadowSm,
                     {
                       backgroundColor: colors.surface,
                       borderColor: colors.border,
@@ -379,10 +384,10 @@ export default function AnaSayfa(): ReactNode {
                     </Text>
                   </View>
                   <View style={styles.storyBody}>
-                    <Text style={serifSm} numberOfLines={2}>
+                    <Text style={serifRail} numberOfLines={2}>
                       {story.title}
                     </Text>
-                    <Text variant="caption" tone="muted" numberOfLines={1}>
+                    <Text variant="caption" tone="muted" numberOfLines={1} style={styles.meta11}>
                       {story.voiceLabels.length > 0
                         ? `${story.childName} · ${story.voiceLabels[0]}`
                         : story.childName}
@@ -409,10 +414,10 @@ export default function AnaSayfa(): ReactNode {
               onPress={startCreate}
               style={({ pressed }) => [
                 styles.categoryCard,
+                styles.cardShadowXs,
                 {
                   backgroundColor: pressed ? colors.surfaceMuted : colors.surface,
                   borderColor: colors.border,
-                  borderRadius: radius.sm,
                 },
               ]}
             >
@@ -433,6 +438,29 @@ export default function AnaSayfa(): ReactNode {
 const styles = StyleSheet.create({
   pressedDim: { opacity: 0.85 },
 
+  /* Figma kart gölgeleri */
+  cardShadowXs: {
+    shadowColor: '#000000',
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  cardShadowSm: {
+    shadowColor: '#000000',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  cardShadowMd: {
+    shadowColor: '#000000',
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+
   /* Karşılama */
   header: {
     flexDirection: 'row',
@@ -444,6 +472,8 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   headerTexts: { flex: 1, gap: 4 },
+  /* Figma: Fraunces 26 · lineHeight 1.2 · letterSpacing -0.01em */
+  headerTitle: { fontSize: 26, lineHeight: 31, letterSpacing: -0.26 },
   avatarWrap: { alignItems: 'center', gap: 4 },
   avatar: {
     width: 44,
@@ -453,8 +483,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: '#FFFFFF',
+    shadowColor: '#7C5CBF',
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   avatarEmoji: { fontSize: 20 },
+
+  /* "Tümü" bağlantısı — Figma: 13 · 600 */
+  linkAll: { fontSize: 13, lineHeight: 18, fontWeight: '600' },
 
   /* Bölüm iskeleti */
   section: { paddingHorizontal: 24, paddingTop: 16, gap: 12 },
@@ -462,8 +500,8 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, lineHeight: 24 },
   list: { gap: 8 },
 
-  /* Hero */
-  hero: { padding: 24, overflow: 'hidden' },
+  /* Hero — Figma: padding 28/24, başlık Fraunces 24 · 1.2 · maxWidth 200 */
+  hero: { paddingVertical: 28, paddingHorizontal: 24, overflow: 'hidden' },
   heroCircle: { position: 'absolute', backgroundColor: 'rgba(255,255,255,0.07)' },
   heroCircleBig: { right: -20, top: -20, width: 120, height: 120, borderRadius: 60 },
   heroCircleSmall: {
@@ -476,23 +514,30 @@ const styles = StyleSheet.create({
   },
   heroSparkleTop: { position: 'absolute', top: 16, right: 20, fontSize: 20, opacity: 0.8 },
   heroSparkleBottom: { position: 'absolute', bottom: 16, right: 60, fontSize: 14, opacity: 0.6 },
+  /* Figma: 12 · 600 · letterSpacing 0.06em */
   heroKicker: {
     color: 'rgba(255,255,255,0.7)',
     fontSize: 12,
-    letterSpacing: 1,
+    fontWeight: '600',
+    letterSpacing: 0.72,
     marginBottom: 8,
   },
-  heroTitle: { color: '#FFFFFF', fontSize: 24, lineHeight: 30, maxWidth: 220, marginBottom: 20 },
+  heroTitle: { color: '#FFFFFF', fontSize: 24, lineHeight: 29, maxWidth: 200, marginBottom: 20 },
+  /* Figma: beyaz hap yerine 14px köşeli rozet, padding 10/20 */
   heroCta: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     backgroundColor: '#FFFFFF',
+    borderRadius: 14,
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
   heroCtaEmoji: { fontSize: 16 },
+  /* Figma: Nunito 800 · 14 */
+  heroCtaText: { fontSize: 14, lineHeight: 19 },
+  heroCtaTextFallback: { fontWeight: '800' },
 
   /* Öneri kartı */
   suggestion: {
@@ -511,12 +556,19 @@ const styles = StyleSheet.create({
   },
   suggestionEmoji: { fontSize: 20 },
   suggestionTexts: { flex: 1, gap: 2 },
+  /* Figma: başlık 14 · 700, alt satır 12 · 500 */
+  suggestionTitle: { fontSize: 14, lineHeight: 19 },
+  suggestionSub: { fontSize: 12, lineHeight: 16 },
 
   /* Devam kartı */
   continueCard: { borderWidth: 1, overflow: 'hidden' },
   continueCover: { height: 80, alignItems: 'center', justifyContent: 'center' },
   continueEmoji: { fontSize: 36 },
   continueBody: { paddingHorizontal: 16, paddingVertical: 14, gap: 6 },
+  /* Figma meta satırları: 12 ve 11 punto */
+  meta12: { fontSize: 12, lineHeight: 16 },
+  meta11: { fontSize: 11, lineHeight: 15 },
+  metaStrong: { fontWeight: '700' },
   metaDot: { width: 4, height: 4, borderRadius: 2, opacity: 0.4 },
   progressTrack: { height: 4, borderRadius: 2, overflow: 'hidden', marginTop: 4 },
   progressFill: { height: '100%', borderRadius: 2 },
@@ -532,17 +584,18 @@ const styles = StyleSheet.create({
   storyCoverEmoji: { fontSize: 36 },
   storyBody: { paddingHorizontal: 12, paddingVertical: 10, gap: 4 },
 
-  /* Kategori ızgarası */
+  /* Kategori ızgarası — Figma: yarıçap 14, etiket 11 · 700 */
   categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   categoryCard: {
     flexBasis: '31%',
     flexGrow: 1,
     borderWidth: 1,
+    borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 8,
     alignItems: 'center',
     gap: 6,
   },
   categoryEmoji: { fontSize: 22 },
-  categoryLabel: { fontSize: 12, fontWeight: '700' },
+  categoryLabel: { fontSize: 11, lineHeight: 15, fontWeight: '700' },
 });

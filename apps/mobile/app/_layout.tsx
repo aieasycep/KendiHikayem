@@ -14,7 +14,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -30,6 +30,11 @@ import {
 } from '@kendihikayem/ui';
 
 import { WizardDraftProvider } from '../features/onboarding/draft';
+import {
+  Tanitim,
+  tanitimGorulduIsaretle,
+  tanitimGorulduMu,
+} from '../features/onboarding/Tanitim';
 import { ensureMockServer } from '../lib/mock';
 import { queryClient } from '../lib/queryClient';
 import { ensureGuestSession } from '../lib/session';
@@ -70,14 +75,21 @@ const STARS = Array.from({ length: 28 }, (_, i) => ({
 }));
 
 /**
- * Branded splash (Figma Splash ekranı): gece gökyüzü degradesi, yıldızlar, ay,
- * açık kitap logosu ve marka adı. Native splash aynı gece rengiyle açıldığı için
- * geçiş kesintisiz görünür. Bu ekran yalnızca bootstrap sürerken durur ve
- * kendiliğinden kapanır — dokunma beklemez, fontlara takılmaz.
+ * Branded splash — Figma `Splash.tsx` birebir: gece gökyüzü degradesi,
+ * yıldızlar, ay, degrade zeminli açık kitap logosu, marka adı ve altta
+ * "Başlamak için dokun" ipucu. Native splash aynı gece rengiyle açıldığı için
+ * geçiş kesintisiz görünür. Tasarımdaki gibi ekranın tamamı dokunulabilirdir;
+ * dokunuş bootstrap bitmeden gelirse kaydedilir ve hazır olunca akış ilerler.
  */
-function BrandSplash({ fontsReady }: { fontsReady: boolean }): ReactNode {
+function BrandSplash({
+  fontsReady,
+  onPress,
+}: {
+  fontsReady: boolean;
+  onPress: () => void;
+}): ReactNode {
   const [float] = useState(() => new Animated.Value(0));
-  const [pulse] = useState(() => new Animated.Value(0.35));
+  const [pulse] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
     const floatLoop = Animated.loop(
@@ -86,10 +98,11 @@ function BrandSplash({ fontsReady }: { fontsReady: boolean }): ReactNode {
         Animated.timing(float, { toValue: 0, duration: 1500, useNativeDriver: true }),
       ]),
     );
+    // Figma pulse-soft: 2s içinde opaklık 1 ↔ 0.6
     const pulseLoop = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 0.7, duration: 1000, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0.35, duration: 1000, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.6, duration: 1000, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 1000, useNativeDriver: true }),
       ]),
     );
     floatLoop.start();
@@ -101,52 +114,62 @@ function BrandSplash({ fontsReady }: { fontsReady: boolean }): ReactNode {
   }, [float, pulse]);
 
   return (
-    <LinearGradient
-      colors={[palette.deepPlum, palette.royalPurple, palette.night950]}
-      locations={[0, 0.4, 1]}
-      start={{ x: 0.15, y: 0 }}
-      end={{ x: 0.85, y: 1 }}
-      style={styles.splash}
-    >
-      {STARS.map((star, i) => (
-        <View
-          key={i}
-          style={[
-            styles.star,
-            {
-              width: star.size,
-              height: star.size,
-              opacity: star.opacity,
-              top: star.top,
-              left: star.left,
-            },
-          ]}
-        />
-      ))}
-
-      {/* Ay */}
-      <View style={styles.moon}>
-        <View style={styles.moonInner} />
-      </View>
-
-      <Animated.View style={[styles.logoBox, { transform: [{ translateY: float }] }]}>
-        <StorybookLogo size={52} />
-      </Animated.View>
-
-      <Text
-        style={[styles.brandName, fontsReady && { fontFamily: fontFamilies.display }]}
-        accessibilityRole="header"
+    <Pressable accessibilityRole="button" accessibilityLabel="Başlamak için dokun" onPress={onPress} style={styles.flex}>
+      <LinearGradient
+        colors={[palette.deepPlum, palette.royalPurple, palette.night950]}
+        locations={[0, 0.4, 1]}
+        start={{ x: 0.15, y: 0 }}
+        end={{ x: 0.85, y: 1 }}
+        style={styles.splash}
       >
-        {BRAND_NAME}
-      </Text>
-      <Text style={[styles.brandTagline, fontsReady && { fontFamily: fontFamilies.bodyMedium }]}>
-        {BRAND_TAGLINE.toLocaleUpperCase('tr-TR')}
-      </Text>
+        {STARS.map((star, i) => (
+          <View
+            key={i}
+            style={[
+              styles.star,
+              {
+                width: star.size,
+                height: star.size,
+                opacity: star.opacity,
+                top: star.top,
+                left: star.left,
+              },
+            ]}
+          />
+        ))}
 
-      <Animated.Text style={[styles.splashHint, { opacity: pulse }]}>
-        Masallar hazırlanıyor…
-      </Animated.Text>
-    </LinearGradient>
+        {/* Ay */}
+        <View style={styles.moon}>
+          <View style={styles.moonInner} />
+        </View>
+
+        <Animated.View style={{ transform: [{ translateY: float }] }}>
+          {/* Figma: linear-gradient(135deg, rgba(176,156,224,0.3), rgba(124,92,191,0.4)) */}
+          <LinearGradient
+            colors={['rgba(176, 156, 224, 0.3)', 'rgba(124, 92, 191, 0.4)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.logoBox}
+          >
+            <StorybookLogo size={52} />
+          </LinearGradient>
+        </Animated.View>
+
+        <Text
+          style={[styles.brandName, fontsReady && { fontFamily: fontFamilies.display }]}
+          accessibilityRole="header"
+        >
+          {BRAND_NAME}
+        </Text>
+        <Text style={[styles.brandTagline, fontsReady && { fontFamily: fontFamilies.bodyMedium }]}>
+          {BRAND_TAGLINE.toLocaleUpperCase('tr-TR')}
+        </Text>
+
+        <Animated.Text style={[styles.splashHint, { opacity: pulse }]}>
+          Başlamak için dokun
+        </Animated.Text>
+      </LinearGradient>
+    </Pressable>
   );
 }
 
@@ -175,6 +198,11 @@ export default function RootLayout(): ReactNode {
   const [ready, setReady] = useState(false);
   const [minSplashDone, setMinSplashDone] = useState(false);
   const [bootWarning, setBootWarning] = useState<string | undefined>(undefined);
+  // Tanıtım karuseli (Figma Onboarding) — ilk açılışta splash'ten sonra gösterilir.
+  const [tanitimGerekli, setTanitimGerekli] = useState(false);
+  const [tanitimBitti, setTanitimBitti] = useState(false);
+  // Figma Splash dokunarak ilerler; erken dokunuş da kaydedilir.
+  const [dokunuldu, setDokunuldu] = useState(false);
 
   // Fontlar paketten yüklenir (ağ yok). Yüklenene kadar ekranlar sistem
   // fontuyla akar; `fontsReady` temaya işlenince tüm metin markaya döner.
@@ -217,14 +245,22 @@ export default function RootLayout(): ReactNode {
           setBootWarning(bootError instanceof Error ? bootError.message : String(bootError));
         }
       }
-      if (!cancelled) setReady(true);
+      const goruldu = await tanitimGorulduMu();
+      if (!cancelled) {
+        setTanitimGerekli(!goruldu);
+        setReady(true);
+      }
     })();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const showApp = ready && minSplashDone;
+  // Tasarım akışı (Figma App.tsx): Splash → Onboarding karuseli → Ana Sayfa.
+  // İlk açılışta splash tasarımdaki gibi dokunuşla ilerler; karusel daha önce
+  // görüldüyse splash bootstrap bitince kendiliğinden kapanır.
+  const tanitimAcik = tanitimGerekli && !tanitimBitti;
+  const splashAcik = !ready || !minSplashDone || (tanitimAcik && !dokunuldu);
 
   return (
     <GestureHandlerRootView style={styles.flex}>
@@ -232,7 +268,7 @@ export default function RootLayout(): ReactNode {
         <QueryClientProvider client={queryClient}>
           <ThemeProvider fontsReady={fontsReady}>
             <WizardDraftProvider>
-              <StatusBar style={showApp ? 'dark' : 'light'} />
+              <StatusBar style={splashAcik ? 'light' : 'dark'} />
               {bootWarning === undefined ? null : (
                 <View style={styles.warning}>
                   <Text style={styles.warningText}>
@@ -240,7 +276,21 @@ export default function RootLayout(): ReactNode {
                   </Text>
                 </View>
               )}
-              {showApp ? (
+              {splashAcik ? (
+                <BrandSplash
+                  fontsReady={fontsReady}
+                  onPress={() => {
+                    setDokunuldu(true);
+                  }}
+                />
+              ) : tanitimAcik ? (
+                <Tanitim
+                  onDone={() => {
+                    void tanitimGorulduIsaretle();
+                    setTanitimBitti(true);
+                  }}
+                />
+              ) : (
                 <Stack
                   screenOptions={{
                     headerShown: false,
@@ -250,8 +300,6 @@ export default function RootLayout(): ReactNode {
                   <Stack.Screen name="(onboarding)" />
                   <Stack.Screen name="(app)" />
                 </Stack>
-              ) : (
-                <BrandSplash fontsReady={fontsReady} />
               )}
             </WizardDraftProvider>
           </ThemeProvider>
@@ -299,33 +347,36 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 28,
-    backgroundColor: 'rgba(176, 156, 224, 0.24)',
     borderWidth: 1,
     borderColor: 'rgba(176, 156, 224, 0.4)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
   },
+  /* Figma: Fraunces 600 · 48 · letterSpacing -0.02em · lineHeight 1 */
   brandName: {
-    fontSize: 44,
-    lineHeight: 50,
+    fontSize: 48,
+    lineHeight: 52,
     fontWeight: '600',
-    letterSpacing: -0.8,
+    letterSpacing: -0.96,
     color: '#FFFFFF',
   },
+  /* Figma: Nunito 500 · 14 · letterSpacing 0.08em · büyük harf */
   brandTagline: {
     marginTop: 6,
     fontSize: 14,
     lineHeight: 19,
-    letterSpacing: 1.2,
+    letterSpacing: 1.12,
     color: 'rgba(176, 156, 224, 0.9)',
   },
+  /* Figma: 13 · letterSpacing 0.04em · rgba(255,255,255,0.35) · pulse-soft */
   splashHint: {
     position: 'absolute',
     bottom: 60,
+    alignSelf: 'center',
     fontSize: 13,
-    letterSpacing: 0.5,
-    color: 'rgba(255, 255, 255, 0.6)',
+    letterSpacing: 0.52,
+    color: 'rgba(255, 255, 255, 0.35)',
   },
 
   /* ── Boot / hata ──────────────────────────────────────────── */

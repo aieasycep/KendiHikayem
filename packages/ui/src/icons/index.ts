@@ -10,6 +10,7 @@ export type { IconProps, FillableIconProps } from './types';
 export { HomeIcon } from './HomeIcon';
 export { LibraryIcon } from './LibraryIcon';
 export { PlusIcon } from './PlusIcon';
+export { CirclePlusIcon } from './CirclePlusIcon';
 export { ProfileIcon } from './ProfileIcon';
 export { ChevronRightIcon } from './ChevronRightIcon';
 export { PlayIcon } from './PlayIcon';

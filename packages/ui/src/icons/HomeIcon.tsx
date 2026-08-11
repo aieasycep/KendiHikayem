@@ -24,10 +24,11 @@ export function HomeIcon({
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+      {/* Figma birebir: dolu durumda da çizgi rengi aynıdır (kapı oyulmaz). */}
       <Path
         d="M9 21V12h6v9"
         fill="none"
-        stroke={filled ? colors.background : stroke}
+        stroke={stroke}
         strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeLinejoin="round"

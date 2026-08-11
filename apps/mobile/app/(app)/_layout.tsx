@@ -5,9 +5,9 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
+  CirclePlusIcon,
   HomeIcon,
   LibraryIcon,
-  PlusIcon,
   ProfileIcon,
   Text,
   palette,
@@ -18,16 +18,17 @@ import {
 import { useSession } from '../../lib/session';
 
 /**
- * Alt gezinme — Figma `BottomNav.tsx` taşıması.
+ * Alt gezinme — Figma `BottomNav.tsx` birebir taşıması.
  *
  * Dört sekme: Ana Sayfa · Hikâyelerim · Oluştur · Profil. "Oluştur" ana
- * eylemdir ve tasarımdaki gibi kalkık mor bir daire olarak öne çıkar; misafir
- * kullanıcıyı onboarding akışına (karsilama), oturumlu kullanıcıyı sihirbaza
- * götürür. Rota adları Türkçe ve mevcut dosya yapısıyla birebirdir; detay
- * rotaları (hikaye/[id], ses, bastir/[id]) sekme çubuğundan gizlidir.
+ * eylemdir ve tasarımdaki gibi kalkık mor degrade bir daire içinde daireli artı
+ * ikonuyla öne çıkar; misafir kullanıcıyı ilk-masal akışına (kim-icin),
+ * oturumlu kullanıcıyı sihirbaza götürür. Rota adları Türkçe ve mevcut dosya
+ * yapısıyla birebirdir; detay rotaları (hikaye/[id], ses, bastir/[id]) sekme
+ * çubuğundan gizlidir.
  *
- * Not: "Profil" sekmesi şimdilik mevcut Ayarlar ekranını açar — Figma'daki
- * Profile ekranı sonraki ajan tarafından `ayarlar/` üzerine taşınacak.
+ * Not: "Profil" sekmesi Figma'daki Profile ekranının taşındığı Ayarlar
+ * ekranını açar.
  */
 
 interface TabItem {
@@ -86,9 +87,9 @@ function CreateButton({ active }: { active: boolean }): ReactNode {
       accessibilityLabel="Yeni hikâye oluştur"
       onPress={() => {
         if (session.phase === 'user') router.navigate('/(app)/sihirbaz');
-        else router.push('/(onboarding)/karsilama');
+        else router.push('/(onboarding)/kim-icin');
       }}
-      style={styles.tabButton}
+      style={styles.createButton}
     >
       <LinearGradient
         colors={[palette.nightPurple, palette.purple600]}
@@ -96,9 +97,16 @@ function CreateButton({ active }: { active: boolean }): ReactNode {
         end={{ x: 1, y: 1 }}
         style={styles.createCircle}
       >
-        <PlusIcon size={26} color="#FFFFFF" />
+        <CirclePlusIcon size={26} color="#FFFFFF" />
       </LinearGradient>
-      <Text variant="caption" style={[styles.tabLabel, styles.createLabel, { color: colors.primary }]}>
+      <Text
+        variant="caption"
+        style={[
+          styles.tabLabel,
+          styles.createLabel,
+          { color: colors.primary, fontWeight: active ? '700' : '500' },
+        ]}
+      >
         Oluştur
       </Text>
     </Pressable>
@@ -164,31 +172,34 @@ export default function AppLayout(): ReactNode {
   );
 }
 
+/* Figma BottomNav birebir: beyaz zemin, 1px üst çizgi, paddingTop 8, sekmeler
+ * space-around; normal sekme padding 4/12 + ikon 22 + etiket 10; "Oluştur"
+ * 52px degrade daire (marginTop -16, gölge 0 4 16 rgba(124,92,191,0.4)) +
+ * 11px mor etiket (marginTop 4). */
 const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'space-around',
     borderTopWidth: 1,
     paddingTop: 8,
-    paddingHorizontal: 8,
   },
   tabButton: {
     alignItems: 'center',
     gap: 2,
     paddingHorizontal: 12,
     paddingVertical: 4,
-    minWidth: 64,
   },
-  tabLabel: { fontSize: 10, lineHeight: 14 },
-  createLabel: { fontSize: 11, marginTop: 2, fontWeight: '700' },
+  createButton: { alignItems: 'center', gap: 2 },
+  tabLabel: { fontSize: 10, lineHeight: 14, letterSpacing: 0.1 },
+  createLabel: { fontSize: 11, marginTop: 4 },
   createCircle: {
     width: 52,
     height: 52,
     borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -20,
+    marginTop: -16,
     shadowColor: palette.purple600,
     shadowOpacity: 0.4,
     shadowRadius: 16,
