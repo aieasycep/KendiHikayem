@@ -237,7 +237,7 @@ export function averageSpectrum(
     }
     fft(real, imaginary);
     for (let bin = 0; bin < size / 2; bin += 1) {
-      spectrum[bin] += Math.hypot(real[bin]!, imaginary[bin]!);
+      spectrum[bin] = (spectrum[bin] ?? 0) + Math.hypot(real[bin]!, imaginary[bin]!);
     }
     counted += 1;
     if (counted >= 120) break; // ~1.2 s of speech is plenty; the rest is diminishing returns
