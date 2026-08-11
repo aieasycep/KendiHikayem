@@ -1,15 +1,17 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { Body, Caption, PrimaryButton, Screen, Title } from '../../components/ui';
-import { colors, radius, spacing, typography } from '../../constants/theme';
+import { Button, Text } from '@kendihikayem/ui';
+
 import { ErrorBanner, SecondaryButton } from '../../features/onboarding/components';
+import { FloatingBook, NightScreen } from '../../features/wizard/NightFlow';
 import { useJob } from '../../lib/useJob';
 
 /**
- * S10 — Üretim + atlanabilir ses köprüsü (SPEC §11.2, 3:00).
+ * S10 — Üretim + atlanabilir ses köprüsü (SPEC §11.2, 3:00). Gece gökyüzü
+ * deneyimi (Figma `StoryGenerating`) — kitap üretilirken ekran masal gibi.
  *
  * The wait is converted into value twice:
  *  1. Progress text says WHAT is happening ("Elif'in odası çiziliyor"), never a %.
@@ -28,17 +30,12 @@ export default function Uretim(): ReactNode {
   const totalSteps = job?.steps.length ?? 0;
 
   return (
-    <Screen>
-      <Title>{done ? 'Masalınız hazır! 🎉' : 'Kitabınız üretiliyor'}</Title>
-      {!done && !failed && (
-        <Body>
-          Bu birkaç dakika sürebilir. Uygulamayı kapatabilirsiniz — hazır olunca bildirim
-          göndeririz; hiçbir şey kaybolmaz.
-        </Body>
-      )}
-
+    <NightScreen includeBottom scroll testID="uretim-bekleme">
       {failed ? (
         <>
+          <Text variant="title" style={styles.title} accessibilityRole="header">
+            Üretim tamamlanamadı
+          </Text>
           <ErrorBanner
             error={
               job.error ?? {
@@ -58,31 +55,52 @@ export default function Uretim(): ReactNode {
           />
         </>
       ) : error !== undefined && job === undefined ? (
-        <ErrorBanner error={error} />
-      ) : (
-        <View style={styles.progressCard}>
-          <Text style={styles.stepNow}>
-            {done ? 'Bütün sayfalar tamamlandı' : (job?.progress.labelTr ?? 'Sıraya alındı…')}
+        <>
+          <Text variant="title" style={styles.title} accessibilityRole="header">
+            Kitabınız üretiliyor
           </Text>
-          {totalSteps > 0 && (
-            <>
-              <View style={styles.barTrack}>
-                <View style={[styles.barFill, { flex: Math.max(doneSteps, 0.02) }]} />
-                <View style={{ flex: Math.max(totalSteps - doneSteps, 0.02) }} />
+          <ErrorBanner error={error} />
+        </>
+      ) : (
+        <View style={styles.center}>
+          <FloatingBook size={done ? 112 : 128} />
+
+          <View style={styles.messages}>
+            <Text variant="heading" center style={styles.stepNow} accessibilityLiveRegion="polite">
+              {done
+                ? 'Masalınız hazır! ✨'
+                : (job?.progress.labelTr ?? 'Kitabınız sıraya alındı…')}
+            </Text>
+            {!done && (
+              <Text variant="caption" center style={styles.subtle}>
+                Bu birkaç dakika sürebilir. Uygulamayı kapatabilirsiniz — hazır olunca
+                bildirim göndeririz; hiçbir şey kaybolmaz.
+              </Text>
+            )}
+          </View>
+
+          {!done && totalSteps > 0 && (
+            <View style={styles.progressWrap}>
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressFill, { flex: Math.max(doneSteps, 0.05) }]} />
+                <View style={{ flex: Math.max(totalSteps - doneSteps, 0.05) }} />
               </View>
-              <Caption>{`${String(doneSteps)} / ${String(totalSteps)} adım tamamlandı — sayfalar hazır oldukça kitaba eklenir`}</Caption>
-            </>
+              <Text variant="caption" center style={styles.subtle}>
+                {`${String(doneSteps)} / ${String(totalSteps)} adım tamamlandı — sayfalar hazır oldukça kitaba eklenir`}
+              </Text>
+            </View>
           )}
+
           {job?.partial !== undefined && job.partial.failedPageNos.length > 0 && (
-            <Caption>
+            <Text variant="caption" center style={styles.subtle}>
               {`${String(job.partial.failedPageNos.length)} sayfanın resmi yeniden deneniyor; hikayeniz beklemeden açılabilir.`}
-            </Caption>
+            </Text>
           )}
         </View>
       )}
 
       {done ? (
-        <PrimaryButton
+        <Button
           label="Hikayeyi aç"
           onPress={() => {
             router.replace(`/(app)/hikaye/${storyId ?? ''}`);
@@ -90,13 +108,15 @@ export default function Uretim(): ReactNode {
         />
       ) : !failed && !bridgeDismissed ? (
         <View style={styles.bridgeCard}>
-          <Text style={styles.bridgeTitle}>Bu arada: masalı sizin sesiniz okusun 💛</Text>
-          <Text style={styles.bridgeText}>
-            Kitap üretilirken 3-4 dakikada sesinizi tanıtabilirsiniz. Çocuğunuz masalı annesinin
-            ya da babasının sesinden dinler. Tamamen isteğe bağlı — sistem sesleri her zaman
-            hazır.
+          <Text variant="heading" style={styles.bridgeTitle}>
+            Bu arada: masalı sizin sesiniz okusun 💛
           </Text>
-          <PrimaryButton
+          <Text variant="caption" style={styles.bridgeText}>
+            Kitap üretilirken 3-4 dakikada sesinizi tanıtabilirsiniz. Çocuğunuz masalı
+            annesinin ya da babasının sesinden dinler. Tamamen isteğe bağlı — sistem sesleri
+            her zaman hazır.
+          </Text>
+          <Button
             label="Sesimi tanıt"
             onPress={() => {
               router.push('/(app)/ses');
@@ -110,37 +130,39 @@ export default function Uretim(): ReactNode {
           />
         </View>
       ) : null}
-    </Screen>
+    </NightScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  progressCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  stepNow: { ...typography.heading, color: colors.primary },
-  barTrack: {
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.surfaceMuted,
+  title: { color: '#FFFFFF' },
+  center: { alignItems: 'center', gap: 28, paddingTop: 32 },
+  messages: { gap: 8, paddingHorizontal: 8 },
+  stepNow: { color: '#FFFFFF', fontSize: 22, lineHeight: 30, minHeight: 60 },
+  subtle: { color: 'rgba(176,156,224,0.8)' },
+
+  progressWrap: { width: '100%', maxWidth: 280, gap: 8 },
+  progressTrack: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     overflow: 'hidden',
     flexDirection: 'row',
   },
-  barFill: { height: 8, borderRadius: 4, backgroundColor: colors.accent },
+  progressFill: {
+    backgroundColor: 'rgba(255, 220, 150, 0.9)',
+    borderRadius: 2,
+  },
 
   bridgeCard: {
-    backgroundColor: '#FFF7E8',
-    borderColor: '#F2C879',
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderColor: 'rgba(255,255,255,0.14)',
     borderWidth: 1,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.sm,
+    borderRadius: 20,
+    padding: 20,
+    gap: 12,
+    marginTop: 8,
   },
-  bridgeTitle: { ...typography.heading, fontSize: 19, color: colors.ink },
-  bridgeText: { ...typography.caption, fontSize: 14, lineHeight: 20, color: colors.ink },
+  bridgeTitle: { color: '#FFFFFF', fontSize: 19, lineHeight: 25 },
+  bridgeText: { color: 'rgba(232,224,212,0.85)', fontSize: 14, lineHeight: 20 },
 });

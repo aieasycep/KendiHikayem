@@ -1,16 +1,16 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 
 import type { ApiError, VoiceProfile, VoiceStep } from '@kendihikayem/contract';
+import { Button, Text } from '@kendihikayem/ui';
 
-import { Body, Caption, PrimaryButton, Screen, Title } from '../../../components/ui';
-import { colors, radius, spacing, typography } from '../../../constants/theme';
 import { ErrorBanner, SecondaryButton } from '../../../features/onboarding/components';
 import { useVoiceFlow } from '../../../features/voice/flow';
 import { SamplePlayer } from '../../../features/voice/SamplePlayer';
+import { NightHeader, NightScreen } from '../../../features/wizard/NightFlow';
 import { api, asApiError, newIdempotencyKey, toApiError } from '../../../lib/api';
 import { queryClient } from '../../../lib/queryClient';
 
@@ -22,7 +22,7 @@ const PASSAGE_LABELS: [VoiceStep, string][] = [
 ];
 
 /**
- * V08 — ÖNİZLEME, duygusal doğrulama (SPEC §7 adım 9).
+ * V08 — ÖNİZLEME, duygusal doğrulama (SPEC §7 adım 9). Gece stüdyo teması.
  *
  * The parent hears ~15 s of THEIR OWN voice saying their child's name.
  * Three exits, exactly as specified:
@@ -108,19 +108,23 @@ export default function Onizleme(): ReactNode {
   const ready = profile.data?.status === 'preview_ready' || profile.data?.status === 'ready';
 
   return (
-    <Screen>
-      <Title>Sesinizi dinleyin</Title>
-      <Body>
+    <NightScreen scroll testID="ses-onizleme">
+      <NightHeader kickerTr="Ses Kaydı" titleTr="Sesinizi dinleyin" />
+      <Text variant="body" style={styles.lead}>
         Aşağıdaki örnek, kayıtlarınızdan üretilen sesinizle seslendirildi — çocuğunuzun adı da
         içinde. Beğenirseniz kaydedin; beğenmezseniz dilediğiniz pasajı yenileyin.
-      </Body>
+      </Text>
 
       {profile.isLoading ? (
-        <Caption>Önizleme yükleniyor…</Caption>
+        <Text variant="caption" style={styles.subtle}>
+          Önizleme yükleniyor…
+        </Text>
       ) : profile.error != null ? (
         <ErrorBanner error={profile.error} onRetry={() => void profile.refetch()} />
       ) : !ready || profile.data === undefined ? (
-        <Caption>Önizleme hâlâ hazırlanıyor… Bu ekran kendini yenileyecek.</Caption>
+        <Text variant="caption" style={styles.subtle}>
+          Önizleme hâlâ hazırlanıyor… Bu ekran kendini yenileyecek.
+        </Text>
       ) : (
         <>
           {profile.data.preview !== undefined ? (
@@ -130,12 +134,14 @@ export default function Onizleme(): ReactNode {
               url={profile.data.preview.url}
             />
           ) : (
-            <Caption>Önizleme dosyası bulunamadı; yine de kaydedebilirsiniz.</Caption>
+            <Text variant="caption" style={styles.subtle}>
+              Önizleme dosyası bulunamadı; yine de kaydedebilirsiniz.
+            </Text>
           )}
 
           {error !== undefined && <ErrorBanner error={error} />}
 
-          <PrimaryButton
+          <Button
             label={busy ? 'Kaydediliyor…' : 'Harika, kaydet'}
             disabled={busy}
             onPress={() => {
@@ -158,7 +164,9 @@ export default function Onizleme(): ReactNode {
           />
           {fixOpen && (
             <View style={styles.fixBox}>
-              <Text style={styles.fixTitle}>Hangi pasajı yenilemek istersiniz?</Text>
+              <Text variant="label" style={styles.fixTitle}>
+                Hangi pasajı yenilemek istersiniz?
+              </Text>
               {PASSAGE_LABELS.map(([step, label]) => (
                 <SecondaryButton
                   key={step}
@@ -174,20 +182,27 @@ export default function Onizleme(): ReactNode {
         </>
       )}
 
-      <Caption>
+      <Text variant="caption" style={styles.footnote}>
         Kaydettiğinizde ham kayıtlarınız 30 gün sonra otomatik imha edilir; ses profiliniz
         yalnızca sizin hesabınızda çalışır.
-      </Caption>
-    </Screen>
+      </Text>
+    </NightScreen>
   );
 }
 
 const styles = StyleSheet.create({
+  lead: { color: 'rgba(232,224,212,0.9)' },
+  subtle: { color: 'rgba(176,156,224,0.8)' },
+
   fixBox: {
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.sm,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 16,
+    gap: 10,
   },
-  fixTitle: { ...typography.label, color: colors.ink },
+  fixTitle: { color: '#FFFFFF' },
+
+  footnote: { color: 'rgba(255,255,255,0.45)' },
 });
