@@ -1,11 +1,12 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { AgeBand, Child } from '@kendihikayem/contract';
-import { possessive, validateGivenName } from '@kendihikayem/shared';
-import { Input, Text, useTheme } from '@kendihikayem/ui';
+import { validateGivenName } from '@kendihikayem/shared';
+import { Input, Text, palette, useTheme } from '@kendihikayem/ui';
 
 import { Body, Caption, Card, Heading, PrimaryButton, Screen, Title } from '../../../components/ui';
 import { useChildren } from '../../../features/onboarding/catalogHooks';
@@ -15,7 +16,7 @@ import {
   ChipRow,
   ErrorBanner,
   SecondaryButton,
-  SelectCard,
+  SelectedCheck,
   StepBar,
 } from '../../../features/onboarding/components';
 import { useWizardDraft } from '../../../features/onboarding/draft';
@@ -25,15 +26,15 @@ import { useSession } from '../../../lib/session';
 const AGE_BANDS: AgeBand[] = ['3-5', '6-8', '9-12'];
 
 /**
- * W01 — Çocuk seçici (Figma "Bu hikâye kimin için?"). Entry of the registered
- * wizard: pick an existing child (their age band and reusable character flow
- * along) or add a new one. Guests are routed through S07 first — the wizard
- * requires an account.
+ * W01 — Çocuk seçici (Figma `StoryCreation` 1. adım "Bu hikâye kimin için?").
+ * Tasarımdaki tam genişlik çocuk satırları: degrade avatar, ad + yaş, seçilince
+ * mor kenarlık + lavanta zemin + onay dairesi; altta kesikli "Başka bir çocuk"
+ * satırı. Misafirler S07'ye yönlenir — sihirbaz hesap ister.
  */
 export default function Sihirbaz(): ReactNode {
   const router = useRouter();
   const session = useSession();
-  const { colors, radius, spacing } = useTheme();
+  const { spacing } = useTheme();
   const { draft, patch } = useWizardDraft();
   const children = useChildren(session.phase === 'user');
   const createChild = useCreateChild();
@@ -50,16 +51,16 @@ export default function Sihirbaz(): ReactNode {
       childName: child.givenName,
       ageBand: child.ageBand,
       heroName: draft.heroIsChild ? child.givenName : draft.heroName,
-      // Yeni çocuk = yeni karakter kararı; W03 yeniden soracak.
+      // Yeni çocuk = yeni karakter kararı; kahraman adımı yeniden soracak.
       reuseCharacterId: undefined,
     });
-    router.push('/(app)/sihirbaz/tema');
+    router.push('/(app)/sihirbaz/kahraman');
   };
 
   if (session.phase !== 'user') {
     return (
       <Screen>
-        <Title>Yeni Hikaye</Title>
+        <Title>Yeni Hikâye</Title>
         <Body>
           Hikaye sihirbazını kullanmak için önce telefonunuzla giriş yapın. Misafir olarak
           başladıysanız hiçbir şey kaybolmaz — her şey hesabınıza taşınır.
@@ -82,8 +83,9 @@ export default function Sihirbaz(): ReactNode {
 
   return (
     <Screen>
-      <StepBar step={1} total={7} labelTr="Yeni Masal · Kim için?" />
-      <Title>Bu masal kimin için?</Title>
+      <StepBar step={1} total={7} labelTr="Yeni Hikâye" />
+      <Title>Bu hikâye kimin için?</Title>
+      <Body>Masalını kimin için oluşturduğunu seç.</Body>
 
       <AsyncGate
         isLoading={children.isLoading}
@@ -93,33 +95,18 @@ export default function Sihirbaz(): ReactNode {
         loadingTr="Çocuk profilleri yükleniyor…"
       >
         {(items) => (
-          <>
-            {items.length === 0 && !addOpen && (
-              <Card>
-                <Heading>Henüz çocuk profili yok</Heading>
-                <Caption>İlk profili ekleyin; sonraki masallar iki dokunuş sürer.</Caption>
-              </Card>
-            )}
-            <View style={[styles.grid, { gap: spacing.sm }]}>
-              {items.map((child) => (
-                <SelectCard
-                  key={child.id as string}
-                  icon={child.genderPresentation === 'erkek' ? '👦' : '👧'}
-                  titleTr={child.givenName}
-                  subtitleTr={`${child.ageBand} yaş · ${String(child.storyCount)} hikaye`}
-                  footerTr={
-                    child.defaultCharacterId !== undefined
-                      ? `${possessive(child.givenName)} kahramanı hazır ⭐`
-                      : undefined
-                  }
-                  selected={draft.childId === (child.id as string)}
-                  onPress={() => {
-                    selectChild(child);
-                  }}
-                />
-              ))}
-            </View>
-          </>
+          <View style={{ gap: spacing.sm }}>
+            {items.map((child) => (
+              <ChildRow
+                key={child.id as string}
+                child={child}
+                selected={draft.childId === (child.id as string)}
+                onPress={() => {
+                  selectChild(child);
+                }}
+              />
+            ))}
+          </View>
         )}
       </AsyncGate>
 
@@ -170,31 +157,133 @@ export default function Sihirbaz(): ReactNode {
               setAddOpen(false);
             }}
           />
+          <Caption>Yalnızca ad ve yaş bandı tutulur. Fotoğraf ve doğum tarihi istemiyoruz.</Caption>
         </Card>
       ) : (
-        <SecondaryButton
-          label="Yeni çocuk ekle"
+        <AddChildRow
           onPress={() => {
             setAddOpen(true);
           }}
         />
       )}
-
-      <View
-        style={{
-          backgroundColor: colors.surfaceMuted,
-          borderRadius: radius.sm,
-          padding: spacing.sm,
-        }}
-      >
-        <Text variant="caption" tone="muted">
-          Yalnızca ad ve yaş bandı tutulur. Fotoğraf ve doğum tarihi istemiyoruz.
-        </Text>
-      </View>
     </Screen>
   );
 }
 
+/** Figma çocuk satırı: 48 degrade avatar, ad + yaş, seçilince mor onay dairesi. */
+function ChildRow({
+  child,
+  selected,
+  onPress,
+}: {
+  child: Child;
+  selected: boolean;
+  onPress: () => void;
+}): ReactNode {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={`${child.givenName}, ${child.ageBand} yaş`}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.childRow,
+        {
+          backgroundColor: selected
+            ? colors.surfaceRaised
+            : pressed
+              ? colors.surfaceMuted
+              : colors.surface,
+          borderColor: selected ? colors.primary : colors.border,
+        },
+        selected && styles.childRowSelected,
+      ]}
+    >
+      <LinearGradient
+        colors={[palette.lavenderPale, palette.lavenderMist]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.childAvatar}
+      >
+        <Text style={styles.childEmoji} accessibilityElementsHidden>
+          {child.genderPresentation === 'kiz' ? '👧' : '🧒'}
+        </Text>
+      </LinearGradient>
+      <View style={styles.childBody}>
+        <Text variant="heading" style={styles.childName}>
+          {child.givenName}
+        </Text>
+        <Text variant="caption" tone="muted" style={styles.childAge}>
+          {`${child.ageBand} yaş`}
+        </Text>
+      </View>
+      {selected && <SelectedCheck size={24} />}
+    </Pressable>
+  );
+}
+
+/** Figma "Başka bir çocuk" — kesikli çerçeve + artı dairesi. */
+function AddChildRow({ onPress }: { onPress: () => void }): ReactNode {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Başka bir çocuk ekle"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.childRow,
+        styles.addRow,
+        {
+          borderColor: colors.border,
+          backgroundColor: pressed ? colors.surfaceMuted : 'transparent',
+        },
+      ]}
+    >
+      <View style={[styles.childAvatar, { backgroundColor: colors.surfaceMuted }]}>
+        <Text style={styles.addPlus} accessibilityElementsHidden>
+          +
+        </Text>
+      </View>
+      <Text variant="label" tone="muted" style={styles.addLabel}>
+        Başka bir çocuk
+      </Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  /* Figma: 16/18 dolgu · 18 yarıçap · 2 px kenarlık · 14 boşluk. */
+  childRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    borderRadius: 18,
+    borderWidth: 2,
+  },
+  /* Figma: seçili kart gölgesi 0 4 16 rgba(124,92,191,0.15). */
+  childRowSelected: {
+    shadowColor: '#7C5CBF',
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  childAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  childEmoji: { fontSize: 24 },
+  childBody: { flex: 1, gap: 2 },
+  childName: { fontSize: 18, lineHeight: 24 },
+  childAge: { fontSize: 13, lineHeight: 18 },
+
+  addRow: { borderStyle: 'dashed' },
+  addPlus: { fontSize: 22, lineHeight: 26 },
+  addLabel: { fontSize: 15, lineHeight: 20 },
 });

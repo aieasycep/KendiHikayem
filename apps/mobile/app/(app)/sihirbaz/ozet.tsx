@@ -70,7 +70,7 @@ export default function WizardOzet(): ReactNode {
 
   return (
     <Screen>
-      <StepBar step={7} total={7} labelTr="Yeni Masal · Özet" />
+      <StepBar step={7} total={7} labelTr="Yeni Hikâye · Özet" />
       <Title>
         {draft.childName === '' ? 'Masal özeti' : `${possessive(draft.childName)} yeni masalı`}
       </Title>
@@ -121,12 +121,13 @@ export default function WizardOzet(): ReactNode {
       )}
 
       <PrimaryButton
-        label={busy ? 'Taslak hazırlanıyor…' : 'Hikayemi Oluştur'}
+        label={busy ? 'Taslak hazırlanıyor…' : 'Masalımı Oluştur ✨'}
         disabled={busy || insufficient}
         onPress={() => {
           void create();
         }}
       />
+      <Caption>Yaklaşık 20–40 saniye sürebilir.</Caption>
       {insufficient && (
         <Caption>
           Krediniz taslak için yetmiyor. Ayarlar → Hesap ekranından kredi paketi alabilirsiniz.

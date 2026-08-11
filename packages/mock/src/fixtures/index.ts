@@ -16,3 +16,4 @@ export * from './voice';
 export * from './user';
 export * from './commerce';
 export * from './jobs';
+export * from './suggestions';

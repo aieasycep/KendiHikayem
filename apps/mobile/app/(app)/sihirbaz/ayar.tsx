@@ -1,15 +1,29 @@
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
-import { StyleSheet, Switch, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import type { PageCount } from '@kendihikayem/contract';
-import { Input, Text, useTheme } from '@kendihikayem/ui';
+import { Text, useTheme } from '@kendihikayem/ui';
 
-import { Caption, Card, Heading, PrimaryButton, Screen, Title } from '../../../components/ui';
-import { Chip, ChipRow, StepBar } from '../../../features/onboarding/components';
+import { Body, Caption, Card, Heading, PrimaryButton, Screen, Title } from '../../../components/ui';
+import { Chip, ChipRow, SelectedCheck, StepBar } from '../../../features/onboarding/components';
 import { useWizardDraft } from '../../../features/onboarding/draft';
 
-const PAGE_COUNTS: PageCount[] = [12, 14, 16];
+/**
+ * W05 — Hikâye ayarları (Figma `StoryCreation` 4. adım). Tasarımdaki uzunluk
+ * satırları (emoji + ad + süre + onay dairesi) sözleşmenin gerçek sayfa
+ * sayılarıyla doldurulur. Değer/kültürel doku/dini içerik kartları tasarımın
+ * kapsamadığı sözleşme alanlarıdır; dini içerik OPT-IN'dir ve VARSAYILAN
+ * KAPALIDIR (SPEC §11.1).
+ *
+ * NOT (tasarım/ürün çelişkisi): tasarım bu adımda yaş grubu da seçtirir; üründe
+ * yaş bandı W01'de çocuk profilinden gelir (sözleşme). Rapora not düşüldü.
+ */
+const DURATIONS: { pageCount: PageCount; emoji: string; labelTr: string; subTr: string }[] = [
+  { pageCount: 12, emoji: '⚡', labelTr: 'Kısa', subTr: '12 sayfa · uyku öncesi için ideal' },
+  { pageCount: 14, emoji: '📖', labelTr: 'Orta', subTr: '14 sayfa' },
+  { pageCount: 16, emoji: '🌙', labelTr: 'Uzun', subTr: '16 sayfa · daha uzun bir macera' },
+];
 
 const LESSON_SUGGESTIONS = [
   'Cesaret',
@@ -27,11 +41,6 @@ const CULTURAL_TAGS: { code: string; labelTr: string }[] = [
   { code: 'koy', labelTr: 'Köy ve doğa' },
 ];
 
-/**
- * W05 — İnce ayar: sayfa sayısı, hikayenin taşıyacağı değer, kültürel etiketler
- * ve dini içerik. Dini içerik OPT-IN'dir ve VARSAYILAN KAPALIDIR (SPEC §11.1) —
- * yalnızca ebeveyn bu anahtarı açarsa dini öğe üretilebilir.
- */
 export default function WizardAyar(): ReactNode {
   const router = useRouter();
   const { colors, radius, spacing } = useTheme();
@@ -48,25 +57,55 @@ export default function WizardAyar(): ReactNode {
 
   return (
     <Screen>
-      <StepBar step={5} total={7} labelTr="Yeni Masal · İnce ayar" />
-      <Title>Masalı size göre ayarlayalım</Title>
+      <StepBar step={5} total={7} labelTr="Yeni Hikâye · Ayarlar" />
+      <Title>Hikâye ayarları</Title>
+      <Body>Masalın uzunluğunu belirle.</Body>
 
-      <Card>
-        <Heading>Uzunluk</Heading>
-        <ChipRow>
-          {PAGE_COUNTS.map((count) => (
-            <Chip
-              key={count}
-              label={`${String(count)} sayfa`}
-              selected={draft.pageCount === count}
+      <Text variant="caption" tone="muted" style={styles.kicker}>
+        HİKÂYE UZUNLUĞU
+      </Text>
+      <View style={{ gap: spacing.sm }}>
+        {DURATIONS.map((duration) => {
+          const selected = draft.pageCount === duration.pageCount;
+          return (
+            <Pressable
+              key={duration.pageCount}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
               onPress={() => {
-                patch({ pageCount: count });
+                patch({ pageCount: duration.pageCount });
               }}
-            />
-          ))}
-        </ChipRow>
-        <Caption>12 sayfa uyku öncesi için ideal; 16 sayfa daha uzun bir macera.</Caption>
-      </Card>
+              style={({ pressed }) => [
+                styles.durationRow,
+                {
+                  backgroundColor: selected
+                    ? colors.surfaceRaised
+                    : pressed
+                      ? colors.surfaceMuted
+                      : colors.surface,
+                  borderColor: selected ? colors.primary : colors.border,
+                },
+              ]}
+            >
+              <Text style={styles.durationEmoji} accessibilityElementsHidden>
+                {duration.emoji}
+              </Text>
+              <View style={styles.durationBody}>
+                <Text
+                  variant="bodyStrong"
+                  style={[styles.durationLabel, selected && { color: colors.primary }]}
+                >
+                  {duration.labelTr}
+                </Text>
+                <Text variant="caption" tone="muted" style={styles.durationSub}>
+                  {duration.subTr}
+                </Text>
+              </View>
+              {selected && <SelectedCheck size={24} />}
+            </Pressable>
+          );
+        })}
+      </View>
 
       <Card>
         <Heading>Hikayenin kalbindeki değer</Heading>
@@ -128,31 +167,35 @@ export default function WizardAyar(): ReactNode {
         </View>
       </Card>
 
-      <Card>
-        <Input
-          label="Sizden bir fikir (isteğe bağlı)"
-          maxLength={200}
-          multiline
-          onChangeText={(value) => {
-            patch({ freeIdeaTr: value });
-          }}
-          placeholder="Örn. Geçen hafta ilk kez bisiklete bindi, onu da katalım."
-          value={draft.freeIdeaTr ?? ''}
-          hintTr={`${String((draft.freeIdeaTr ?? '').length)} / 200`}
-        />
-      </Card>
-
       <PrimaryButton
-        label="Devam et"
+        label="Devam"
         onPress={() => {
           router.push('/(app)/sihirbaz/ses-secim');
         }}
       />
+      <Caption>12 sayfa uyku öncesi için ideal; 16 sayfa daha uzun bir macera.</Caption>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  kicker: { fontSize: 13, letterSpacing: 0.8, fontWeight: '700' },
+
+  /* Figma uzunluk satırı: 14/18 dolgu · 16 yarıçap · 2 px kenarlık · emoji 24. */
+  durationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 16,
+    borderWidth: 2,
+  },
+  durationEmoji: { fontSize: 24, lineHeight: 30 },
+  durationBody: { flex: 1, gap: 2 },
+  durationLabel: { fontSize: 15, lineHeight: 20 },
+  durationSub: { fontSize: 13, lineHeight: 18 },
+
   religiousRow: { flexDirection: 'row', alignItems: 'center' },
   religiousBody: { flex: 1, gap: 2 },
   religiousText: { fontSize: 12, lineHeight: 17 },

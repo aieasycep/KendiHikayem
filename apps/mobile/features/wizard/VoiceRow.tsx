@@ -1,12 +1,12 @@
 /**
  * VoiceRow — Figma "Masalı kim anlatsın?" ses kartı: degrade avatar, ad +
- * "Kişisel" rozeti, açıklama ve satır içi örnek dinleme düğmesi.
+ * "Kişisel" rozeti, açıklama ve satır içi örnek dinleme düğmesi. Tasarımdaki
+ * gibi: seçili kartta dinleme düğmesi mor dolguya, simgesi beyaza döner;
+ * ayrıca bir onay işareti YOKTUR — seçimi kenarlık + zemin + düğme anlatır.
  *
  * Örnek sesler mock ortamında BİLEREK ölüdür (packages/mock ikili dosya
  * taşımaz); oynatma 4 sn içinde yüklenmezse düğme sessizce pasifleşir —
  * ekran asla dönencede kalmaz.
- *
- * packages/ui'ye TERFİ ADAYI: VoiceRow (Card/Voice/Parent + Card/Voice/System).
  */
 
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,12 +15,27 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 
-import { Badge, PlayIcon, Text, palette, useTheme } from '@kendihikayem/ui';
+import { PlayIcon, Text, palette, useTheme } from '@kendihikayem/ui';
 
-import { SelectedCheck } from '../onboarding/components';
+/** Figma "Kişisel" rozeti: mercan metin, %12 mercan zemin, 6 yarıçap. */
+export function PersonalBadge(): ReactNode {
+  return (
+    <View style={styles.personalBadge}>
+      <Text style={styles.personalBadgeText}>KİŞİSEL</Text>
+    </View>
+  );
+}
 
 /** Satır içi örnek dinleme düğmesi — ölü URL'de pasifleşir. */
-function PreviewButton({ url, labelTr }: { url: string; labelTr: string }): ReactNode {
+function PreviewButton({
+  url,
+  labelTr,
+  selected,
+}: {
+  url: string;
+  labelTr: string;
+  selected: boolean;
+}): ReactNode {
   const { colors } = useTheme();
   const player = useAudioPlayer(url);
   const status = useAudioPlayerStatus(player);
@@ -62,6 +77,8 @@ function PreviewButton({ url, labelTr }: { url: string; labelTr: string }): Reac
     }
   };
 
+  const iconColor = selected ? '#FFFFFF' : colors.inkMuted;
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -78,15 +95,18 @@ function PreviewButton({ url, labelTr }: { url: string; labelTr: string }): Reac
       onPress={onPress}
       style={[
         styles.playCircle,
-        { backgroundColor: colors.surfaceMuted, opacity: dead ? 0.35 : 1 },
+        {
+          backgroundColor: selected ? colors.primary : colors.surfaceMuted,
+          opacity: dead ? 0.35 : 1,
+        },
       ]}
     >
       {status.playing ? (
-        <Text variant="label" style={{ color: colors.primary }} accessibilityElementsHidden>
+        <Text variant="label" style={{ color: iconColor }} accessibilityElementsHidden>
           ⏸
         </Text>
       ) : (
-        <PlayIcon size={16} color={colors.primary} />
+        <PlayIcon size={12} color={iconColor} />
       )}
     </Pressable>
   );
@@ -110,7 +130,7 @@ export function VoiceRow({
   onPress: () => void;
   sampleUrl?: string;
 }): ReactNode {
-  const { colors, radius, spacing } = useTheme();
+  const { colors, spacing } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
@@ -123,8 +143,6 @@ export function VoiceRow({
         styles.row,
         {
           gap: spacing.md,
-          padding: spacing.md,
-          borderRadius: radius.lg,
           backgroundColor: selected
             ? colors.surfaceRaised
             : pressed
@@ -132,6 +150,7 @@ export function VoiceRow({
               : colors.surface,
           borderColor: selected ? colors.primary : colors.border,
         },
+        selected && styles.rowSelected,
       ]}
     >
       <LinearGradient
@@ -149,26 +168,39 @@ export function VoiceRow({
           <Text variant="bodyStrong" numberOfLines={1} style={styles.name}>
             {titleTr}
           </Text>
-          {personal && <Badge labelTr="Kişisel" tone="accent" />}
+          {personal && <PersonalBadge />}
         </View>
         {subtitleTr !== undefined && (
-          <Text variant="caption" tone="muted" numberOfLines={2}>
+          <Text variant="caption" tone="muted" numberOfLines={2} style={styles.sub}>
             {subtitleTr}
           </Text>
         )}
       </View>
-      {sampleUrl !== undefined ? (
-        <PreviewButton url={sampleUrl} labelTr={titleTr} />
-      ) : selected ? (
-        <SelectedCheck />
-      ) : null}
-      {sampleUrl !== undefined && selected && <SelectedCheck />}
+      {sampleUrl !== undefined && (
+        <PreviewButton url={sampleUrl} labelTr={titleTr} selected={selected} />
+      )}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', borderWidth: 2 },
+  /* Figma ses kartı: 14/18 dolgu · 18 yarıçap · 2 px kenarlık. */
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+  },
+  /* Figma: seçili kart gölgesi 0 4 16 rgba(124,92,191,0.15). */
+  rowSelected: {
+    shadowColor: '#7C5CBF',
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
   avatar: {
     width: 44,
     height: 44,
@@ -179,11 +211,30 @@ const styles = StyleSheet.create({
   avatarEmoji: { fontSize: 22 },
   body: { flex: 1, gap: 2 },
   nameRow: { flexDirection: 'row', alignItems: 'center' },
-  name: { flexShrink: 1 },
+  name: { flexShrink: 1, fontSize: 15, lineHeight: 20 },
+  sub: { fontSize: 13, lineHeight: 18 },
+
+  /* Figma: 10/700, mercan, %12 mercan zemin, 6 yarıçap, 2/8 dolgu. */
+  personalBadge: {
+    backgroundColor: 'rgba(240, 139, 110, 0.12)',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  /* Figma birebir: #F08B6E metin (tasarım kararı; koyu varyant coral700 değil). */
+  personalBadgeText: {
+    color: palette.coral,
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
+
+  /* Figma: 32'lik dinleme dairesi. */
   playCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },

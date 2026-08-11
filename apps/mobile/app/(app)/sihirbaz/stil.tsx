@@ -6,14 +6,17 @@ import { StepBar } from '../../../features/onboarding/components';
 import { useWizardDraft } from '../../../features/onboarding/draft';
 import { StyleGrid } from '../../../features/onboarding/steps';
 
-/** W04 — Sanat stili. Same catalog grid as S05 (shared component). */
+/**
+ * W04 — Sanat stili. Tasarımın 5 adımlı akışında karşılığı yoktur (sözleşme
+ * `artStyleCode` ister); görsel dil paylaşılan ızgaradan gelir.
+ */
 export default function WizardStil(): ReactNode {
   const router = useRouter();
   const { draft, patch } = useWizardDraft();
 
   return (
     <Screen>
-      <StepBar step={4} total={7} labelTr="Yeni Masal · Çizim stili" />
+      <StepBar step={4} total={7} labelTr="Yeni Hikâye · Çizim stili" />
       <Title>Hangi çizim stili?</Title>
 
       <StyleGrid
@@ -24,7 +27,7 @@ export default function WizardStil(): ReactNode {
       />
 
       <PrimaryButton
-        label="Devam et"
+        label="Devam"
         disabled={draft.artStyleCode === undefined}
         onPress={() => {
           router.push('/(app)/sihirbaz/ayar');

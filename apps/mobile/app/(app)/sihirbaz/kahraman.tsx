@@ -6,9 +6,9 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { possessive, validateGivenName } from '@kendihikayem/shared';
 import { Input, Text, palette, useTheme } from '@kendihikayem/ui';
 
-import { Caption, Card, PrimaryButton, Screen, Title } from '../../../components/ui';
+import { Body, Caption, PrimaryButton, Screen, Title } from '../../../components/ui';
 import { useChildren } from '../../../features/onboarding/catalogHooks';
-import { Chip, ChipRow, StepBar } from '../../../features/onboarding/components';
+import { SelectedCheck, StepBar } from '../../../features/onboarding/components';
 import { useWizardDraft } from '../../../features/onboarding/draft';
 import {
   CharacterBuilderFields,
@@ -16,10 +16,10 @@ import {
 } from '../../../features/onboarding/steps';
 
 /**
- * W03 — Kahraman. ⭐ The star feature: "mevcut karakteri tekrar kullan".
- * If the child already has an approved character sheet, reusing it means the
- * same face in every book ("Elif'in kahramanı"), zero re-generation cost and
- * a skipped builder. Building a new character stays one tap away.
+ * W02 — Kahraman (Figma `StoryCreation` 2. adım "Hikâyemizin kahramanı kim?").
+ * Tasarımdaki iki seçim satırı: "{çocuk} kahraman olsun" / "Başka bir kahraman
+ * oluştur"; özel kahramanda ad alanı. ⭐ "Mevcut karakteri tekrar kullan" kartı
+ * ürünün yıldız özelliğidir (tasarım kapsam dışı) ve korunur.
  */
 export default function WizardKahraman(): ReactNode {
   const router = useRouter();
@@ -28,6 +28,7 @@ export default function WizardKahraman(): ReactNode {
   const children = useChildren();
   const [customHero, setCustomHero] = useState(draft.heroIsChild ? '' : draft.heroName);
 
+  const childName = draft.childName === '' ? 'Çocuğunuz' : draft.childName;
   const child = children.data?.find((item) => (item.id as string) === draft.childId);
   const reusableCharacterId = child?.defaultCharacterId as string | undefined;
   const reusing = draft.reuseCharacterId !== undefined;
@@ -38,49 +39,90 @@ export default function WizardKahraman(): ReactNode {
     (reusing || !missingRequired) &&
     (draft.heroIsChild || (heroValidation !== undefined && heroValidation.ok));
 
+  const options = [
+    {
+      id: 'child' as const,
+      emoji: '🧒',
+      labelTr: `${childName} kahraman olsun`,
+      subTr: `Kahraman: ${childName}`,
+      selected: draft.heroIsChild,
+      onPress: () => {
+        patch({ heroIsChild: true, heroName: draft.childName });
+      },
+    },
+    {
+      id: 'custom' as const,
+      emoji: '✨',
+      labelTr: 'Başka bir kahraman oluştur',
+      subTr: 'Sen belirle',
+      selected: !draft.heroIsChild,
+      onPress: () => {
+        patch({ heroIsChild: false, heroName: customHero });
+      },
+    },
+  ];
+
   return (
     <Screen>
-      <StepBar step={3} total={7} labelTr="Yeni Masal · Kahraman" />
-      <Title>Kahraman kim olacak?</Title>
+      <StepBar step={2} total={7} labelTr="Yeni Hikâye · Kahraman" />
+      <Title>Hikâyemizin kahramanı kim?</Title>
+      <Body>{`İstersen ${childName} kahramanı olsun ya da yeni biri oluştur.`}</Body>
 
-      <Card>
-        <ChipRow>
-          <Chip
-            label={`${draft.childName === '' ? 'Çocuğum' : draft.childName} (kendisi)`}
-            selected={draft.heroIsChild}
-            onPress={() => {
-              patch({ heroIsChild: true, heroName: draft.childName });
-            }}
-          />
-          <Chip
-            label="Hayali bir kahraman"
-            selected={!draft.heroIsChild}
-            onPress={() => {
-              patch({ heroIsChild: false, heroName: customHero });
-            }}
-          />
-        </ChipRow>
-        {!draft.heroIsChild && (
-          <Input
-            label="Kahramanın adı"
-            autoCapitalize="words"
-            autoCorrect={false}
-            maxLength={30}
-            onChangeText={(value) => {
-              setCustomHero(value);
-              const validation = validateGivenName(value);
-              if (validation.ok) patch({ heroName: validation.normalized });
-            }}
-            placeholder="Örn. Luna"
-            value={customHero}
-            errorTr={
-              customHero.length > 0 && heroValidation !== undefined && !heroValidation.ok
-                ? (heroValidation.messageTr ?? 'Bu isim kullanılamıyor.')
-                : undefined
-            }
-          />
-        )}
-      </Card>
+      <View style={{ gap: spacing.sm }}>
+        {options.map((option) => (
+          <Pressable
+            key={option.id}
+            accessibilityRole="button"
+            accessibilityState={{ selected: option.selected }}
+            onPress={option.onPress}
+            style={({ pressed }) => [
+              styles.optionRow,
+              {
+                backgroundColor: option.selected
+                  ? colors.surfaceRaised
+                  : pressed
+                    ? colors.surfaceMuted
+                    : colors.surface,
+                borderColor: option.selected ? colors.primary : colors.border,
+              },
+            ]}
+          >
+            <Text style={styles.optionEmoji} accessibilityElementsHidden>
+              {option.emoji}
+            </Text>
+            <View style={styles.optionBody}>
+              <Text variant="bodyStrong" style={styles.optionLabel}>
+                {option.labelTr}
+              </Text>
+              <Text variant="caption" tone="muted" style={styles.optionSub}>
+                {option.subTr}
+              </Text>
+            </View>
+            {option.selected && <SelectedCheck size={24} />}
+          </Pressable>
+        ))}
+      </View>
+
+      {!draft.heroIsChild && (
+        <Input
+          label="Kahramanın adı"
+          autoCapitalize="words"
+          autoCorrect={false}
+          maxLength={30}
+          onChangeText={(value) => {
+            setCustomHero(value);
+            const validation = validateGivenName(value);
+            if (validation.ok) patch({ heroName: validation.normalized });
+          }}
+          placeholder="Örn. Luna"
+          value={customHero}
+          errorTr={
+            customHero.length > 0 && heroValidation !== undefined && !heroValidation.ok
+              ? (heroValidation.messageTr ?? 'Bu isim kullanılamıyor.')
+              : undefined
+          }
+        />
+      )}
 
       {reusableCharacterId !== undefined && (
         <Pressable
@@ -132,10 +174,10 @@ export default function WizardKahraman(): ReactNode {
       )}
 
       <PrimaryButton
-        label="Devam et"
+        label="Devam"
         disabled={!canContinue}
         onPress={() => {
-          router.push('/(app)/sihirbaz/stil');
+          router.push('/(app)/sihirbaz/tema');
         }}
       />
       {!reusing && missingRequired && (
@@ -146,6 +188,21 @@ export default function WizardKahraman(): ReactNode {
 }
 
 const styles = StyleSheet.create({
+  /* Figma seçim satırı: 16/18 dolgu · 18 yarıçap · 2 px kenarlık · emoji 28. */
+  optionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    borderRadius: 18,
+    borderWidth: 2,
+  },
+  optionEmoji: { fontSize: 28, lineHeight: 34 },
+  optionBody: { flex: 1, gap: 2 },
+  optionLabel: { fontSize: 15, lineHeight: 20 },
+  optionSub: { fontSize: 13, lineHeight: 18 },
+
   reuseCard: { flexDirection: 'row', borderWidth: 2 },
   /** Sıcak şeftali zemin — tek seferlik değer; tema rolü değil, vurgu. */
   reuseWarm: { backgroundColor: 'rgba(245, 196, 168, 0.22)' },
