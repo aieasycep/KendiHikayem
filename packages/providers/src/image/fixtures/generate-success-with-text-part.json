@@ -1,0 +1,26 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "Here is the illustration you asked for."
+          },
+          {
+            "inlineData": {
+              "mimeType": "image/png",
+              "data": "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAT0lEQVRo3u3PQQkAAAgEsOuPaQxjHiP4FgYrsEzXaxEQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQuCzTlUHwGxOCEQAAAABJRU5ErkJggg=="
+            }
+          }
+        ]
+      },
+      "finishReason": "STOP"
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 400,
+    "candidatesTokenCount": 1290,
+    "totalTokenCount": 1690
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "I cannot draw that, but here is a description."
+          }
+        ]
+      },
+      "finishReason": "STOP"
+    }
+  ]
+}

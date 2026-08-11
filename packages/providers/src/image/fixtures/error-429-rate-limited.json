@@ -1,0 +1,22 @@
+{
+  "error": {
+    "code": 429,
+    "message": "Resource has been exhausted (e.g. check quota).",
+    "status": "RESOURCE_EXHAUSTED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.RetryInfo",
+        "retryDelay": "23s"
+      },
+      {
+        "@type": "type.googleapis.com/google.rpc.QuotaFailure",
+        "violations": [
+          {
+            "quotaMetric": "generate_requests_per_model_per_minute",
+            "quotaId": "GenerateRequestsPerMinutePerProjectPerModel"
+          }
+        ]
+      }
+    ]
+  }
+}

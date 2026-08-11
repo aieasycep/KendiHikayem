@@ -8,3 +8,4 @@
 export const PACKAGE_NAME = '@kendihikayem/providers' as const;
 
 export * from './core/index';
+export * from './image/index';
