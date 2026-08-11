@@ -5,14 +5,17 @@
  * painted on it: the green zone is exactly peak −18…−3 dBFS
  * (VOICE_QUALITY_THRESHOLDS), so "the needle in green" and "the server accepts"
  * are the same statement. Below: rolling history bars + a one-line verdict.
+ *
+ * Tema duyarlı: gece kayıt ekranında (ThemeScope dark) yüzey/çizgi renkleri
+ * kendiliğinden koyulaşır; eşikler ve ölçüm mantığı değişmez.
  */
 
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { VOICE_QUALITY_THRESHOLDS } from '@kendihikayem/contract';
+import { Text, palette, useTheme } from '@kendihikayem/ui';
 
-import { colors, radius, spacing, typography } from '../../constants/theme';
 import { SILENCE_DB, type MeterStats, type MeterVerdict } from './meter';
 
 const MIN_DB = -60;
@@ -37,16 +40,30 @@ export function DbMeter({
   recentDb: number[];
   compact?: boolean;
 }): ReactNode {
+  const { colors, radius, spacing } = useTheme();
   const levelRatio = toRatio(stats.currentDb);
   const greenStart = toRatio(VOICE_QUALITY_THRESHOLDS.peakDbfsMin);
   const greenEnd = toRatio(VOICE_QUALITY_THRESHOLDS.peakDbfsMax);
   const verdictColor =
-    verdict.level === 'iyi' ? colors.accent : verdict.level === 'uyari' ? '#B7791F' : '#B42318';
+    verdict.level === 'iyi'
+      ? colors.success
+      : verdict.level === 'uyari'
+        ? colors.warning
+        : colors.danger;
 
   return (
-    <View style={styles.box}>
+    <View
+      style={{
+        backgroundColor: colors.surface,
+        borderColor: colors.border,
+        borderWidth: 1,
+        borderRadius: radius.md,
+        padding: spacing.md,
+        gap: spacing.sm,
+      }}
+    >
       {/* Ana seviye çubuğu + yeşil bölge işaretleri */}
-      <View style={styles.track}>
+      <View style={[styles.track, { backgroundColor: colors.surfaceMuted }]}>
         <View
           style={[
             styles.greenZone,
@@ -57,9 +74,15 @@ export function DbMeter({
         <View style={{ flex: Math.max(1 - levelRatio, 0.01) }} />
       </View>
       <View style={styles.scaleRow}>
-        <Text style={styles.scaleText}>sessiz</Text>
-        <Text style={styles.scaleText}>ideal aralık</Text>
-        <Text style={styles.scaleText}>çok yüksek</Text>
+        <Text variant="caption" tone="muted" style={styles.scaleText}>
+          sessiz
+        </Text>
+        <Text variant="caption" tone="muted" style={styles.scaleText}>
+          ideal aralık
+        </Text>
+        <Text variant="caption" tone="muted" style={styles.scaleText}>
+          çok yüksek
+        </Text>
       </View>
 
       {!compact && (
@@ -72,12 +95,16 @@ export function DbMeter({
         </View>
       )}
 
-      <View style={styles.verdictRow}>
+      <View style={[styles.verdictRow, { gap: spacing.sm }]}>
         <View style={[styles.verdictDot, { backgroundColor: verdictColor }]} />
         <View style={styles.verdictBody}>
-          <Text style={[styles.verdictTitle, { color: verdictColor }]}>{verdict.titleTr}</Text>
+          <Text variant="label" style={{ color: verdictColor }}>
+            {verdict.titleTr}
+          </Text>
           {verdict.messageTr !== undefined && (
-            <Text style={styles.verdictText}>{verdict.messageTr}</Text>
+            <Text variant="caption" style={styles.verdictText}>
+              {verdict.messageTr}
+            </Text>
           )}
         </View>
       </View>
@@ -86,18 +113,9 @@ export function DbMeter({
 }
 
 const styles = StyleSheet.create({
-  box: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
   track: {
     height: 14,
     borderRadius: 7,
-    backgroundColor: colors.surfaceMuted,
     overflow: 'hidden',
     flexDirection: 'row',
   },
@@ -105,11 +123,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     bottom: 0,
-    backgroundColor: '#D3EBDD',
+    backgroundColor: 'rgba(141, 184, 154, 0.35)',
   },
-  fill: { backgroundColor: colors.primary, borderRadius: 7 },
+  fill: { backgroundColor: palette.nightPurple, borderRadius: 7 },
   scaleRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  scaleText: { ...typography.caption, fontSize: 11, color: colors.inkMuted },
+  scaleText: { fontSize: 11, lineHeight: 15 },
 
   historyRow: {
     flexDirection: 'row',
@@ -119,14 +137,13 @@ const styles = StyleSheet.create({
   },
   historyBar: {
     flex: 1,
-    backgroundColor: colors.accent,
+    backgroundColor: palette.lavender,
     borderRadius: 2,
-    opacity: 0.7,
+    opacity: 0.75,
   },
 
-  verdictRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
+  verdictRow: { flexDirection: 'row', alignItems: 'flex-start' },
   verdictDot: { width: 12, height: 12, borderRadius: 6, marginTop: 4 },
   verdictBody: { flex: 1, gap: 2 },
-  verdictTitle: { ...typography.label },
-  verdictText: { ...typography.caption, fontSize: 13, lineHeight: 18, color: colors.ink },
+  verdictText: { fontSize: 13, lineHeight: 18 },
 });

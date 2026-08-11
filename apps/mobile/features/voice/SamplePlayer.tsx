@@ -4,14 +4,17 @@
  * Mock media URLs are dead by design (packages/mock ships no binaries), so the
  * failure path is first-class: after a timeout without loaded audio the button
  * flips into an honest "demo ortamında çalınamıyor" note instead of spinning.
+ *
+ * Tasarım dili: kart yüzeyi + daire içinde oynat düğmesi (Figma ses kartları).
+ * Tema duyarlı — gece ekranlarında koyu yüzeyle çalışır.
  */
 
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 
-import { colors, radius, spacing, typography } from '../../constants/theme';
+import { PlayIcon, Text, useTheme } from '@kendihikayem/ui';
 
 export function SamplePlayer({
   labelTr,
@@ -22,6 +25,7 @@ export function SamplePlayer({
   sublabelTr?: string;
   url: string;
 }): ReactNode {
+  const { colors, radius, spacing } = useTheme();
   const player = useAudioPlayer(url);
   const status = useAudioPlayerStatus(player);
   const [failed, setFailed] = useState(false);
@@ -63,11 +67,19 @@ export function SamplePlayer({
     }
   };
 
+  const cardStyle = {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  };
+
   if (failed) {
     return (
-      <View style={[styles.button, styles.failedBox]}>
-        <Text style={styles.failedTitle}>{labelTr}</Text>
-        <Text style={styles.failedText}>
+      <View style={[cardStyle, { gap: 4 }]}>
+        <Text variant="label">{labelTr}</Text>
+        <Text variant="caption" tone="muted" style={styles.failedText}>
           Örnek ses bu demo ortamında paketli değil; gerçek sürümde burada 15 saniyelik bir
           dinleme olacak.
         </Text>
@@ -76,13 +88,41 @@ export function SamplePlayer({
   }
 
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={styles.button}>
-      <Text style={styles.icon}>{status.playing ? '⏸' : '▶'}</Text>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={
+        status.playing ? `${labelTr} — duraklat` : `${labelTr} — örneği dinle`
+      }
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.row,
+        cardStyle,
+        { gap: spacing.md },
+        pressed && { backgroundColor: colors.surfaceMuted },
+      ]}
+    >
+      <View style={[styles.playCircle, { backgroundColor: colors.surfaceRaised }]}>
+        {status.playing ? (
+          <Text variant="label" style={{ color: colors.primary }} accessibilityElementsHidden>
+            ⏸
+          </Text>
+        ) : (
+          <PlayIcon size={18} color={colors.primary} />
+        )}
+      </View>
       <View style={styles.body}>
-        <Text style={styles.label}>{labelTr}</Text>
-        {sublabelTr !== undefined && <Text style={styles.sublabel}>{sublabelTr}</Text>}
+        <Text variant="bodyStrong" style={styles.label}>
+          {labelTr}
+        </Text>
+        {sublabelTr !== undefined && (
+          <Text variant="caption" tone="muted">
+            {sublabelTr}
+          </Text>
+        )}
         {attempted && !status.isLoaded && !status.playing && (
-          <Text style={styles.sublabel}>Yükleniyor…</Text>
+          <Text variant="caption" tone="muted">
+            Yükleniyor…
+          </Text>
         )}
       </View>
     </Pressable>
@@ -90,22 +130,15 @@ export function SamplePlayer({
 }
 
 const styles = StyleSheet.create({
-  button: {
-    flexDirection: 'row',
+  row: { flexDirection: 'row', alignItems: 'center' },
+  playCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    padding: spacing.md,
+    justifyContent: 'center',
   },
-  icon: { fontSize: 24, color: colors.primary },
   body: { flex: 1, gap: 2 },
-  label: { ...typography.body, fontWeight: '700', color: colors.ink },
-  sublabel: { ...typography.caption, color: colors.inkMuted },
-
-  failedBox: { flexDirection: 'column', alignItems: 'flex-start', gap: 4 },
-  failedTitle: { ...typography.label, color: colors.ink },
-  failedText: { ...typography.caption, fontSize: 13, lineHeight: 18, color: colors.inkMuted },
+  label: { fontSize: 16, lineHeight: 22 },
+  failedText: { fontSize: 13, lineHeight: 18 },
 });

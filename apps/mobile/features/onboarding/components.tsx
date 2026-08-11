@@ -1,18 +1,79 @@
 /**
  * Shared flow components for the wizard + voice screens (F1 scope).
  *
- * ⚠️ packages/ui (owner: F2) is not populated yet. Everything here is written so
- * it can MOVE to packages/ui verbatim once F2 lands tokens/primitives:
- *   AsyncGate, ErrorBanner, SelectCard, Chip, StepBar, TrustStrip → candidates.
- * Report lists them explicitly.
+ * Onaylanan Figma dilinde yeniden çizildi: seçim kartları 2 px kenarlık +
+ * seçilince lavanta zemin + sağ üstte mor onay dairesi; adım göstergesi
+ * "1/5" yerine bölmeli ilerleme çubuğu; güven şeridi yumuşak kart. Hepsi
+ * `useTheme()` tüketir — gece kapsamında (ThemeScope dark) kendiliğinden
+ * koyu palete döner.
+ *
+ * packages/ui'ye TERFİ ADAYLARI (raporda listelenir): AsyncGate, ErrorBanner,
+ * SelectCard, SwatchChip, StepBar, TrustStrip.
  */
 
+import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 
 import type { ApiError } from '@kendihikayem/contract';
+import { Button, Text, useTheme } from '@kendihikayem/ui';
 
-import { colors, radius, spacing, typography } from '../../constants/theme';
+/* ── Seçim onayı: sağ üst köşedeki mor daire (Figma seçim kartları) ── */
+
+export function SelectedCheck({ size = 22 }: { size?: number }): ReactNode {
+  const { colors } = useTheme();
+  return (
+    <View
+      accessibilityElementsHidden
+      style={[
+        styles.checkCircle,
+        { width: size, height: size, borderRadius: size / 2, backgroundColor: colors.primary },
+      ]}
+    >
+      <Svg width={size * 0.55} height={size * 0.55} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M20 6L9 17l-5-5"
+          stroke={colors.inkOnPrimary}
+          strokeWidth={3.4}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    </View>
+  );
+}
+
+/* ── Geri oku (Figma başlık çubuğu — daire içinde sola ok) ──── */
+
+export function BackCircle({ onPress }: { onPress: () => void }): ReactNode {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Geri dön"
+      hitSlop={8}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.backCircle,
+        {
+          backgroundColor: pressed ? colors.surfaceMuted : colors.surface,
+          borderColor: colors.border,
+        },
+      ]}
+    >
+      <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M15 18l-6-6 6-6"
+          stroke={colors.ink}
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    </Pressable>
+  );
+}
 
 /* ── AsyncGate: query → loading / error / empty / content ───── */
 
@@ -34,11 +95,14 @@ export function AsyncGate<T>({
   loadingTr?: string;
   children: (data: T) => ReactNode;
 }): ReactNode {
+  const { colors, spacing } = useTheme();
   if (isLoading) {
     return (
-      <View style={styles.centerBox}>
+      <View style={[styles.centerBox, { gap: spacing.sm, paddingVertical: spacing.xl }]}>
         <ActivityIndicator color={colors.primary} size="large" />
-        <Text style={styles.mutedText}>{loadingTr}</Text>
+        <Text variant="body" tone="muted" center>
+          {loadingTr}
+        </Text>
       </View>
     );
   }
@@ -46,8 +110,10 @@ export function AsyncGate<T>({
   if (data === undefined) return null;
   if (Array.isArray(data) && data.length === 0 && emptyTr !== undefined) {
     return (
-      <View style={styles.centerBox}>
-        <Text style={styles.mutedText}>{emptyTr}</Text>
+      <View style={[styles.centerBox, { gap: spacing.sm, paddingVertical: spacing.xl }]}>
+        <Text variant="body" tone="muted" center>
+          {emptyTr}
+        </Text>
       </View>
     );
   }
@@ -63,20 +129,39 @@ export function ErrorBanner({
   error: ApiError;
   onRetry?: () => void;
 }): ReactNode {
+  const { colors, radius, spacing } = useTheme();
   return (
-    <View style={styles.errorBox} accessibilityRole="alert">
-      <Text style={styles.errorTitle}>Bir sorun çıktı</Text>
-      <Text style={styles.errorText}>{error.messageTr}</Text>
+    <View
+      accessibilityRole="alert"
+      style={{
+        backgroundColor: colors.surface,
+        borderColor: colors.border,
+        borderLeftColor: colors.danger,
+        borderWidth: 1,
+        borderLeftWidth: 6,
+        borderRadius: radius.md,
+        padding: spacing.md,
+        gap: spacing.xs,
+      }}
+    >
+      <Text variant="bodyStrong" tone="danger">
+        Bir sorun çıktı
+      </Text>
+      <Text variant="body">{error.messageTr}</Text>
       {onRetry !== undefined && (
-        <Pressable accessibilityRole="button" onPress={onRetry} style={styles.retryButton}>
-          <Text style={styles.retryText}>Tekrar dene</Text>
-        </Pressable>
+        <Button
+          label="Tekrar dene"
+          variant="secondary"
+          compact
+          onPress={onRetry}
+          style={styles.retryButton}
+        />
       )}
     </View>
   );
 }
 
-/* ── SelectCard: theme / art style / variant cards ───────────── */
+/* ── SelectCard: theme / art style / voice / child cards ─────── */
 
 export function SelectCard({
   titleTr,
@@ -93,24 +178,58 @@ export function SelectCard({
   onPress: () => void;
   footerTr?: string;
 }): ReactNode {
+  const { colors, radius, spacing } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected }}
       onPress={onPress}
-      style={[styles.selectCard, selected && styles.selectCardSelected]}
+      style={({ pressed }) => [
+        styles.selectCard,
+        {
+          borderRadius: radius.lg,
+          padding: spacing.md,
+          gap: spacing.xs,
+          backgroundColor: selected
+            ? colors.surfaceRaised
+            : pressed
+              ? colors.surfaceMuted
+              : colors.surface,
+          borderColor: selected ? colors.primary : colors.border,
+        },
+      ]}
     >
-      {icon !== undefined && <Text style={styles.selectCardIcon}>{icon}</Text>}
-      <Text style={[styles.selectCardTitle, selected && styles.selectCardTitleSelected]}>
+      {selected && (
+        <View style={styles.selectCheckWrap}>
+          <SelectedCheck />
+        </View>
+      )}
+      {icon !== undefined && (
+        <Text style={styles.selectCardIcon} accessibilityElementsHidden>
+          {icon}
+        </Text>
+      )}
+      <Text
+        variant="heading"
+        style={[styles.selectCardTitle, selected && { color: colors.primary }]}
+      >
         {titleTr}
       </Text>
-      {subtitleTr !== undefined && <Text style={styles.selectCardSubtitle}>{subtitleTr}</Text>}
-      {footerTr !== undefined && <Text style={styles.selectCardFooter}>“{footerTr}”</Text>}
+      {subtitleTr !== undefined && (
+        <Text variant="caption" tone="muted">
+          {subtitleTr}
+        </Text>
+      )}
+      {footerTr !== undefined && (
+        <Text variant="caption" tone="accent" style={styles.selectCardFooter}>
+          {`“${footerTr}”`}
+        </Text>
+      )}
     </Pressable>
   );
 }
 
-/* ── Chip ────────────────────────────────────────────────────── */
+/* ── Chip (yerel: renk örneği/swatch destekli) ───────────────── */
 
 export function Chip({
   label,
@@ -123,39 +242,90 @@ export function Chip({
   onPress: () => void;
   swatchHex?: string;
 }): ReactNode {
+  const { colors, radius, touchTarget } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected }}
+      hitSlop={touchTarget.hitSlop}
       onPress={onPress}
-      style={[styles.chip, selected && styles.chipSelected]}
+      style={({ pressed }) => [
+        styles.chip,
+        {
+          borderRadius: radius.sm,
+          backgroundColor: selected
+            ? colors.primary
+            : pressed
+              ? colors.surfaceMuted
+              : colors.surface,
+          borderColor: selected ? colors.primary : colors.border,
+        },
+      ]}
     >
       {swatchHex !== undefined && (
-        <View style={[styles.swatch, { backgroundColor: swatchHex }]} />
+        <View
+          style={[
+            styles.swatch,
+            { backgroundColor: swatchHex, borderColor: selected ? colors.inkOnPrimary : colors.border },
+          ]}
+        />
       )}
-      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
+      <Text
+        variant="label"
+        tone={selected ? 'onPrimary' : 'muted'}
+        style={selected ? styles.chipTextSelected : undefined}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
 
 export function ChipRow({ children }: { children: ReactNode }): ReactNode {
-  return <View style={styles.chipRow}>{children}</View>;
+  const { spacing } = useTheme();
+  return <View style={[styles.chipRow, { gap: spacing.sm }]}>{children}</View>;
 }
 
-/* ── StepBar: "Adım 3 / 5" + dots ────────────────────────────── */
+/* ── StepBar: Figma sihirbaz başlığı — bölmeli ilerleme ──────── */
 
-export function StepBar({ step, total, labelTr }: { step: number; total: number; labelTr: string }): ReactNode {
+export function StepBar({
+  step,
+  total,
+  labelTr,
+  onBack,
+}: {
+  step: number;
+  total: number;
+  labelTr: string;
+  onBack?: () => void;
+}): ReactNode {
+  const { colors, spacing } = useTheme();
+  const router = useRouter();
+  const back = onBack ?? (router.canGoBack() ? () => router.back() : undefined);
   return (
-    <View style={styles.stepBar}>
-      <View style={styles.dotRow}>
-        {Array.from({ length: total }, (_, index) => (
-          <View
-            key={index}
-            style={[styles.dot, index < step ? styles.dotDone : undefined, index === step - 1 ? styles.dotActive : undefined]}
-          />
-        ))}
+    <View style={[styles.stepBarRow, { gap: spacing.md }]}>
+      {back !== undefined && <BackCircle onPress={back} />}
+      <View style={styles.stepBarBody}>
+        <Text variant="caption" tone="muted" style={styles.stepKicker}>
+          {labelTr.toLocaleUpperCase('tr-TR')}
+        </Text>
+        <View
+          style={styles.segmentRow}
+          accessibilityRole="progressbar"
+          accessibilityLabel={labelTr}
+          accessibilityValue={{ min: 0, max: total, now: step }}
+        >
+          {Array.from({ length: total }, (_, index) => (
+            <View
+              key={index}
+              style={[
+                styles.segment,
+                { backgroundColor: index < step ? colors.primary : colors.border },
+              ]}
+            />
+          ))}
+        </View>
       </View>
-      <Text style={styles.stepLabel}>{labelTr}</Text>
     </View>
   );
 }
@@ -163,12 +333,26 @@ export function StepBar({ step, total, labelTr }: { step: number; total: number;
 /* ── TrustStrip: the "no photo / voice safety" reassurance ───── */
 
 export function TrustStrip({ items }: { items: string[] }): ReactNode {
+  const { colors, radius, spacing } = useTheme();
   return (
-    <View style={styles.trustBox}>
+    <View
+      style={{
+        backgroundColor: colors.surface,
+        borderColor: colors.border,
+        borderWidth: 1,
+        borderRadius: radius.md,
+        padding: spacing.md,
+        gap: spacing.sm,
+      }}
+    >
       {items.map((item) => (
-        <View key={item} style={styles.trustRow}>
-          <Text style={styles.trustBullet}>✓</Text>
-          <Text style={styles.trustText}>{item}</Text>
+        <View key={item} style={[styles.trustRow, { gap: spacing.sm }]}>
+          <Text variant="label" tone="success" accessibilityElementsHidden>
+            ✓
+          </Text>
+          <Text variant="caption" style={[styles.trustText, { color: colors.ink }]}>
+            {item}
+          </Text>
         </View>
       ))}
     </View>
@@ -177,15 +361,31 @@ export function TrustStrip({ items }: { items: string[] }): ReactNode {
 
 /** Big single-line reassurance, used on S04: "Çocuğunuzun fotoğrafını istemiyoruz." */
 export function PrivacyPromise({ textTr }: { textTr: string }): ReactNode {
+  const { colors, radius, spacing } = useTheme();
   return (
-    <View style={styles.promiseBox}>
-      <Text style={styles.promiseIcon}>🛡️</Text>
-      <Text style={styles.promiseText}>{textTr}</Text>
+    <View
+      style={[
+        styles.promiseBox,
+        {
+          gap: spacing.sm,
+          backgroundColor: colors.surfaceRaised,
+          borderColor: colors.primary,
+          borderRadius: radius.md,
+          padding: spacing.md,
+        },
+      ]}
+    >
+      <Text style={styles.promiseIcon} accessibilityElementsHidden>
+        🛡️
+      </Text>
+      <Text variant="bodyStrong" style={[styles.promiseText, { color: colors.primary }]}>
+        {textTr}
+      </Text>
     </View>
   );
 }
 
-/* ── Secondary button (primary lives in components/ui) ───────── */
+/* ── Secondary button (delegates to the design system) ───────── */
 
 export function SecondaryButton({
   label,
@@ -197,120 +397,53 @@ export function SecondaryButton({
   disabled?: boolean;
 }): ReactNode {
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ disabled: disabled === true }}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.secondaryButton,
-        pressed && styles.secondaryPressed,
-        disabled === true && styles.secondaryDisabled,
-      ]}
-    >
-      <Text style={styles.secondaryText}>{label}</Text>
-    </Pressable>
+    <Button label={label} variant="secondary" onPress={onPress} disabled={disabled === true} />
   );
 }
 
 const styles = StyleSheet.create({
-  centerBox: { alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xl },
-  mutedText: { ...typography.body, color: colors.inkMuted, textAlign: 'center' },
+  centerBox: { alignItems: 'center' },
 
-  errorBox: {
-    backgroundColor: '#FDECEA',
-    borderColor: '#F5C6BE',
+  retryButton: { alignSelf: 'flex-start', marginTop: 4 },
+
+  checkCircle: { alignItems: 'center', justifyContent: 'center' },
+  backCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  errorTitle: { ...typography.label, color: '#8C2B1D' },
-  errorText: { ...typography.body, color: '#8C2B1D' },
-  retryButton: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#8C2B1D',
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    marginTop: spacing.xs,
-  },
-  retryText: { ...typography.label, color: '#FFFFFF' },
 
-  selectCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 2,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.xs,
-    flexGrow: 1,
-    flexBasis: '45%',
-  },
-  selectCardSelected: { borderColor: colors.primary, backgroundColor: '#FFF1E6' },
-  selectCardIcon: { fontSize: 30 },
-  selectCardTitle: { ...typography.heading, fontSize: 19, lineHeight: 24, color: colors.ink },
-  selectCardTitleSelected: { color: colors.primary },
-  selectCardSubtitle: { ...typography.caption, color: colors.inkMuted },
-  selectCardFooter: { ...typography.caption, color: colors.accent, fontStyle: 'italic' },
+  selectCard: { borderWidth: 2, flexGrow: 1, flexBasis: '45%' },
+  selectCheckWrap: { position: 'absolute', top: 10, right: 10, zIndex: 1 },
+  selectCardIcon: { fontSize: 28, lineHeight: 34 },
+  selectCardTitle: { fontSize: 18, lineHeight: 24 },
+  selectCardFooter: { fontStyle: 'italic' },
 
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap' },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.surface,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
   },
-  chipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { ...typography.label, color: colors.ink },
-  chipTextSelected: { color: colors.primaryInk },
-  swatch: { width: 14, height: 14, borderRadius: 7, borderWidth: 1, borderColor: colors.border },
+  chipTextSelected: { fontWeight: '700' },
+  swatch: { width: 14, height: 14, borderRadius: 7, borderWidth: 1 },
 
-  stepBar: { gap: spacing.xs },
-  dotRow: { flexDirection: 'row', gap: 6 },
-  dot: { width: 22, height: 6, borderRadius: 3, backgroundColor: colors.border },
-  dotDone: { backgroundColor: colors.accent },
-  dotActive: { backgroundColor: colors.primary },
-  stepLabel: { ...typography.caption, color: colors.inkMuted },
+  stepBarRow: { flexDirection: 'row', alignItems: 'center' },
+  stepBarBody: { flex: 1, gap: 6 },
+  stepKicker: { fontSize: 12, letterSpacing: 0.8, fontWeight: '600' },
+  segmentRow: { flexDirection: 'row', gap: 4 },
+  segment: { flex: 1, height: 4, borderRadius: 2 },
 
-  trustBox: {
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  trustRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
-  trustBullet: { ...typography.label, color: colors.accent },
-  trustText: { ...typography.caption, fontSize: 14, lineHeight: 20, color: colors.ink, flex: 1 },
+  trustRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  trustText: { flex: 1, fontSize: 14, lineHeight: 20 },
 
-  promiseBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: '#E8F4F2',
-    borderColor: colors.accent,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    padding: spacing.md,
-  },
+  promiseBox: { flexDirection: 'row', alignItems: 'center', borderWidth: 1 },
   promiseIcon: { fontSize: 22 },
-  promiseText: { ...typography.body, fontWeight: '600', color: colors.accent, flex: 1 },
-
-  secondaryButton: {
-    borderColor: colors.primary,
-    borderWidth: 2,
-    borderRadius: radius.lg,
-    paddingVertical: 14,
-    paddingHorizontal: spacing.lg,
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-  },
-  secondaryPressed: { backgroundColor: colors.surfaceMuted },
-  secondaryDisabled: { opacity: 0.4 },
-  secondaryText: { ...typography.body, color: colors.primary, fontWeight: '700' },
+  promiseText: { flex: 1, fontSize: 16, lineHeight: 22 },
 });
