@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 import type { ErrorBoundaryProps } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -22,7 +23,20 @@ import { ensureGuestSession } from '../lib/session';
  * real network and the offline APK breaks. The guest session is opened in the
  * same gate so every screen can assume a token exists.
  */
+/**
+ * Hides the native splash screen, tolerating "already hidden".
+ *
+ * Nothing else in the app hides it, so anything that stops the first screen from
+ * rendering leaves the splash on screen forever — the app looks frozen and says
+ * nothing. Every entry point below calls this, so the worst case is our own boot
+ * screen (or the error boundary), never an unexplained splash.
+ */
+function dismissSplash(): void {
+  void SplashScreen.hideAsync().catch(() => undefined);
+}
+
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps): ReactNode {
+  useEffect(dismissSplash, []);
   return (
     <View style={styles.boot}>
       <Text style={styles.errorTitle}>Bir şeyler ters gitti</Text>
@@ -42,6 +56,11 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps): ReactNode {
 export default function RootLayout(): ReactNode {
   const [ready, setReady] = useState(false);
   const [bootWarning, setBootWarning] = useState<string | undefined>(undefined);
+
+  // Hide the splash as soon as this layout mounts, not when the bootstrap gate
+  // opens. If the gate never opens we want the user to see "hazırlanıyor…" and
+  // us to learn the gate is the problem — a frozen splash tells nobody anything.
+  useEffect(dismissSplash, []);
 
   useEffect(() => {
     let cancelled = false;
