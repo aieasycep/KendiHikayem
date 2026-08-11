@@ -1,0 +1,111 @@
+name: Android APK
+
+# APK'yi elle tetikleyin (Actions sekmesi > "Android APK" > "Run workflow")
+# veya bu dala push edin. Cikti: Actions calismasinin altindaki "Artifacts" bolumu.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/child-story-creator-app-gsinlk
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    name: Debug APK derle
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      # Uygulama tamamen demo veriyle calisir; hicbir AI saglayicisina veya
+      # backend'e ihtiyac duymaz. Telefonda internet olmadan da acilir.
+      API_MODE: mock
+      EXPO_PUBLIC_API_MODE: mock
+      # Expo hesabina baglanmayi engeller; prebuild tamamen yerel calisir.
+      EXPO_NO_TELEMETRY: '1'
+      CI: '1'
+      GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.daemon=false
+
+    steps:
+      - name: 1) Depoyu indir
+        uses: actions/checkout@v4
+
+      - name: 2) pnpm 10.33.0 kur
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+          run_install: false
+
+      - name: 3) Node 22 kur (pnpm store cache ile)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.2
+          cache: pnpm
+
+      - name: 4) JDK 17 (Temurin) kur
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: 5) Android SDK'yi hazirla
+        uses: android-actions/setup-android@v3
+
+      - name: 6) Bagimliliklari kur (kilitli surumlerle)
+        run: pnpm install --frozen-lockfile
+
+      - name: 7) Turkce yardimcilarin testleri
+        run: pnpm --filter @kendihikayem/shared test
+
+      - name: 8) Tip kontrolu
+        run: pnpm -w typecheck
+
+      - name: 9) Android projesini uret (expo prebuild)
+        working-directory: apps/mobile
+        run: npx expo prebuild --platform android --clean --no-install
+
+      - name: 10) Gradle onbellegi
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          build-root-directory: apps/mobile/android
+
+      - name: 11) APK derle (assembleDebug)
+        # DIKKAT: assembleDebug kullaniyoruz. Debug APK, Android'in varsayilan debug
+        # keystore'u ile IMZALANIR ve telefona dogrudan kurulabilir. assembleRelease
+        # ise imzasiz cikar ve "Uygulama yuklenmedi" hatasi verir.
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: 12) APK'yi dogrula
+        run: |
+          set -euo pipefail
+          APK="apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk"
+          if [ ! -f "$APK" ]; then
+            echo "::error::APK bulunamadi: $APK"
+            exit 1
+          fi
+          echo "APK boyutu: $(du -h "$APK" | cut -f1)"
+
+      - name: 13) APK'yi yukle (Artifacts bolumunde gorunur)
+        uses: actions/upload-artifact@v4
+        with:
+          name: kendihikayem-debug-apk
+          path: apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: 14) Hata durumunda Gradle raporlarini yukle
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-hata-raporlari
+          path: |
+            apps/mobile/android/app/build/reports/**
+            apps/mobile/android/build/reports/**
+          retention-days: 7
+          if-no-files-found: ignore

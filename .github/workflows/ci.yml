@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - 'claude/**'
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Tip kontrolu, lint ve testler
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      API_MODE: mock
+      CI: '1'
+
+    steps:
+      - name: 1) Depoyu indir
+        uses: actions/checkout@v4
+
+      - name: 2) pnpm 10.33.0 kur
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+          run_install: false
+
+      - name: 3) Node 22 kur (pnpm store cache ile)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.2
+          cache: pnpm
+
+      - name: 4) Bagimliliklari kur (kilitli surumlerle)
+        run: pnpm install --frozen-lockfile
+
+      - name: 5) Tip kontrolu
+        run: pnpm -w typecheck
+
+      - name: 6) Lint (mimari sinir kurallari dahil)
+        run: pnpm -w lint
+
+      - name: 7) Testler
+        run: pnpm -w test
