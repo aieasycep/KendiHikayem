@@ -183,3 +183,19 @@ export async function refreshMe(): Promise<void> {
     setState({ ...state, phase: res.body.isGuest ? 'guest' : 'user', me: res.body });
   }
 }
+
+/**
+ * A06 / Figma Profile "Çıkış Yap" — oturumu kapatır (`POST /v1/auth/logout`),
+ * saklanan jetonları temizler ve uygulamayı temiz bir misafir oturumuna döndürür.
+ * Sunucu hatası çıkışı ENGELLEMEZ: yerel jetonlar her durumda silinir.
+ */
+export async function signOut(): Promise<void> {
+  await api()
+    .auth.logout({ body: {}, headers: { 'idempotency-key': newIdempotencyKey('cikis') } })
+    .catch(() => undefined);
+  setAccessToken(undefined);
+  await secureSet(KEY_ACCESS, undefined);
+  await secureSet(KEY_GUEST, undefined);
+  setState({ phase: 'idle' });
+  await ensureGuestSession();
+}

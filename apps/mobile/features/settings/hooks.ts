@@ -19,6 +19,7 @@ import type {
   CreditEntry,
   DataMapCategory,
   Me,
+  Order,
   PrivacyRequest,
   PrivacyRequestKind,
   ReportReason,
@@ -74,6 +75,24 @@ export function useCredits() {
         const res = await api().billing.credits({ query: {} });
         if (res.status !== 200) throw asApiError(res.body);
         return { balance: res.body.balance, entries: res.body.entries };
+      } catch (error) {
+        throw toApiError(error);
+      }
+    },
+  });
+}
+
+/* ── Siparişlerim (B08 / Profil menüsü) ──────────────────────── */
+
+export function usePrintOrders(enabled = true) {
+  return useQuery<Order[], ApiError>({
+    queryKey: ['print-orders'],
+    enabled,
+    queryFn: async () => {
+      try {
+        const res = await api().print.listOrders({ query: {} });
+        if (res.status !== 200) throw asApiError(res.body);
+        return res.body.items;
       } catch (error) {
         throw toApiError(error);
       }
