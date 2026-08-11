@@ -19,7 +19,7 @@ jobs:
   apk:
     name: Debug APK derle
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     env:
       # Uygulama tamamen demo veriyle calisir; hicbir AI saglayicisina veya
@@ -70,16 +70,26 @@ jobs:
         run: npx expo prebuild --platform android --clean --no-install
 
       - name: 10) Gradle onbellegi
-        uses: gradle/actions/setup-gradle@v4
+        uses: actions/cache@v4
         with:
-          build-root-directory: apps/mobile/android
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('apps/mobile/package.json', 'pnpm-lock.yaml') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
 
       - name: 11) APK derle (assembleDebug)
         # DIKKAT: assembleDebug kullaniyoruz. Debug APK, Android'in varsayilan debug
         # keystore'u ile IMZALANIR ve telefona dogrudan kurulabilir. assembleRelease
         # ise imzasiz cikar ve "Uygulama yuklenmedi" hatasi verir.
+        #
+        # reactNativeArchitectures: yalnizca gercek telefonlarin mimarileri derlenir
+        # (arm64-v8a = 2017 sonrasi her telefon, armeabi-v7a = eski 32-bit cihazlar).
+        # x86/x86_64 (emulator) atlanir; derleme suresini yaklasik yariya indirir.
+        # Emulatorde test etmek isterseniz listeye x86_64 ekleyin.
         working-directory: apps/mobile/android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: ./gradlew assembleDebug --no-daemon --stacktrace -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
 
       - name: 12) APK'yi dogrula
         run: |
