@@ -25,7 +25,17 @@ export type MockScenario =
   /** Aylık üretim bütçesi doldu: iş HİÇ başlamaz. */
   | 'maliyet_tavani'
   /** Ağ yavaş ve kararsız: rastgele 503'ler. */
-  | 'kararsiz_ag';
+  | 'kararsiz_ag'
+  /**
+   * Medya çözülemiyor: bütün görsel/ses adresleri ölü CDN'e çevrilir.
+   *
+   * Üretimde bunun karşılığı gerçektir — imzalı URL'in süresi dolar, sayfa
+   * `manual_review` kuyruğunda bekler ya da CDN bölgesi düşer. Demo derlemesi
+   * varsayılan olarak gömülü medyayı gösterdiği için bu yol artık kendiliğinden
+   * egzersiz edilmiyor; senaryoyu açan kişi kırık durumu ISTEYEREK prova eder:
+   * kapak yer tutucusu, sayfa monogramı, oynatıcının "sessiz okuma" düşüşü.
+   */
+  | 'medya_404';
 
 export interface MockConfig {
   /** Sabit gecikme ya da [min, max] aralığı (ms). */
