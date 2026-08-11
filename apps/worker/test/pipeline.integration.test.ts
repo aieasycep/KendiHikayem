@@ -101,7 +101,12 @@ describe('flow shape', () => {
       });
 
     expect(build().opts?.jobId).toBe(build().opts?.jobId);
-    expect(build().children?.[0]?.opts?.jobId).toBe('job-3:image:page:01');
+    // Flattened on purpose: BullMQ 6 rejects a custom job id containing `:`,
+    // which is the Redis key separator. `queueJobId` keeps the id deterministic
+    // — that is what makes re-adding a flow a no-op instead of a second book —
+    // and only swaps the separator. Asserting the colon form would be asserting
+    // an id BullMQ would refuse to accept.
+    expect(build().children?.[0]?.opts?.jobId).toBe('job-3__image-page-01');
   });
 });
 
