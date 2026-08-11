@@ -13,6 +13,7 @@
 import {
   serializeServerEvent,
   SSE_HEARTBEAT_MS,
+  type IsoDate,
   type ServerEvent,
 } from '@kendihikayem/contract';
 
@@ -26,8 +27,8 @@ const SSE_HEADERS = {
   connection: 'keep-alive',
 } as const;
 
-function nowIso(): string {
-  return new Date().toISOString().replace('.000Z', 'Z');
+function nowIso(): IsoDate {
+  return new Date().toISOString().replace('.000Z', 'Z') as IsoDate;
 }
 
 type Emit = (event: ServerEvent) => void;

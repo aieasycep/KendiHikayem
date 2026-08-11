@@ -686,11 +686,13 @@ export const commonErrorResponses = {
  * ──────────────────────────────────────────────────────────────────────────── */
 
 /**
- * İnsan ismi allowlist'i (SPEC-API §5.3 `CreateStoryReq.hero.name`).
- * Türkçe harfler + boşluk + kesme/tire. Rakam, emoji, noktalama YOK —
- * isim alanı prompt enjeksiyonunun en kolay girişidir.
+ * İnsan ismi allowlist'i — SPEC §10.4 K1 ile BİREBİR.
+ * En fazla ÜÇ sözcük, yalnızca Türkçe harfler; sözcükler boşluk, kesme ya da
+ * tire ile ayrılır. Rakam, noktalama, satır sonu, emoji YOK. İsim alanı prompt
+ * enjeksiyonunun en kolay girişidir; burada gevşeklik K1 katmanını delerdi.
  */
-export const HUMAN_NAME_PATTERN = /^[A-Za-zÇĞİÖŞÜçğıöşü][A-Za-zÇĞİÖŞÜçğıöşü' -]{0,29}$/u;
+export const HUMAN_NAME_PATTERN =
+  /^[A-Za-zÇĞİÖŞÜçğıöşü]+(?:[ '\-][A-Za-zÇĞİÖŞÜçğıöşü]+){0,2}$/u;
 
 export const humanNameSchema = z
   .string()

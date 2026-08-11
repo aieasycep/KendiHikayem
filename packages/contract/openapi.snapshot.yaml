@@ -1063,12 +1063,12 @@ paths:
                   type: string
                   minLength: 1
                   maxLength: 30
-                  pattern: "^[A-Za-zÇĞİÖŞÜçğıöşü][A-Za-zÇĞİÖŞÜçğıöşü' -]{0,29}$"
+                  pattern: "^[A-Za-zÇĞİÖŞÜçğıöşü]+(?:[ '\\-][A-Za-zÇĞİÖŞÜçğıöşü]+){0,2}$"
                 nickname:
                   type: string
                   minLength: 1
                   maxLength: 30
-                  pattern: "^[A-Za-zÇĞİÖŞÜçğıöşü][A-Za-zÇĞİÖŞÜçğıöşü' -]{0,29}$"
+                  pattern: "^[A-Za-zÇĞİÖŞÜçğıöşü]+(?:[ '\\-][A-Za-zÇĞİÖŞÜçğıöşü]+){0,2}$"
                 ageBand:
                   type: string
                   enum:
@@ -1203,12 +1203,12 @@ paths:
                   type: string
                   minLength: 1
                   maxLength: 30
-                  pattern: "^[A-Za-zÇĞİÖŞÜçğıöşü][A-Za-zÇĞİÖŞÜçğıöşü' -]{0,29}$"
+                  pattern: "^[A-Za-zÇĞİÖŞÜçğıöşü]+(?:[ '\\-][A-Za-zÇĞİÖŞÜçğıöşü]+){0,2}$"
                 nickname:
                   type: string
                   minLength: 1
                   maxLength: 30
-                  pattern: "^[A-Za-zÇĞİÖŞÜçğıöşü][A-Za-zÇĞİÖŞÜçğıöşü' -]{0,29}$"
+                  pattern: "^[A-Za-zÇĞİÖŞÜçğıöşü]+(?:[ '\\-][A-Za-zÇĞİÖŞÜçğıöşü]+){0,2}$"
                 ageBand:
                   type: string
                   enum:
@@ -3452,7 +3452,7 @@ paths:
                       type: string
                       minLength: 1
                       maxLength: 30
-                      pattern: "^[A-Za-zÇĞİÖŞÜçğıöşü][A-Za-zÇĞİÖŞÜçğıöşü' -]{0,29}$"
+                      pattern: "^[A-Za-zÇĞİÖŞÜçğıöşü]+(?:[ '\\-][A-Za-zÇĞİÖŞÜçğıöşü]+){0,2}$"
                     isChild:
                       type: boolean
                   required:
@@ -10466,12 +10466,12 @@ components:
           type: string
           minLength: 1
           maxLength: 30
-          pattern: "^[A-Za-zÇĞİÖŞÜçğıöşü][A-Za-zÇĞİÖŞÜçğıöşü' -]{0,29}$"
+          pattern: "^[A-Za-zÇĞİÖŞÜçğıöşü]+(?:[ '\\-][A-Za-zÇĞİÖŞÜçğıöşü]+){0,2}$"
         nickname:
           type: string
           minLength: 1
           maxLength: 30
-          pattern: "^[A-Za-zÇĞİÖŞÜçğıöşü][A-Za-zÇĞİÖŞÜçğıöşü' -]{0,29}$"
+          pattern: "^[A-Za-zÇĞİÖŞÜçğıöşü]+(?:[ '\\-][A-Za-zÇĞİÖŞÜçğıöşü]+){0,2}$"
         ageBand:
           type: string
           enum:

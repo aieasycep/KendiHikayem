@@ -1,4 +1,15 @@
 {
   "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    /**
+     * Kaynak olarak tüketilen paket (main: ./src/index.ts + tsconfig paths).
+     * Bildirim üretimi, sözleşmenin çıkarsanan dev tiplerini serileştiremediği
+     * için kapalıdır — bkz. packages/contract/tsconfig.json.
+     */
+    "declaration": false,
+    "declarationMap": false,
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"]
+  },
   "include": ["src/**/*.ts"]
 }
