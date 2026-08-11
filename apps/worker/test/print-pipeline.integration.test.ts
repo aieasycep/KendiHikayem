@@ -17,7 +17,14 @@ import { randomUUID } from 'node:crypto';
 
 import { sql } from 'drizzle-orm';
 import type { Database, DbHandle } from '@kendihikayem/db';
-import { KARE21_24_SERT, mmToPx, pageCanvasMm } from '@kendihikayem/pdf';
+import {
+  KARE21_24_SERT,
+  mmToPx,
+  pageCanvasMm,
+  type LoadedPrintImage,
+  type PrintImageRequest,
+  type PrintImageSource,
+} from '@kendihikayem/pdf';
 import { demoAssetPath } from '@kendihikayem/pdf/demo/story';
 import { SharpPrintImageSource } from '@kendihikayem/pdf/demo/sharp-image-source';
 import { InMemoryManualPrintStore, ManualTrPrintAdapter } from '@kendihikayem/providers';
@@ -393,12 +400,19 @@ describe('manual_tr — iş emri', () => {
   });
 });
 
-/** Maps the seeded asset ids onto the demo illustrations, then resamples them with sharp. */
-class DemoAssetSource extends SharpPrintImageSource {
+/**
+ * Maps the seeded asset ids onto the demo illustrations and resamples them with sharp.
+ *
+ * The sharp source is shared across tests on purpose: resampling 13 pictures to print size
+ * is the slowest thing in this file, and every test uses the same pictures. Keying the
+ * cache on the FILE (not the asset id) is what makes the reuse work.
+ */
+const demoImages = new SharpPrintImageSource({ allowUpscale: true, quality: 78 });
+
+class DemoAssetSource implements PrintImageSource {
   private readonly byAssetId = new Map<string, string>();
 
   constructor(assetIds: string[]) {
-    super({ allowUpscale: true, quality: 80 });
     // assetIds[0] is the cover, then pages 1..12.
     this.byAssetId.set(assetIds[0] ?? '', demoAssetPath('elif-kapak.webp'));
     assetIds.slice(1).forEach((assetId, index) => {
@@ -409,11 +423,9 @@ class DemoAssetSource extends SharpPrintImageSource {
     });
   }
 
-  override async load(
-    request: Parameters<SharpPrintImageSource['load']>[0],
-  ): ReturnType<SharpPrintImageSource['load']> {
+  async load(request: PrintImageRequest): Promise<LoadedPrintImage> {
     const file = this.byAssetId.get(request.ref.ref);
     if (!file) throw new Error(`no demo file mapped for asset ${request.ref.ref}`);
-    return super.load({ ...request, ref: { ...request.ref, ref: file } });
+    return demoImages.load({ ...request, ref: { ...request.ref, ref: file } });
   }
 }
