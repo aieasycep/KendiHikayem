@@ -1,0 +1,21 @@
+{
+  "name": "@kendihikayem/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "BullMQ workers: llm, image, voice, media, print, ops",
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "node --experimental-strip-types --watch src/index.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@kendihikayem/config": "workspace:*",
+    "@kendihikayem/contract": "workspace:*",
+    "@kendihikayem/db": "workspace:*",
+    "@kendihikayem/providers": "workspace:*",
+    "@kendihikayem/shared": "workspace:*",
+    "bullmq": "6.0.11"
+  }
+}

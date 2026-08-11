@@ -1,0 +1,23 @@
+{
+  "name": "@kendihikayem/mock",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "MSW handlers and Turkish fixtures",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@kendihikayem/contract": "workspace:*",
+    "@kendihikayem/shared": "workspace:*",
+    "msw": "2.15.0",
+    "zod": "3.25.76"
+  }
+}

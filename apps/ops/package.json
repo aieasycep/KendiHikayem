@@ -1,0 +1,18 @@
+{
+  "name": "@kendihikayem/ops",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Internal ops console (F3) — scaffold placeholder",
+  "main": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@kendihikayem/contract": "workspace:*",
+    "@kendihikayem/mock": "workspace:*",
+    "@kendihikayem/shared": "workspace:*",
+    "@kendihikayem/ui": "workspace:*"
+  }
+}

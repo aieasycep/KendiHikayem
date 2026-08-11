@@ -1,0 +1,18 @@
+{
+  "name": "@kendihikayem/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Next.js 15 PWA (F1 + F2) — scaffold placeholder",
+  "main": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@kendihikayem/contract": "workspace:*",
+    "@kendihikayem/mock": "workspace:*",
+    "@kendihikayem/shared": "workspace:*",
+    "@kendihikayem/ui": "workspace:*"
+  }
+}

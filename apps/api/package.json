@@ -1,0 +1,24 @@
+{
+  "name": "@kendihikayem/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Fastify + ts-rest HTTP layer (thin: validation, auth, enqueue)",
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "node --experimental-strip-types --watch src/index.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@kendihikayem/config": "workspace:*",
+    "@kendihikayem/contract": "workspace:*",
+    "@kendihikayem/db": "workspace:*",
+    "@kendihikayem/shared": "workspace:*",
+    "@ts-rest/core": "3.52.1",
+    "@ts-rest/fastify": "3.52.1",
+    "@ts-rest/open-api": "3.52.1",
+    "fastify": "5.11.3",
+    "zod": "3.25.76"
+  }
+}

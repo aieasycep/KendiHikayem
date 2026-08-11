@@ -1,0 +1,17 @@
+{
+  "name": "@kendihikayem/media",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ffmpeg audio and sharp image utilities",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  }
+}
