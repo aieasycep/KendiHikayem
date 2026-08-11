@@ -25,10 +25,10 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-import { assets } from './assets.ts';
-import { artStyles, storyThemes } from './catalog.ts';
-import { children } from './children.ts';
-import { users } from './identity.ts';
+import { assets } from './assets';
+import { artStyles, storyThemes } from './catalog';
+import { children } from './children';
+import { users } from './identity';
 import {
   AGE_BAND,
   IMAGE_STATUS,
@@ -43,7 +43,7 @@ import {
   type StoryOutline,
   inValues,
   tstz,
-} from './types.ts';
+} from './types';
 
 export const stories = pgTable(
   'stories',

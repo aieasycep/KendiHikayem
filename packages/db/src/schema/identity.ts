@@ -24,7 +24,7 @@ import {
   citext,
   inValues,
   tstz,
-} from './types.ts';
+} from './types';
 
 export const users = pgTable(
   'users',

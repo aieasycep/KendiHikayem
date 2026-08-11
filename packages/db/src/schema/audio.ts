@@ -27,9 +27,9 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-import { assets } from './assets.ts';
-import { systemVoices } from './catalog.ts';
-import { stories, storyPages } from './stories.ts';
+import { assets } from './assets';
+import { systemVoices } from './catalog';
+import { stories, storyPages } from './stories';
 import {
   ALIGNMENT_SOURCE,
   AUDIO_BILLING_UNIT,
@@ -39,8 +39,8 @@ import {
   type JobError,
   inValues,
   tstz,
-} from './types.ts';
-import { voiceProfiles } from './voice.ts';
+} from './types';
+import { voiceProfiles } from './voice';
 
 export const audioRenditions = pgTable(
   'audio_renditions',

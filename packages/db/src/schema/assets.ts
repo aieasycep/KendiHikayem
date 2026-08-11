@@ -22,8 +22,8 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-import { users } from './identity.ts';
-import { ASSET_KIND, RETENTION_CLASS, inValues, tstz } from './types.ts';
+import { users } from './identity';
+import { ASSET_KIND, RETENTION_CLASS, inValues, tstz } from './types';
 
 export const assets = pgTable(
   'assets',

@@ -28,9 +28,9 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-import { assets } from './assets.ts';
-import { users } from './identity.ts';
-import { stories } from './stories.ts';
+import { assets } from './assets';
+import { users } from './identity';
+import { stories } from './stories';
 import {
   ABUSE_REASON,
   ABUSE_STATUS,
@@ -48,7 +48,7 @@ import {
   type JsonObject,
   inValues,
   tstz,
-} from './types.ts';
+} from './types';
 
 export const moderationEvents = pgTable(
   'moderation_events',

@@ -29,9 +29,9 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-import { assets } from './assets.ts';
-import { consents } from './consents.ts';
-import { users } from './identity.ts';
+import { assets } from './assets';
+import { consents } from './consents';
+import { users } from './identity';
 import {
   VOICE_BINDING_PROVIDER,
   VOICE_BINDING_STATE,
@@ -43,7 +43,7 @@ import {
   type VoiceQuality,
   inValues,
   tstz,
-} from './types.ts';
+} from './types';
 
 /** Versioned passages the parent reads aloud. Turkish-heavy on ğıöüşç by design. */
 export const voiceScripts = pgTable(

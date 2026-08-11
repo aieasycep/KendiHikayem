@@ -5,14 +5,17 @@
  * transaction, tracked in `drizzle.__drizzle_migrations`. Uses a pool of 1: a migration is
  * not a workload, and a second connection only invites a lock ordering surprise.
  *
- * Runs under Node's native TypeScript stripping — no transpiler in the dependency graph.
+ * Run through `tsx` (see package.json). `tsx` is not declared here on purpose: it arrives
+ * with drizzle-kit, which is already a pinned devDependency of this package. Relative
+ * imports stay extensionless so `apps/api` and `apps/worker` can typecheck this package
+ * under their own tsconfig, which does not enable `allowImportingTsExtensions`.
  */
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 
-import { createDb, resolveCliDatabaseUrl } from './client.ts';
+import { createDb, resolveCliDatabaseUrl } from './client';
 
 const migrationsFolder = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
 

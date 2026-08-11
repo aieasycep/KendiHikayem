@@ -40,8 +40,8 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-import { users } from './identity.ts';
-import { jobSteps, jobs } from './jobs.ts';
+import { users } from './identity';
+import { jobSteps, jobs } from './jobs';
 import {
   CIRCUIT_STATE,
   CREDIT_REASON,
@@ -53,7 +53,7 @@ import {
   type JsonObject,
   inValues,
   tstz,
-} from './types.ts';
+} from './types';
 
 export const plans = pgTable(
   'plans',

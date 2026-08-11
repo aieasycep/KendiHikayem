@@ -10,7 +10,7 @@
  */
 import { eq } from 'drizzle-orm';
 
-import type { Database } from '../client.ts';
+import type { Database } from '../client';
 import {
   assets,
   audioPageMarks,
@@ -31,9 +31,9 @@ import {
   voiceProfiles,
   voiceProviderBindings,
   voiceTakes,
-} from '../schema/index.ts';
-import { consentDocumentSha } from './catalog.ts';
-import { seedId, sha256 } from './ids.ts';
+} from '../schema/index';
+import { consentDocumentSha } from './catalog';
+import { seedId, sha256 } from './ids';
 
 const NOW = new Date('2026-02-01T20:00:00Z');
 const TEN_YEARS = new Date('2036-02-01T20:00:00Z');

@@ -11,7 +11,7 @@
  */
 import { boolean, check, integer, jsonb, numeric, pgTable, text, unique, uuid } from 'drizzle-orm/pg-core';
 
-import { assets } from './assets.ts';
+import { assets } from './assets';
 import {
   AGE_BAND,
   BOOK_BINDING,
@@ -20,7 +20,7 @@ import {
   SYSTEM_VOICE_GENDER,
   type JsonObject,
   inValues,
-} from './types.ts';
+} from './types';
 
 export const storyThemes = pgTable('story_themes', {
   /** e.g. 'uyku_oncesi', '23_nisan'. */

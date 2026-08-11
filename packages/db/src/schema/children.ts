@@ -11,9 +11,9 @@
 import { sql } from 'drizzle-orm';
 import { type AnyPgColumn, check, index, integer, pgTable, text, uuid } from 'drizzle-orm/pg-core';
 
-import { users } from './identity.ts';
-import { storyCharacters } from './stories.ts';
-import { AGE_BAND, GENDER_PRESENTATION, inValues, tstz } from './types.ts';
+import { users } from './identity';
+import { storyCharacters } from './stories';
+import { AGE_BAND, GENDER_PRESENTATION, inValues, tstz } from './types';
 
 export const children = pgTable(
   'children',

@@ -14,8 +14,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "node src/migrate.ts",
-    "db:seed": "node src/seed/index.ts",
+    "db:migrate": "tsx src/migrate.ts",
+    "db:seed": "tsx src/seed/index.ts",
     "db:studio": "drizzle-kit studio",
     "db:check": "drizzle-kit check"
   },

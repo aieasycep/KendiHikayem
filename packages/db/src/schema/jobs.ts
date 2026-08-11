@@ -37,10 +37,10 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-import { assets } from './assets.ts';
-import { users } from './identity.ts';
-import { orders } from './orders.ts';
-import { stories } from './stories.ts';
+import { assets } from './assets';
+import { users } from './identity';
+import { orders } from './orders';
+import { stories } from './stories';
 import {
   CONTENT_CACHE_KIND,
   JOB_KIND,
@@ -50,8 +50,8 @@ import {
   type JsonObject,
   inValues,
   tstz,
-} from './types.ts';
-import { voiceProfiles } from './voice.ts';
+} from './types';
+import { voiceProfiles } from './voice';
 
 export const jobs = pgTable(
   'jobs',

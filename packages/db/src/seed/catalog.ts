@@ -6,7 +6,7 @@
  * has nothing to build a prompt from. It is upserted, so re-running the seed refreshes the
  * copy without duplicating rows.
  */
-import type { Database } from '../client.ts';
+import type { Database } from '../client';
 import {
   artStyles,
   bookFormats,
@@ -16,8 +16,8 @@ import {
   storyThemes,
   systemVoices,
   voiceScripts,
-} from '../schema/index.ts';
-import { seedId, sha256 } from './ids.ts';
+} from '../schema/index';
+import { seedId, sha256 } from './ids';
 
 const EPOCH = new Date('2026-01-01T00:00:00Z');
 

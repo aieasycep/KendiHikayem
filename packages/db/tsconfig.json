@@ -1,10 +1,4 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    // Relative imports carry an explicit `.ts` extension so the CLI entry points
-    // (db:migrate, db:seed) run under Node 22's native type stripping — `node src/seed/index.ts`,
-    // no extra runtime dependency. Safe here because the base config is noEmit.
-    "allowImportingTsExtensions": true
-  },
   "include": ["src/**/*.ts", "drizzle.config.ts"]
 }

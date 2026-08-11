@@ -15,5 +15,5 @@
  *
  * This package is server-only. `eslint.config.mjs` refuses to let a client app import it.
  */
-export * from './client.ts';
-export * from './schema/index.ts';
+export * from './client';
+export * from './schema/index';

@@ -28,13 +28,13 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
-import { assets } from './assets.ts';
-import { audioRenditions } from './audio.ts';
-import { subscriptions } from './billing.ts';
-import { bookFormats } from './catalog.ts';
-import { legalDocuments } from './consents.ts';
-import { users } from './identity.ts';
-import { stories } from './stories.ts';
+import { assets } from './assets';
+import { audioRenditions } from './audio';
+import { subscriptions } from './billing';
+import { bookFormats } from './catalog';
+import { legalDocuments } from './consents';
+import { users } from './identity';
+import { stories } from './stories';
 import {
   BOOK_BUILD_STATUS,
   ORDER_STATUS,
@@ -48,7 +48,7 @@ import {
   type PrintFiles,
   inValues,
   tstz,
-} from './types.ts';
+} from './types';
 
 export const bookBuilds = pgTable(
   'book_builds',

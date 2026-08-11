@@ -12,7 +12,7 @@
  */
 import { bigserial, check, index, inet, jsonb, pgTable, text, uuid } from 'drizzle-orm/pg-core';
 
-import { AUDIT_ACTOR_TYPE, type JsonObject, inValues, tstz } from './types.ts';
+import { AUDIT_ACTOR_TYPE, type JsonObject, inValues, tstz } from './types';
 
 export const auditLog = pgTable(
   'audit_log',

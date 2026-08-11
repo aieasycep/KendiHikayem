@@ -9,9 +9,9 @@
  *      is the kind of mistake that only gets noticed by a customer.
  *
  * Every row is keyed by a deterministic UUID, so running this twice is a no-op rather than
- * a duplicate. Runs under Node's native TypeScript stripping — no transpiler needed.
+ * a duplicate — verified by running it twice and diffing the row counts.
  */
-import { createDb, resolveCliDatabaseUrl } from '../client.ts';
+import { createDb, resolveCliDatabaseUrl } from '../client';
 import {
   seedArtStyles,
   seedBookFormats,
@@ -21,8 +21,8 @@ import {
   seedStoryThemes,
   seedSystemVoices,
   seedVoiceScripts,
-} from './catalog.ts';
-import { seedDevData } from './dev.ts';
+} from './catalog';
+import { seedDevData } from './dev';
 
 const log = (line: string): void => {
   process.stdout.write(`${line}\n`);

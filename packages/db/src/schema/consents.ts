@@ -14,16 +14,16 @@
  */
 import { boolean, check, index, inet, pgTable, text, unique, uuid } from 'drizzle-orm/pg-core';
 
-import { assets } from './assets.ts';
-import { children } from './children.ts';
-import { users } from './identity.ts';
+import { assets } from './assets';
+import { children } from './children';
+import { users } from './identity';
 import {
   CONSENT_METHOD,
   CONSENT_SUBJECT,
   LEGAL_DOCUMENT_KIND,
   inValues,
   tstz,
-} from './types.ts';
+} from './types';
 
 export const legalDocuments = pgTable(
   'legal_documents',
