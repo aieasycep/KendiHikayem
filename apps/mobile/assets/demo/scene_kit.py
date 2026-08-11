@@ -16,7 +16,7 @@ import math
 import random
 from typing import Iterable, Sequence
 
-from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
 RGB = tuple[int, int, int]
 
@@ -189,11 +189,13 @@ def child_silhouette(
             [x - head_r * 1.1, head_cy - head_r * 1.1, x + head_r * 1.1, head_cy + head_r * 0.4],
             fill=color,
         )
+        tail_a = x - facing * head_r * 2.0
+        tail_b = x - facing * head_r * 0.9
         draw.ellipse(
             [
-                x - facing * head_r * 2.0,
+                min(tail_a, tail_b),
                 head_cy - head_r * 0.3,
-                x - facing * head_r * 0.9,
+                max(tail_a, tail_b),
                 head_cy + head_r * 1.5,
             ],
             fill=color,
@@ -310,7 +312,7 @@ def vignette(base: Image.Image, strength: float = 0.42) -> Image.Image:
     return Image.composite(base, faded, mask)
 
 
-def safe_zone(base: Image.Image, zone: str, strength: float = 0.55) -> Image.Image:
+def safe_zone(base: Image.Image, zone: str, strength: float = 0.42) -> Image.Image:
     """Metin kutusunun oturacağı bölgeyi SAKİNLEŞTİRİR (koyultur).
 
     Sözleşmedeki `safeZone` alanının görsel karşılığı: metin oraya basıldığında
@@ -359,13 +361,21 @@ def finish(
     img: Image.Image,
     seed: int,
     zone: str | None = "bottom",
-    vig: float = 0.42,
+    vig: float = 0.30,
     mark: bool = True,
+    lift: float = 1.06,
 ) -> Image.Image:
+    """Ortak bitirici: güvenli alan → vinyet → grain → 'DEMO' damgası.
+
+    `lift` küçük bir parlaklık artışıdır: telefon ekranı gece modunda zaten kısık
+    olur, kareler bir tık açık olmadan ekranda "kapkara" görünüyor.
+    """
     if zone is not None:
         img = safe_zone(img, zone)
     img = vignette(img, vig)
     img = grain(img, seed)
+    if lift != 1.0:
+        img = ImageEnhance.Brightness(img).enhance(lift)
     if mark:
         img = demo_mark(img)
     return img
