@@ -61,6 +61,14 @@ export const printAdapterSchema = z.enum(['manual_tr', 'cloudprinter', 'gelato',
 export type PrintAdapter = z.infer<typeof printAdapterSchema>;
 
 /**
+ * Secondary LLM vendor the router falls over to when the primary is exhausted.
+ * `none` = single-provider route (the default): a fallback nobody has ever exercised is a
+ * liability, so it is opt-in per environment.
+ */
+export const llmFallbackProviderSchema = z.enum(['none', 'openai']);
+export type LlmFallbackProvider = z.infer<typeof llmFallbackProviderSchema>;
+
+/**
  * Who draws. `fake` is the in-repo deterministic double — it is a legitimate production
  * value in `API_MODE=mock`, and the only value that works with no vendor key at all.
  */
@@ -144,8 +152,58 @@ export const envSchema = z
     LLM_MODEL_JUDGE: z.string().min(1).default('claude-haiku-4-5'),
     LLM_FILL_EFFORT: z.enum(['low', 'medium', 'high']).default('high'),
 
+    /* ── 7a. Hikaye üretimi (A3) ───────────────────────────────────────────
+     * Model ids above, wiring here. The story pipeline reads every one of these at boot;
+     * none of it may appear as a literal in code (SPEC §3 rule 6). */
+    ANTHROPIC_BASE_URL: z.string().url().default('https://api.anthropic.com'),
+    /** Pinned wire version. A vendor bumping this must be a config change, not a surprise. */
+    ANTHROPIC_API_VERSION: z.string().min(1).default('2023-06-01'),
+    /** Comma-separated `anthropic-beta` header values; empty = none. */
+    ANTHROPIC_BETA: zOptionalString(),
+    /** Wall-clock budget for ONE completion. Stage 2 with effort:high is genuinely slow. */
+    LLM_REQUEST_TIMEOUT_MS: zInt(180_000, 1_000, 900_000),
+    /** Output ceiling per stage. Stage 2 emits ~7k tokens for a 12-spread book (SPEC §6.1). */
+    LLM_MAX_OUTPUT_TOKENS_OUTLINE: zInt(4_000, 256, 64_000),
+    LLM_MAX_OUTPUT_TOKENS_FILL: zInt(12_000, 256, 64_000),
+    LLM_MAX_OUTPUT_TOKENS_JUDGE: zInt(1_500, 128, 32_000),
+    /**
+     * ⚠️ `adaptive` is the ONLY thinking mode current flagship models accept; the old
+     * fixed `budget_tokens` form is rejected outright by them, so it is not configurable
+     * here. `off` sends no thinking field at all — required for cheap-tier models that do
+     * not implement adaptive thinking.
+     */
+    LLM_THINKING_MODE: z.enum(['off', 'adaptive']).default('adaptive'),
+    /**
+     * Reasoning effort per stage. `none` omits the field entirely: the judge runs on a
+     * cheap-tier model that rejects an effort hint, and sending one is a 400, not a
+     * downgrade. (`LLM_FILL_EFFORT` above carries the stage-2 value.)
+     */
+    LLM_OUTLINE_EFFORT: z.enum(['none', 'low', 'medium', 'high']).default('medium'),
+    LLM_JUDGE_EFFORT: z.enum(['none', 'low', 'medium', 'high']).default('none'),
+    /** The judge model is a cheap tier; thinking is off there regardless of the mode. */
+    LLM_JUDGE_THINKING_MODE: z.enum(['off', 'adaptive']).default('off'),
+    /** Schema mismatch ⇒ re-ask with the validator's complaint. Then give up. */
+    LLM_SCHEMA_REPAIR_ATTEMPTS: zInt(2, 0, 5),
+    /** Quality gate / judge rejection ⇒ regenerate. SPEC §10.4 K4: max 2, then refund. */
+    STORY_QUALITY_MAX_ATTEMPTS: zInt(3, 1, 5),
+    /** `false` = a failing TR quality gate only warns. Never set false in production. */
+    STORY_QUALITY_GATE_ENFORCED: zBool(true),
+    /** Secondary LLM vendor for the router. `none` = single-provider route. */
+    LLM_FALLBACK_PROVIDER: llmFallbackProviderSchema.default('none'),
+    LLM_MODEL_FALLBACK_OUTLINE: z.string().min(1).default('gpt-5.6-terra'),
+    LLM_MODEL_FALLBACK_FILL: z.string().min(1).default('gpt-5.6-sol'),
+    LLM_MODEL_FALLBACK_JUDGE: z.string().min(1).default('gpt-5.6-luna'),
+
     OPENAI_API_KEY: zOptionalString(),
+    OPENAI_BASE_URL: z.string().url().default('https://api.openai.com'),
     MODERATION_MODEL: z.string().min(1).default('omni-moderation-latest'),
+    /** Moderation is free and on the critical path; it must fail fast, not hang. */
+    MODERATION_TIMEOUT_MS: zInt(15_000, 500, 120_000),
+    /**
+     * `flag` scores at or above this become a BLOCK for a children's product. The vendor's
+     * own boolean is tuned for a general audience; ours is not.
+     */
+    MODERATION_BLOCK_THRESHOLD: zNumber(0.5, 0),
 
     GOOGLE_GENAI_API_KEY: zOptionalString(),
     IMAGE_MODEL_PRIMARY: z.string().min(1).default('gemini-3-pro-image'),
@@ -175,7 +233,7 @@ export const envSchema = z
     /** Normalised edge energy allowed inside the typeset text safe zone (0..1). */
     IMAGE_QA_SAFE_ZONE_MAX: zNumber(0.35, 0),
     /** Text/letter artefact score (0..1). SPEC §8.4: images carry NO text at all. */
-    IMAGE_QA_TEXT_SCORE_MAX: zNumber(0.5, 0),
+    IMAGE_QA_TEXT_SCORE_MAX: zNumber(0.35, 0),
     /**
      * Fail-closed switch. A QA check whose backend is not deployed (no face-embedding
      * service) reports `unavailable`. `false` = ship the page and record the gap;
@@ -209,6 +267,74 @@ export const envSchema = z
     VOICE_FALLBACK: voiceProviderSchema.default('cartesia'),
     VOICE_SLOT_LIMIT: zInt(660, 1, 100000),
     WHISPERX_URL: zOptionalString(),
+
+    /* ── 7b. Seslendirme ve ses klonlama (A5) ──────────────────────────────
+     * Endpoints, budgets and voice-cloning policy. Same rule as everywhere else: no model
+     * id, voice id or URL is a literal in code (SPEC §3 rule 6) — the day a key arrives,
+     * `API_MODE=live` is the only edit that should be needed. */
+    ELEVENLABS_BASE_URL: z.string().url().default('https://api.elevenlabs.io'),
+    CARTESIA_BASE_URL: z.string().url().default('https://api.cartesia.ai'),
+    /** Pinned wire version; a vendor bumping it must be a config change, not a surprise. */
+    CARTESIA_API_VERSION: z.string().min(1).default('2024-11-13'),
+    CARTESIA_MODEL_QUALITY: z.string().min(1).default('sonic-2'),
+    CARTESIA_MODEL_DRAFT: z.string().min(1).default('sonic-turbo'),
+    /** One chunk of narration. Long enough to keep prosody, short enough to re-render cheap. */
+    TTS_REQUEST_TIMEOUT_MS: zInt(120_000, 1_000, 600_000),
+    /** Voice creation uploads ~2 MB of reference audio and is slow on the vendor side. */
+    TTS_VOICE_CREATE_TIMEOUT_MS: zInt(240_000, 1_000, 900_000),
+    /**
+     * Wire format we ask the vendor for. PCM by default and deliberately so: concatenation,
+     * loudness normalisation and silence trimming all happen in-process, and re-encoding
+     * MP3 per chunk would stack generation loss across twelve pages of a book.
+     */
+    TTS_OUTPUT_FORMAT: z.enum(['mp3_44100_128', 'pcm_48000', 'opus_48000']).default('pcm_48000'),
+    /**
+     * Chunk ceiling in characters. Below the vendor's own limit on purpose: the chunk is the
+     * unit of the content cache, so a smaller chunk means editing page 3 re-renders less
+     * (SPEC §6.2 rule 4). Chunks still split on page/paragraph lines, never mid-sentence.
+     */
+    TTS_CHUNK_MAX_CHARS: zInt(1_800, 200, 5_000),
+    /** SPEC §7 step 10: four concurrent chunk renders. */
+    TTS_CHUNK_CONCURRENCY: zInt(4, 1, 16),
+    /** Silence inserted between chunks when they are joined, in ms (SPEC §7 step 10). */
+    TTS_CHUNK_GAP_MS: zInt(350, 0, 3_000),
+    /** Integrated loudness target for the finished narration (SPEC §7 step 10: −16 LUFS). */
+    TTS_LOUDNESS_TARGET_LUFS: z.coerce.number().min(-40).max(-6).default(-16),
+    /** True-peak ceiling after normalisation, dBTP. */
+    TTS_LOUDNESS_PEAK_CEILING_DB: z.coerce.number().min(-6).max(0).default(-1.5),
+    /** Bedtime mode: gain at the last page, relative to the first (contract audio.ts). */
+    TTS_BEDTIME_END_GAIN: z.coerce.number().min(0.1).max(1).default(0.6),
+    /** Voice-clone timbre knobs. Vendor-neutral names; each adapter maps them to its API. */
+    TTS_VOICE_STABILITY: z.coerce.number().min(0).max(1).default(0.45),
+    TTS_VOICE_SIMILARITY: z.coerce.number().min(0).max(1).default(0.85),
+    TTS_VOICE_STYLE: z.coerce.number().min(0).max(1).default(0.35),
+    TTS_VOICE_SPEAKER_BOOST: zBool(true),
+    /**
+     * ⚠️ SPEC §14 R5. When true, a cloned voice is deleted at the vendor as soon as the
+     * render finishes, so the 660-slot ceiling stops being a hard cap on paying customers.
+     * The trade is latency: the next story re-uploads the reference. Off by default because
+     * re-creation must be proven reliable before it sits in front of a parent.
+     */
+    VOICE_EPHEMERAL: zBool(false),
+    /** How long an idle provider binding may hold a slot before the LRU sweep evicts it. */
+    VOICE_BINDING_IDLE_HOURS: zInt(72, 1, 8_760),
+    /** Fraction of the slot ceiling at which eviction starts. 0.9 = evict from 594 of 660. */
+    VOICE_SLOT_HIGH_WATER: z.coerce.number().min(0.1).max(1).default(0.9),
+    /**
+     * ⚠️ KVKK. Raw reference recordings are destroyed this many days after the parent
+     * accepts the profile (SPEC §7 step 9). Consent clips are NOT covered by this — they
+     * carry `legal_hold_10y` and outlive the account on purpose.
+     */
+    VOICE_RAW_RETENTION_DAYS: zInt(30, 1, 365),
+    /** ASR/forced-alignment request budget. Alignment is per-render, not per-chunk. */
+    ALIGN_REQUEST_TIMEOUT_MS: zInt(180_000, 1_000, 900_000),
+    ALIGN_MODEL: z.string().min(1).default('whisperx-large-v3-tr'),
+    /**
+     * `ffmpeg` binary, for decoding the container formats the phone records (m4a/webm).
+     * WAV is decoded in-process and needs nothing. Empty ⇒ non-WAV uploads are rejected
+     * with a clear error rather than silently mis-measured.
+     */
+    AUDIO_FFMPEG_PATH: zOptionalString(),
 
     // 8. commerce & print
     IYZICO_API_KEY: zOptionalString(),
