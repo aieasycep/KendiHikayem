@@ -1,10 +1,13 @@
+import { useAudioPlayer } from 'expo-audio';
 import { useRouter } from 'expo-router';
+import { useMemo } from 'react';
 import type { ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
-import { Button, Text, palette } from '@kendihikayem/ui';
+import { possessive } from '@kendihikayem/shared';
+import { Button, PlayIcon, Text, palette } from '@kendihikayem/ui';
 
-import { SecondaryButton } from '../../../features/onboarding/components';
+import { useVoiceProfiles } from '../../../features/onboarding/catalogHooks';
 import { useVoiceFlow } from '../../../features/voice/flow';
 import { NightScreen } from '../../../features/wizard/NightFlow';
 
@@ -18,14 +21,23 @@ const CONFETTI = [
 ] as const;
 
 /**
- * V09 — Hazır. Gece kutlama ekranı (Figma `VoiceStudio` success) + the upsell
- * hook the SPEC names: "Bu sesle yeniden seslendirelim mi?" → the library,
- * where narration lives (audio render itself is behind KAPI 2 / F2).
+ * V09 — Hazır (Figma `VoiceStudio` success görünümü BİREBİR): konfeti, 🎉
+ * dairesi, "{Ad}'in sesi hazır!", örnek dinleme satırı, "Bu Sesi Kullan" +
+ * "Yeniden Oluştur".
  */
 export default function Hazir(): ReactNode {
   const router = useRouter();
   const flow = useVoiceFlow();
-  const name = flow.state.displayName === '' ? 'Sesiniz' : `${flow.state.displayName} sesi`;
+  const profiles = useVoiceProfiles();
+
+  const name = flow.state.displayName;
+  const profile = profiles.data?.items.find(
+    (item) => (item.id as string) === flow.state.profileId,
+  );
+  const previewUrl = profile?.preview?.url;
+
+  const source = useMemo(() => (previewUrl !== undefined ? { uri: previewUrl } : null), [previewUrl]);
+  const player = useAudioPlayer(source);
 
   return (
     <NightScreen scroll testID="ses-hazir">
@@ -44,42 +56,62 @@ export default function Hazir(): ReactNode {
           </Text>
         </View>
         <Text variant="title" center style={styles.title} accessibilityRole="header">
-          {`${name} hazır!`}
+          {name === '' ? 'Sesin hazır!' : `${possessive(name)} sesi hazır!`}
         </Text>
         <Text variant="body" center style={styles.lead}>
-          Bundan sonra her masalı kendi sesinizle seslendirebilirsiniz. Çocuğunuz sayfaları
-          sizin sesinizden dinleyecek — siz yanında olmasanız bile.
+          Sesin hazır. Artık masalları sen anlatabilirsin.
         </Text>
       </View>
 
-      <View style={styles.suggestBox}>
-        <Text variant="heading" style={styles.suggestTitle}>
-          Bu sesle yeniden seslendirelim mi?
-        </Text>
-        <Text variant="caption" style={styles.suggestText}>
-          Kitaplığınızdaki hikayeleri açın, “Sesler” bölümünden kendi sesinizi seçin. Hazır
-          sesle üretilmiş sayfalar yeniden seslendirilir.
-        </Text>
+      {/* ── Figma örnek dinleme satırı ──────────────────────── */}
+      <View style={styles.sampleRow}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Ses örneği dinle"
+          disabled={previewUrl === undefined}
+          onPress={() => {
+            try {
+              player.seekTo(0).catch(() => undefined);
+              player.play();
+            } catch {
+              /* örnek dosya bu ortamda paketli olmayabilir; sessizce geç */
+            }
+          }}
+          style={({ pressed }) => [
+            styles.samplePlay,
+            { opacity: previewUrl === undefined ? 0.4 : pressed ? 0.8 : 1 },
+          ]}
+        >
+          <PlayIcon size={16} color="#FFFFFF" />
+        </Pressable>
+        <View style={styles.sampleBody}>
+          <Text style={styles.sampleLabel}>Ses örneği dinle</Text>
+          <View style={styles.sampleTrack}>
+            <View style={styles.sampleFill} />
+          </View>
+        </View>
       </View>
 
-      <Button
-        label="Kitaplığa git"
-        onPress={() => {
-          flow.reset();
-          router.replace('/(app)/kitaplik');
-        }}
-      />
-      <SecondaryButton
-        label="Sesler ekranına dön"
-        onPress={() => {
-          flow.reset();
-          router.replace('/(app)/ses');
-        }}
-      />
-      <Text variant="caption" center style={styles.footnote}>
-        Sesinizi silmek isterseniz: Ayarlar → Sesim → Sil. Sağlayıcıdaki kopya da dahil her şey
-        silinir; hikayeleriniz sistem sesine döner.
-      </Text>
+      <View style={styles.buttons}>
+        <Button
+          label="Bu Sesi Kullan"
+          onPress={() => {
+            flow.reset();
+            router.replace('/(app)/kitaplik');
+          }}
+        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Yeniden oluştur"
+          onPress={() => {
+            flow.reset();
+            router.replace('/(app)/ses');
+          }}
+          style={({ pressed }) => [styles.ghostButton, pressed && { opacity: 0.85 }]}
+        >
+          <Text style={styles.ghostLabel}>Yeniden Oluştur</Text>
+        </Pressable>
+      </View>
     </NightScreen>
   );
 }
@@ -88,6 +120,7 @@ const styles = StyleSheet.create({
   confetti: { position: 'absolute', width: 10, height: 10, borderRadius: 5, opacity: 0.85 },
 
   hero: { alignItems: 'center', gap: 16, paddingTop: 40 },
+  /* Figma: 100'lük adaçayı dairesi, 2 px kenarlık. */
   celebrationCircle: {
     width: 100,
     height: 100,
@@ -99,20 +132,54 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   celebrationEmoji: { fontSize: 44 },
-  title: { color: '#FFFFFF' },
-  lead: { color: 'rgba(232,224,212,0.9)' },
+  /* Figma: Fraunces 28/700 beyaz. */
+  title: { color: '#FFFFFF', fontSize: 28, lineHeight: 36 },
+  lead: { color: 'rgba(176,156,224,0.8)', fontSize: 15, lineHeight: 24 },
 
-  suggestBox: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderColor: 'rgba(255,255,255,0.14)',
+  /* Figma: 16/20 dolgu · 16 yarıçap · rgba beyaz .08 zemin · 1 px rgba .12. */
+  sampleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 1,
-    borderRadius: 20,
-    padding: 20,
-    gap: 6,
-    marginTop: 8,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
-  suggestTitle: { color: '#FFFFFF', fontSize: 19, lineHeight: 25 },
-  suggestText: { color: 'rgba(232,224,212,0.85)', fontSize: 14, lineHeight: 20 },
+  samplePlay: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#7C5CBF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sampleBody: { flex: 1, gap: 6 },
+  sampleLabel: { color: '#FFFFFF', fontSize: 13, lineHeight: 17, fontWeight: '600' },
+  sampleTrack: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    overflow: 'hidden',
+  },
+  sampleFill: {
+    width: '35%',
+    height: '100%',
+    borderRadius: 2,
+    backgroundColor: palette.lavender,
+  },
 
-  footnote: { color: 'rgba(255,255,255,0.45)' },
+  buttons: { gap: 10, marginTop: 8 },
+  /* Figma "Yeniden Oluştur": rgba beyaz .08 · 1 px rgba .15 · 20 yarıçap. */
+  ghostButton: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 20,
+    padding: 16,
+    alignItems: 'center',
+  },
+  ghostLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 15, lineHeight: 20, fontWeight: '700' },
 });

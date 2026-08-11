@@ -42,9 +42,8 @@ function MicGlyph({ size = 30 }: { size?: number }): ReactNode {
   );
 }
 
-/** Nabız gibi atan kayıt noktası. */
+/** Nabız gibi atan kayıt noktası — Figma: mercan (#F08B6E). */
 function RecPulse(): ReactNode {
-  const { colors } = useTheme();
   const [pulse] = useState(() => new Animated.Value(1));
   useEffect(() => {
     const loop = Animated.loop(
@@ -60,7 +59,7 @@ function RecPulse(): ReactNode {
   }, [pulse]);
   return (
     <Animated.View
-      style={[styles.recDot, { backgroundColor: colors.danger, opacity: pulse }]}
+      style={[styles.recDot, { backgroundColor: palette.coral, opacity: pulse }]}
       accessibilityElementsHidden
     />
   );
@@ -97,6 +96,14 @@ export function TakeRecorder({
     setResult(undefined);
     const ok = await recorder.start();
     if (ok) setPhase('kaydediyor');
+  };
+
+  /** Figma "Baştan Al": kaydı at, sayacı sıfırla, başa dön. */
+  const restart = async (): Promise<void> => {
+    await recorder.stop().catch(() => undefined);
+    setResult(undefined);
+    setError(undefined);
+    setPhase('hazir');
   };
 
   const finish = async (): Promise<void> => {
@@ -161,10 +168,13 @@ export function TakeRecorder({
             <Text variant="display" style={styles.timerText}>
               {`${String(Math.floor(elapsedSec / 60))}:${String(elapsedSec % 60).padStart(2, '0')}`}
             </Text>
-            <View style={[styles.timerRow, { gap: spacing.sm }]}>
+            <View
+              style={[styles.timerRow, { gap: 6 }]}
+              accessibilityLabel={`Kaydediliyor, hedef yaklaşık ${String(targetSec)} saniye`}
+            >
               <RecPulse />
-              <Text variant="caption" tone="muted">
-                {`Kaydediliyor · hedef ~${String(targetSec)} sn`}
+              <Text variant="caption" style={styles.recLabel} accessibilityElementsHidden>
+                Kaydediliyor
               </Text>
             </View>
           </View>
@@ -173,15 +183,29 @@ export function TakeRecorder({
             verdict={liveRecordingVerdict(recorder.stats)}
             recentDb={recorder.recentDb}
           />
-          <Button
-            label="Kaydı bitir"
-            onPress={() => {
-              void finish();
-            }}
-          />
-          <Text variant="caption" tone="muted" center>
-            Yanlış okursanız durmayın — metni bitirin, gerekirse yeniden kaydedersiniz.
-          </Text>
+          {/* Figma: "Kaydı Bitir" (beyaz) + "Baştan Al" (saydam) yan yana. */}
+          <View style={[styles.stopRow, { gap: spacing.md }]}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Kaydı bitir"
+              onPress={() => {
+                void finish();
+              }}
+              style={({ pressed }) => [styles.finishButton, pressed && { opacity: 0.85 }]}
+            >
+              <Text style={styles.finishLabel}>Kaydı Bitir</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Baştan al"
+              onPress={() => {
+                void restart();
+              }}
+              style={({ pressed }) => [styles.restartButton, pressed && { opacity: 0.85 }]}
+            >
+              <Text style={styles.restartLabel}>Baştan Al</Text>
+            </Pressable>
+          </View>
         </>
       )}
 
@@ -242,11 +266,8 @@ export function TakeRecorder({
             style={({ pressed }) => [styles.recordButtonWrap, pressed && { opacity: 0.85 }]}
           >
             <View style={styles.recordButton}>
-              <MicGlyph />
+              <MicGlyph size={32} />
             </View>
-            <Text variant="caption" tone="muted">
-              Kaydı başlat
-            </Text>
           </Pressable>
         </>
       )}
@@ -255,30 +276,58 @@ export function TakeRecorder({
 }
 
 const styles = StyleSheet.create({
+  /* Figma: Fraunces 48, -0.02em; altında mercan nokta + "Kaydediliyor". */
   timerBox: { alignItems: 'center', gap: 4 },
-  timerText: { fontSize: 44, lineHeight: 54, letterSpacing: -0.8 },
+  timerText: { fontSize: 48, lineHeight: 58, letterSpacing: -1 },
   timerRow: { flexDirection: 'row', alignItems: 'center' },
-  recDot: { width: 10, height: 10, borderRadius: 5 },
+  recDot: { width: 8, height: 8, borderRadius: 4 },
+  recLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 13, lineHeight: 17, fontWeight: '600' },
 
   sendingBox: { gap: 4, alignItems: 'center' },
   sendingText: { fontSize: 18, lineHeight: 24 },
 
   permissionText: { fontSize: 14, lineHeight: 20 },
 
-  recordButtonWrap: { alignItems: 'center', gap: 8, paddingVertical: 8 },
+  recordButtonWrap: { alignItems: 'center', paddingVertical: 8 },
+  /* Figma: 80'lik mercan daire, 4 px yarı saydam mercan kenarlık, gölge. */
   recordButton: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: palette.coral,
     borderWidth: 4,
-    borderColor: 'rgba(240, 139, 110, 0.35)',
+    borderColor: 'rgba(240, 139, 110, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: palette.coral,
     shadowOpacity: 0.4,
     shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
+    shadowOffset: { width: 0, height: 8 },
     elevation: 6,
   },
+
+  stopRow: { flexDirection: 'row', justifyContent: 'center' },
+  /* Figma "Kaydı Bitir": beyaz zemin · 16 yarıçap · 16/28 dolgu · mor 15/800. */
+  finishButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 28,
+    shadowColor: '#000000',
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
+  },
+  finishLabel: { color: '#7C5CBF', fontSize: 15, lineHeight: 20, fontWeight: '800' },
+  /* Figma "Baştan Al": rgba beyaz .1 zemin · 1 px rgba .2 kenarlık · 15/700. */
+  restartButton: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+  },
+  restartLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 15, lineHeight: 20, fontWeight: '700' },
 });

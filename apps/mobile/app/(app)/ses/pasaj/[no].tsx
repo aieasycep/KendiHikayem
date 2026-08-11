@@ -81,11 +81,8 @@ export default function Pasaj(): ReactNode {
         <Text variant="caption" style={styles.scriptKicker}>
           OKUMANIZ İÇİN METİN
         </Text>
-        <Text variant="body" style={styles.scriptText}>
-          {passage.bodyTr}
-        </Text>
-        <Text variant="caption" style={styles.scriptMeta}>
-          {`Hedef süre: ${String(passage.targetSec)} saniye · Masal anlatır gibi okuyun`}
+        <Text variant="heading" style={styles.scriptText}>
+          {`"${passage.bodyTr}"`}
         </Text>
       </View>
 
@@ -159,8 +156,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     fontWeight: '600',
   },
-  scriptText: { color: 'rgba(255,255,255,0.92)', fontSize: 19, lineHeight: 31 },
-  scriptMeta: { color: 'rgba(176,156,224,0.8)' },
+  /* Figma: Fraunces 16 italik · rgba beyaz .9 · 1.7 satır aralığı. */
+  scriptText: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 16,
+    lineHeight: 27,
+    fontStyle: 'italic',
+  },
 
   footnote: { color: 'rgba(255,255,255,0.45)' },
 });
