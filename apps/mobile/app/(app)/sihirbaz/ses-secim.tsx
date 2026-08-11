@@ -22,14 +22,14 @@ export default function WizardSes(): ReactNode {
   const profiles = useVoiceProfiles();
   const systemVoices = useSystemVoices();
 
-  const childName = draft.childName === '' ? 'çocuğun' : draft.childName;
+  const childAcc = draft.childName === '' ? 'çocuğunu' : accusative(draft.childName);
   const readyProfiles = profiles.data?.items.filter((item) => item.status === 'ready') ?? [];
 
   return (
     <Screen>
       <StepBar step={6} total={7} labelTr="Yeni Hikâye · Ses" />
       <Title>Masalı kim anlatsın?</Title>
-      <Body>{`Seçtiğin ses her masalda ${accusative(childName)} bekliyor olacak.`}</Body>
+      <Body>{`Seçtiğin ses her masalda ${childAcc} bekliyor olacak.`}</Body>
 
       <AsyncGate
         isLoading={systemVoices.isLoading}
