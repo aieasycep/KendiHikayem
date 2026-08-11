@@ -45,9 +45,10 @@ const config: ExpoConfig = {
         // "resource drawable/splashscreen_logo not found".
         image: './assets/splash-icon.png',
         imageWidth: 220,
-        // Gece göğü moru (packages/ui palette.deepPlum): native splash, JS tarafındaki
-        // markalı splash ile aynı zeminde açılır — geçiş kesintisiz görünür.
-        backgroundColor: '#1A0F3C',
+        // Krem (packages/ui palette.cream = light.background): JS tarafında markalı
+        // splash kalmadı, native splash artık ilk görünen ekranla (yükleniyor durumu,
+        // tanıtım karuseli, ana sayfa — hepsi krem zeminli) aynı zeminde açılır.
+        backgroundColor: '#FAF8F4',
         resizeMode: 'contain',
       },
     ],
