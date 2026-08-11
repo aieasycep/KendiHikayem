@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import type { ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -21,14 +22,42 @@ import { ensureGuestSession } from '../lib/session';
  * real network and the offline APK breaks. The guest session is opened in the
  * same gate so every screen can assume a token exists.
  */
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps): ReactNode {
+  return (
+    <View style={styles.boot}>
+      <Text style={styles.errorTitle}>Bir şeyler ters gitti</Text>
+      <Text style={styles.bootText}>
+        Uygulama açılırken beklenmeyen bir hata oluştu. Aşağıdaki mesaj sorunu bulmamıza yardım eder.
+      </Text>
+      <Text style={styles.errorDetail} selectable>
+        {error.message}
+      </Text>
+      <Text style={styles.bootText} onPress={() => void retry()}>
+        Tekrar dene
+      </Text>
+    </View>
+  );
+}
+
 export default function RootLayout(): ReactNode {
   const [ready, setReady] = useState(false);
+  const [bootWarning, setBootWarning] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      await ensureMockServer();
-      await ensureGuestSession();
+      // Bootstrap must never be able to blank the app. If the mock server or the
+      // guest session fails, the screens' own error states are a far better
+      // outcome than a gate that never opens — so we surface the reason and
+      // render anyway.
+      try {
+        await ensureMockServer();
+        await ensureGuestSession();
+      } catch (bootError) {
+        if (!cancelled) {
+          setBootWarning(bootError instanceof Error ? bootError.message : String(bootError));
+        }
+      }
       if (!cancelled) setReady(true);
     })();
     return () => {
@@ -42,6 +71,13 @@ export default function RootLayout(): ReactNode {
         <QueryClientProvider client={queryClient}>
           <WizardDraftProvider>
             <StatusBar style="dark" />
+            {bootWarning === undefined ? null : (
+              <View style={styles.warning}>
+                <Text style={styles.warningText}>
+                  Demo verisi yüklenemedi: {bootWarning}
+                </Text>
+              </View>
+            )}
             {ready ? (
               <Stack
                 screenOptions={{
@@ -74,5 +110,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 12,
   },
-  bootText: { ...typography.body, color: colors.inkMuted },
+  bootText: { ...typography.body, color: colors.inkMuted, textAlign: 'center' },
+  errorTitle: { ...typography.body, fontSize: 22, fontWeight: '700', color: colors.ink },
+  errorDetail: {
+    ...typography.body,
+    color: colors.ink,
+    paddingHorizontal: 20,
+    textAlign: 'center',
+  },
+  warning: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  warningText: { ...typography.body, fontSize: 13, color: colors.background },
 });
