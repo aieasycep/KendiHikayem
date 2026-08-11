@@ -16,8 +16,9 @@
  * between the two flows, and putting them in one tree would draw 13 pages against a
  * character the parent had not chosen yet.
  *
- * The join runs even when children failed: `failParentOnFailure` is deliberately OFF.
- * A failed page must not cancel the other twelve (SPEC §8.4).
+ * The join runs even when children failed: `failParentOnFailure` is deliberately OFF and
+ * `ignoreDependencyOnFailure` is ON. A failed page must neither cancel the other twelve
+ * nor wedge the join waiting for it (SPEC §8.4).
  */
 
 import type { FlowJob } from 'bullmq';
@@ -81,6 +82,13 @@ export function buildBookIllustrationFlow(input: BookIllustrationFlowInput): Flo
       priority,
       // A page that exhausts its retries goes to manual_review; the book still ships.
       failParentOnFailure: false,
+      // ⚠️ BOTH FLAGS ARE NEEDED, and they do different things.
+      // `failParentOnFailure: false` stops a failed child from failing the parent.
+      // It does NOT unblock it: without `ignoreDependencyOnFailure` the join waits on
+      // that dependency forever and the book never assembles — a hang, not a partial
+      // book. This flag moves a permanently-failed child into the parent's FAILED
+      // dependencies, which is what actually lets `book.assemble` run (SPEC §8.4).
+      ignoreDependencyOnFailure: true,
       jobId: queueJobId(input.jobId, stepKeys.imagePage(pageNo)),
     },
   }));
@@ -99,6 +107,7 @@ export function buildBookIllustrationFlow(input: BookIllustrationFlowInput): Flo
         ...DEFAULT_JOB_OPTIONS,
         priority,
         failParentOnFailure: false,
+        ignoreDependencyOnFailure: true,
         jobId: queueJobId(input.jobId, stepKeys.imageCover()),
       },
     });
