@@ -45,7 +45,9 @@ const config: ExpoConfig = {
         // "resource drawable/splashscreen_logo not found".
         image: './assets/splash-icon.png',
         imageWidth: 220,
-        backgroundColor: '#FFF8F0',
+        // Gece göğü moru (packages/ui palette.deepPlum): native splash, JS tarafındaki
+        // markalı splash ile aynı zeminde açılır — geçiş kesintisiz görünür.
+        backgroundColor: '#1A0F3C',
         resizeMode: 'contain',
       },
     ],
@@ -65,7 +67,7 @@ const config: ExpoConfig = {
     adaptiveIcon: {
       // Artwork sits inside the central 66% safe zone; launchers mask the rest away.
       foregroundImage: './assets/adaptive-icon.png',
-      backgroundColor: '#FFF8F0',
+      backgroundColor: '#FAF8F4', // packages/ui palette.cream
     },
     permissions: [
       // Voice cloning onboarding (V04–V06) records four reference passages.

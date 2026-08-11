@@ -1,46 +1,56 @@
 /**
- * Minimal design tokens for the skeleton app.
+ * Köprü tokenlar — TEK GERÇEK KAYNAK `packages/ui`'dir.
  *
- * The real design system lives in packages/ui and is owned by F2 (docs/SPEC.md §12).
- * These values exist only so the navigation skeleton looks intentional in the first APK;
- * replace them with packages/ui tokens as soon as that package lands.
+ * Bu dosya iskelet dönemindeki ekranların (onboarding, ses akışı) import ettiği
+ * eski arayüzü korur ama DEĞERLERİ artık `@kendihikayem/ui`dan okur. Böylece
+ * uygulamada iki farklı palet olamaz: `packages/ui` değişince buradan beslenen
+ * ekranlar da aynı commit'te yeni tasarıma geçer.
+ *
+ * YENİ KOD BU DOSYAYI KULLANMAZ — doğrudan `@kendihikayem/ui` tüketir
+ * (useTheme() / tokens). Buradaki ekranlar taşındıkça bu köprü küçülür ve
+ * en sonunda silinir.
  */
 
+import { light, palette, radius as uiRadius, spacing as uiSpacing, typeScale } from '@kendihikayem/ui';
+
 export const colors = {
-  background: '#FFF8F0',
-  surface: '#FFFFFF',
-  surfaceMuted: '#F3EADF',
-  border: '#E6D9C9',
-  ink: '#2B2118',
-  inkMuted: '#7A6A59',
-  primary: '#C2410C',
-  primaryInk: '#FFFFFF',
-  accent: '#0F766E',
-  demoBadge: '#7C3AED',
+  background: light.background,
+  surface: light.surface,
+  surfaceMuted: light.surfaceMuted,
+  border: light.border,
+  ink: light.ink,
+  inkMuted: light.inkMuted,
+  primary: light.primary,
+  primaryInk: light.inkOnPrimary,
+  accent: light.accent,
+  /** Demo rozeti — markadan bir ton koyu mor, birincil eylemle karışmaz. */
+  demoBadge: palette.purple800,
 } as const;
 
 export const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
+  xs: uiSpacing.xs,
+  sm: uiSpacing.sm,
+  md: uiSpacing.md,
+  lg: uiSpacing.lg,
+  xl: uiSpacing.xl,
 } as const;
 
 export const radius = {
-  sm: 8,
-  md: 14,
-  lg: 22,
+  sm: uiRadius.sm,
+  md: uiRadius.md,
+  lg: uiRadius.lg,
 } as const;
 
 /**
- * Accessibility floor from the design constitution (SPEC §11.0): body text is never
- * smaller than 18 pt, because the reader is often a parent holding a phone at arm's length.
+ * Erişilebilirlik tabanı (SPEC §11.0): gövde 18 pt altına inmez. Değerler
+ * `packages/ui` tip ölçeğiyle aynıdır; fontlar sistem fontudur (bu köprüyü
+ * kullanan eski ekranlar marka fontuna taşınırken zaten `useTheme().type`e
+ * geçecek).
  */
 export const typography = {
-  title: { fontSize: 28, lineHeight: 34, fontWeight: '700' },
-  heading: { fontSize: 22, lineHeight: 28, fontWeight: '700' },
-  body: { fontSize: 18, lineHeight: 26, fontWeight: '400' },
-  label: { fontSize: 15, lineHeight: 20, fontWeight: '600' },
-  caption: { fontSize: 13, lineHeight: 18, fontWeight: '400' },
+  title: typeScale.title,
+  heading: typeScale.heading,
+  body: typeScale.body,
+  label: typeScale.label,
+  caption: typeScale.caption,
 } as const;

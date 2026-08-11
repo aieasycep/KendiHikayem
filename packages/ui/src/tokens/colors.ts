@@ -40,6 +40,8 @@ export const palette = {
   dustyBlue: '#7BA7C9',
   peach: '#F5C4A8',
   sage: '#8DB89A',
+  babyBlue: '#B8D8E8', // kapak pasteli (Figma Home hikaye kartları)
+  mintGreen: '#C5DFC8', // kapak pasteli (Figma Home hikaye kartları)
   coral: '#F08B6E',
   coral700: '#B85336', // koyulaştırılmış mercan — metin olarak AA geçer
   amber300: '#FFD27D', // karaoke vurgusu (gece)
