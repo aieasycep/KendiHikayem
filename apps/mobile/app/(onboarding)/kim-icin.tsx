@@ -3,7 +3,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import type { AgeBand } from '@kendihikayem/contract';
+import { clampPageCount, type AgeBand } from '@kendihikayem/contract';
 import { possessive, validateGivenName } from '@kendihikayem/shared';
 import { Input, Text, useTheme } from '@kendihikayem/ui';
 
@@ -80,7 +80,13 @@ export default function KimIcin(): ReactNode {
               label={`${band} yaş`}
               selected={draft.ageBand === band}
               onPress={() => {
-                patch({ ageBand: band });
+                /*
+                 * Uzunluk banda bağlıdır ve S02 akışında uzunluk adımı YOKTUR:
+                 * taslak 12 sayfayla başlar, `0-2` seçilirse `POST /v1/stories`
+                 * 422 döner ve misafir bunu ancak üretim ekranında görür.
+                 * Bandı seçtiğimiz anda uzunluğu da geçerli aralığa çekiyoruz.
+                 */
+                patch({ ageBand: band, pageCount: clampPageCount(band, draft.pageCount) });
               }}
             />
           ))}
