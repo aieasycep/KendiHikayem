@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Design tokens, primitives and patterns",
+  "description": "Design tokens, primitives and patterns (owner: F2)",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
@@ -13,5 +13,16 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --passWithNoTests"
+  },
+  "peerDependencies": {
+    "react": "19.2.8",
+    "react-native": "0.86.2",
+    "react-native-safe-area-context": "5.8.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.18",
+    "react": "19.2.8",
+    "react-native": "0.86.2",
+    "react-native-safe-area-context": "5.8.1"
   }
 }
