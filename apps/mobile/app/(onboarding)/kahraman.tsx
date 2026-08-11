@@ -5,37 +5,29 @@ import { StyleSheet, TextInput } from 'react-native';
 
 import { validateGivenName } from '@kendihikayem/shared';
 
-import { Body, Caption, Card, Heading, PrimaryButton, Screen, Title } from '../../components/ui';
+import { Caption, Card, PrimaryButton, Screen, Title } from '../../components/ui';
 import { colors, radius, spacing, typography } from '../../constants/theme';
-import { useCharacterOptions } from '../../features/onboarding/catalogHooks';
-import {
-  AsyncGate,
-  Chip,
-  ChipRow,
-  PrivacyPromise,
-  StepBar,
-} from '../../features/onboarding/components';
+import { Chip, ChipRow, StepBar } from '../../features/onboarding/components';
 import { useWizardDraft } from '../../features/onboarding/draft';
+import {
+  CharacterBuilderFields,
+  useCharacterRequiredState,
+} from '../../features/onboarding/steps';
 
 /**
  * S04 — Kahraman + Karakter Kurucu (SPEC §11.2, 1:00).
  *
  * The character is built ONLY from catalog options — the screen carries the
  * product's loudest trust message verbatim: "Çocuğunuzun fotoğrafını istemiyoruz."
- * (`characterOptions.privacyNoteTr`, rendered with PrivacyPromise).
+ * (rendered inside CharacterBuilderFields from `characterOptions.privacyNoteTr`).
  */
 export default function Kahraman(): ReactNode {
   const router = useRouter();
   const { draft, patch, setBuilderField } = useWizardDraft();
-  const options = useCharacterOptions(draft.ageBand);
   const [customHero, setCustomHero] = useState(draft.heroIsChild ? '' : draft.heroName);
 
   const heroValidation = draft.heroIsChild ? undefined : validateGivenName(customHero);
-
-  const requiredFields = options.data?.fields.filter((field) => field.required) ?? [];
-  const missingRequired = requiredFields.some(
-    (field) => draft.characterBuilder[field.field] === undefined,
-  );
+  const missingRequired = useCharacterRequiredState(draft.ageBand, draft.characterBuilder);
   const canContinue =
     !missingRequired && (draft.heroIsChild || (heroValidation !== undefined && heroValidation.ok));
 
@@ -85,44 +77,11 @@ export default function Kahraman(): ReactNode {
         )}
       </Card>
 
-      <AsyncGate
-        isLoading={options.isLoading}
-        error={options.error}
-        data={options.data}
-        onRetry={() => void options.refetch()}
-        loadingTr="Karakter seçenekleri yükleniyor…"
-      >
-        {(data) => (
-          <>
-            <PrivacyPromise textTr={data.privacyNoteTr} />
-            <Body>
-              Görünüşü aşağıdan seçin; çizer bu seçimlerden yola çıkarak üç farklı kahraman
-              çizecek, beğendiğinizi siz seçeceksiniz.
-            </Body>
-            {data.fields.map((field) => (
-              <Card key={field.field}>
-                <Heading>
-                  {field.labelTr}
-                  {field.required ? ' *' : ''}
-                </Heading>
-                <ChipRow>
-                  {field.options.map((option) => (
-                    <Chip
-                      key={option.code}
-                      label={option.labelTr}
-                      swatchHex={option.swatchHex}
-                      selected={draft.characterBuilder[field.field] === option.code}
-                      onPress={() => {
-                        setBuilderField(field.field, option.code);
-                      }}
-                    />
-                  ))}
-                </ChipRow>
-              </Card>
-            ))}
-          </>
-        )}
-      </AsyncGate>
+      <CharacterBuilderFields
+        ageBand={draft.ageBand}
+        values={draft.characterBuilder}
+        onSelect={setBuilderField}
+      />
 
       <PrimaryButton
         label="Devam et"

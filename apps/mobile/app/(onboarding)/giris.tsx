@@ -63,6 +63,8 @@ export default function Giris(): ReactNode {
       await verifyOtp(challenge.challengeId, code);
       if (donus === 'olustur') {
         router.replace({ pathname: '/(onboarding)/ozet', params: { devam: '1' } });
+      } else if (donus === 'sihirbaz') {
+        router.replace('/(app)/sihirbaz');
       } else {
         router.replace('/(app)/kitaplik');
       }
