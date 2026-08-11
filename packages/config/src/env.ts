@@ -341,6 +341,38 @@ export const envSchema = z
     IYZICO_SECRET_KEY: zOptionalString(),
     IYZICO_BASE_URL: z.string().url().default('https://sandbox-api.iyzipay.com'),
     PRINT_ADAPTER: printAdapterSchema.default('manual_tr'),
+    /** Base URL of an API-driven printer (Cloudprinter/Gelato/Lulu). Unused by manual_tr. */
+    PRINT_PROVIDER_BASE_URL: zOptionalString(),
+    PRINT_PROVIDER_API_KEY: zOptionalString(),
+    /** HMAC secret for the printer's status webhook; without it webhooks are REFUSED. */
+    PRINT_WEBHOOK_SECRET: zOptionalString(),
+    /** `{"kare21_24_sert":"sku_..."}` — our format code → the partner's product id. */
+    PRINT_SKU_MAP: zOptionalString(),
+    /** How often the worker asks the printer where the order is. */
+    PRINT_STATUS_POLL_MINUTES: zInt(60, 5, 1440),
+    /**
+     * SPEC §9: the first orders go out only after a physical proof. The number is config so
+     * it can be turned off the day the partner is trusted, not the day someone forgets.
+     */
+    PRINT_PHYSICAL_PROOF_FIRST_N: zInt(5, 0, 1000),
+
+    /** Printed QR lifetime. The DB has no expiry column; this is the policy over created_at. */
+    QR_TOKEN_TTL_DAYS: zInt(3650, 1, 36500),
+
+    /**
+     * PDF/X-3 leg (SPEC §9 step 9b). Absent ⇒ skipped; the sRGB file goes to the printer.
+     * The colour space and the ICC profile are `PRINT_COLOR_SPACE` / `PRINT_ICC_PROFILE_PATH`.
+     */
+    PDF_GHOSTSCRIPT_PATH: zOptionalString(),
+    PDF_PDFX_DEF_PATH: zOptionalString(),
+
+    /**
+     * ⚠️ KDV oranı bir MUHASEBE kararıdır. Basılı kitap istisnası (7166) kişiye özel
+     * üretime uygulanır mı, mali müşavir söyler. Varsayılan genel oran: eksik tahsil
+     * vergi borcudur, fazla tahsil düzeltilebilir.
+     */
+    KDV_RATE_PRINT_BOOK: zNumber(0.2, 0),
+    KDV_RATE_SHIPPING: zNumber(0.2, 0),
 
     // 9. cost caps
     COST_CAP_PER_STORY_USD: zNumber(6, 0),
@@ -399,6 +431,43 @@ export const envSchema = z
           message: `required when API_MODE=live (${purpose})`,
         });
       }
+    }
+
+    // A printer with an API needs a key; `manual_tr` needs nothing but an operator.
+    if (env.PRINT_ADAPTER !== 'manual_tr') {
+      if (env.PRINT_PROVIDER_API_KEY === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['PRINT_PROVIDER_API_KEY'],
+          message: `required when PRINT_ADAPTER=${env.PRINT_ADAPTER}`,
+        });
+      }
+      if (env.PRINT_PROVIDER_BASE_URL === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['PRINT_PROVIDER_BASE_URL'],
+          message: `required when PRINT_ADAPTER=${env.PRINT_ADAPTER}`,
+        });
+      }
+    }
+
+    // iyzico keys are NOT required to boot: a live deployment can run before print sales
+    // open. `createPaymentAdapter` refuses at construction instead, so the failure lands
+    // where checkout is actually wired rather than blocking every other service.
+
+    // The PDF/X leg is all-or-nothing: half of it produces a file the printer rejects.
+    const pdfxParts = [
+      env.PDF_GHOSTSCRIPT_PATH,
+      env.PRINT_ICC_PROFILE_PATH,
+      env.PDF_PDFX_DEF_PATH,
+    ];
+    if (pdfxParts.some(Boolean) && !pdfxParts.every(Boolean)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['PDF_GHOSTSCRIPT_PATH'],
+        message:
+          'PDF/X-3 için gs yolu, ICC profili ve PDFX_def.ps birlikte tanımlanmalı (biri eksik)',
+      });
     }
 
     const voiceKeyByProvider: Record<VoiceProvider, string | undefined> = {

@@ -39,6 +39,8 @@ export async function runVoiceRawDestruction(
   handlers: {
     deleteStorageObject?: (ref: string) => Promise<void>;
     deleteProviderVoice?: (ref: string) => Promise<void>;
+    /** The `db_rows` link of the voice chain (A5, `processors/audio-deletion.ts`). */
+    deleteDbRows?: (ref: string) => Promise<void>;
   } = {},
   limit = 100,
 ): Promise<{ completed: number; failed: number }> {
@@ -62,7 +64,14 @@ export async function runVoiceRawDestruction(
 
       if (task.target === 'storage_objects') await handlers.deleteStorageObject?.(task.ref);
       else if (task.target === 'voice_provider') await handlers.deleteProviderVoice?.(task.ref);
-      // db_rows / llm_logs / image_provider are A1/A3/A4's chain links.
+      // ⚠️ A target with no handler was previously marked `completed` regardless, which
+      // reads as "erased" in the audit trail while nothing was erased. A task we cannot
+      // carry out must fail loudly and be retried instead.
+      else if (task.target === 'db_rows') {
+        if (!handlers.deleteDbRows) throw new Error('no db_rows handler registered');
+        await handlers.deleteDbRows(task.ref);
+      }
+      // llm_logs / image_provider are A3/A4's chain links.
 
       await db.execute(sql`
         update deletion_tasks set status = 'completed', completed_at = now(), last_error = null

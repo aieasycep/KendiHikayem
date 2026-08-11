@@ -15,7 +15,19 @@
  */
 
 export * from './settings';
-export * from './http';
+/**
+ * `retryAfterMs` is deliberately NOT re-exported: `llm/` has its own header parser of the
+ * same name, and `export *` from both would collide. Vendor adapters import it from
+ * `./http` directly, which is the only place it is meant to be used anyway.
+ */
+export {
+  fetchTransport,
+  decodeJson,
+  decodeText,
+  HttpNetworkError,
+  HttpTimeoutError,
+} from './http';
+export type { FormPart, HttpRequest, HttpResponse, HttpTransport } from './http';
 export * from './chunking';
 export * from './alignment';
 export * from './consent';
