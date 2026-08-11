@@ -28,8 +28,18 @@
 
 import { registerLocalMediaResolver } from '@kendihikayem/ui';
 
+import { isMockMode } from './api';
+
 /** packages/mock/src/fixtures/media.ts → DEMO_MEDIA_BASE ile birebir aynı olmalı. */
 const DEMO_MEDIA_BASE = 'https://demo.kendihikayem.com/demo';
+
+/**
+ * Bu derlemede medya gömülü demo dosyalarından mı geliyor?
+ *
+ * Ekranlardaki "bu demo" uyarıları buna bakar: canlı API modunda hiçbir uyarı
+ * çıkmaz, çünkü orada medya gerçekten üretimden gelir.
+ */
+export const DEMO_MEDIA_ACTIVE = isMockMode();
 
 /* eslint-disable @typescript-eslint/no-require-imports -- Metro varlıkları require ile paketler. */
 

@@ -28,6 +28,7 @@ import {
 import { useSystemVoices, useVoiceProfiles } from '../../../../features/settings/hooks';
 import { useApproveStory, useStory } from '../../../../features/library/hooks';
 import { isJobTerminal, useJob } from '../../../../lib/useJob';
+import { DEMO_AUDIO_NOTE_TR, DEMO_MEDIA_ACTIVE } from '../../../../lib/demoMedia';
 
 function renditionSubtitle(rendition: AudioRenditionSummary): string {
   const duration =
@@ -80,6 +81,11 @@ export default function Sesler(): ReactNode {
         Masalı kimin sesiyle dinleyeceğinizi burada seçersiniz. Sistem sesleri her zaman
         hazırdır; kendi sesiniz bir kez klonlanır, sonra tüm masallarda kullanılır.
       </Text>
+
+      {DEMO_MEDIA_ACTIVE ? (
+        /* DÜRÜSTLÜK: demo derlemesinde bütün seslendirmeler aynı ninniyi çalar. */
+        <NoticeBox tone="info" titleTr="Bu derlemede sesler demo" bodyTr={DEMO_AUDIO_NOTE_TR} />
+      ) : null}
 
       {notApproved ? (
         <NoticeBox
