@@ -1,13 +1,13 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { AgeBand } from '@kendihikayem/contract';
 import { possessive, validateGivenName } from '@kendihikayem/shared';
+import { Input, Text, useTheme } from '@kendihikayem/ui';
 
-import { Body, Caption, Card, Heading, PrimaryButton, Screen, Title } from '../../components/ui';
-import { colors, radius, spacing, typography } from '../../constants/theme';
+import { Caption, Card, Heading, PrimaryButton, Screen, Title } from '../../components/ui';
 import { Chip, ChipRow, StepBar } from '../../features/onboarding/components';
 import { useWizardDraft } from '../../features/onboarding/draft';
 
@@ -24,6 +24,7 @@ const AGE_BANDS: { band: AgeBand; hintTr: string }[] = [
  */
 export default function KimIcin(): ReactNode {
   const router = useRouter();
+  const { colors, radius, spacing } = useTheme();
   const { draft, patch } = useWizardDraft();
   const [name, setName] = useState(draft.childName);
 
@@ -32,31 +33,42 @@ export default function KimIcin(): ReactNode {
 
   return (
     <Screen>
-      <StepBar step={1} total={5} labelTr="Adım 1 / 5 — Kim için?" />
+      <StepBar step={1} total={5} labelTr="Yeni Masal · Kim için?" />
       <Title>Masal kimin için?</Title>
 
       <Card>
-        <Heading>Çocuğunuzun adı</Heading>
-        <TextInput
-          accessibilityLabel="Çocuğun adı"
+        <Input
+          label="Çocuğunuzun adı"
           autoCapitalize="words"
           autoCorrect={false}
           autoFocus
           maxLength={30}
           onChangeText={setName}
           placeholder="Örn. Elif"
-          placeholderTextColor={colors.inkMuted}
-          style={styles.input}
           value={name}
+          errorTr={
+            !validation.ok && name.length > 0
+              ? (validation.messageTr ?? 'Bu isim kullanılamıyor.')
+              : undefined
+          }
         />
-        {validation.ok ? (
-          <View style={styles.previewBox}>
+        {validation.ok && (
+          <View
+            style={[
+              styles.previewBox,
+              {
+                backgroundColor: colors.surfaceRaised,
+                borderRadius: radius.sm,
+                padding: spacing.sm,
+              },
+            ]}
+          >
             <Caption>Kapakta böyle görünecek</Caption>
-            <Body>{`${possessive(validation.normalized)} Masalı`}</Body>
+            <Text variant="heading" style={{ color: colors.primary }}>
+              {`${possessive(validation.normalized)} Masalı`}
+            </Text>
           </View>
-        ) : name.length > 0 ? (
-          <Caption>{validation.messageTr ?? 'Bu isim kullanılamıyor.'}</Caption>
-        ) : null}
+        )}
       </Card>
 
       <Card>
@@ -94,20 +106,5 @@ export default function KimIcin(): ReactNode {
 }
 
 const styles = StyleSheet.create({
-  input: {
-    ...typography.body,
-    color: colors.ink,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 12,
-  },
-  previewBox: {
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: radius.sm,
-    padding: spacing.sm,
-    gap: 2,
-  },
+  previewBox: { gap: 2 },
 });

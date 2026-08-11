@@ -1,13 +1,13 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { ApiError } from '@kendihikayem/contract';
 import { possessive } from '@kendihikayem/shared';
+import { Text, useTheme } from '@kendihikayem/ui';
 
 import { Body, Caption, Card, Heading, PrimaryButton, Screen, Title } from '../../components/ui';
-import { colors, radius, spacing, typography } from '../../constants/theme';
 import { useEstimate, useThemes } from '../../features/onboarding/catalogHooks';
 import { ErrorBanner, StepBar } from '../../features/onboarding/components';
 import { createStory } from '../../features/onboarding/createStory';
@@ -86,7 +86,7 @@ export default function Ozet(): ReactNode {
 
   return (
     <Screen>
-      <StepBar step={5} total={5} labelTr="Adım 5 / 5 — Özet" />
+      <StepBar step={5} total={5} labelTr="Yeni Masal · Özet" />
       <Title>{draft.childName === '' ? 'Masal özeti' : `${possessive(draft.childName)} masalı`}</Title>
 
       <Card>
@@ -94,7 +94,7 @@ export default function Ozet(): ReactNode {
         <SummaryRow labelTr="Yaş bandı" valueTr={`${draft.ageBand} yaş`} />
         <SummaryRow labelTr="Tema" valueTr={themeTitle} />
         <SummaryRow labelTr="Çizim stili" valueTr={draft.artStyleCode ?? '—'} />
-        <SummaryRow labelTr="Uzunluk" valueTr={`${String(draft.pageCount)} sayfa`} />
+        <SummaryRow labelTr="Uzunluk" valueTr={`${String(draft.pageCount)} sayfa`} last />
       </Card>
 
       <Card>
@@ -103,13 +103,7 @@ export default function Ozet(): ReactNode {
           Önce 15-20 saniyede bir taslak hazırlarız: 12 sahnelik akış ve kahramanınızın üç
           farklı çizimi. Beğenirseniz onaylarsınız, kitap ancak o zaman üretilir.
         </Body>
-        {estimate.data !== undefined && (
-          <View style={styles.costBox}>
-            <Text style={styles.costText}>
-              Taslak: {estimate.data.credits} kredi · Beğenmezseniz başka ücret yok
-            </Text>
-          </View>
-        )}
+        {estimate.data !== undefined && <CostNote creditsTr={String(estimate.data.credits)} />}
       </Card>
 
       {error !== undefined && (
@@ -136,11 +130,42 @@ export default function Ozet(): ReactNode {
   );
 }
 
-function SummaryRow({ labelTr, valueTr }: { labelTr: string; valueTr: string }): ReactNode {
+function SummaryRow({
+  labelTr,
+  valueTr,
+  last = false,
+}: {
+  labelTr: string;
+  valueTr: string;
+  last?: boolean;
+}): ReactNode {
+  const { colors } = useTheme();
   return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{labelTr}</Text>
-      <Text style={styles.rowValue}>{valueTr}</Text>
+    <View
+      style={[
+        styles.row,
+        !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+      ]}
+    >
+      <Text variant="label" tone="muted">
+        {labelTr}
+      </Text>
+      <Text variant="bodyStrong" style={styles.rowValue}>
+        {valueTr}
+      </Text>
+    </View>
+  );
+}
+
+function CostNote({ creditsTr }: { creditsTr: string }): ReactNode {
+  const { colors, radius, spacing } = useTheme();
+  return (
+    <View
+      style={{ backgroundColor: colors.surfaceRaised, borderRadius: radius.sm, padding: spacing.sm }}
+    >
+      <Text variant="label" style={{ color: colors.primary }}>
+        {`Taslak: ${creditsTr} kredi · Beğenmezseniz başka ücret yok`}
+      </Text>
     </View>
   );
 }
@@ -151,15 +176,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 6,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    gap: 8,
   },
-  rowLabel: { ...typography.label, color: colors.inkMuted },
-  rowValue: { ...typography.body, color: colors.ink, fontWeight: '600' },
-  costBox: {
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: radius.sm,
-    padding: spacing.sm,
-  },
-  costText: { ...typography.label, color: colors.accent },
+  rowValue: { flexShrink: 1, textAlign: 'right' },
 });

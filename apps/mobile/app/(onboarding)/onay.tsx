@@ -1,15 +1,19 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 
 import type { ApiError, Story } from '@kendihikayem/contract';
+import { NoticeBox, Text, useTheme } from '@kendihikayem/ui';
 
 import { PrimaryButton } from '../../components/ui';
-import { colors, radius, spacing, typography } from '../../constants/theme';
-import { ErrorBanner, SecondaryButton } from '../../features/onboarding/components';
+import {
+  ErrorBanner,
+  SecondaryButton,
+  SelectedCheck,
+} from '../../features/onboarding/components';
 import { api, asApiError, newIdempotencyKey, toApiError } from '../../lib/api';
 
 /**
@@ -24,6 +28,7 @@ import { api, asApiError, newIdempotencyKey, toApiError } from '../../lib/api';
  */
 export default function Onay(): ReactNode {
   const router = useRouter();
+  const { colors, radius, spacing } = useTheme();
   const { storyId, toplamKredi } = useLocalSearchParams<{
     storyId: string;
     toplamKredi?: string;
@@ -114,20 +119,44 @@ export default function Onay(): ReactNode {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
-      <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll}>
-        <Text style={styles.kicker}>TASLAK HAZIR — SON SÖZ SİZİN</Text>
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: colors.background }]}
+      edges={['top', 'left', 'right']}
+    >
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={[styles.scroll, { padding: spacing.md, gap: spacing.md }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text variant="label" tone="accent" style={styles.kicker}>
+          TASLAK HAZIR — SON SÖZ SİZİN
+        </Text>
         {storyQuery.isLoading || story === undefined ? (
-          <Text style={styles.waiting}>Taslak yükleniyor…</Text>
+          <Text variant="body" tone="muted">
+            Taslak yükleniyor…
+          </Text>
         ) : storyQuery.error != null ? (
           <ErrorBanner error={storyQuery.error} onRetry={() => void storyQuery.refetch()} />
         ) : (
           <>
-            <Text style={styles.title}>{story.outline?.titleTr ?? story.title ?? 'Taslak'}</Text>
+            <Text variant="title" accessibilityRole="header">
+              {story.outline?.titleTr ?? story.title ?? 'Taslak'}
+            </Text>
             {story.outline?.lessonTr !== undefined && (
-              <View style={styles.lessonBox}>
-                <Text style={styles.lessonLabel}>Bu masalın kalbi</Text>
-                <Text style={styles.lessonText}>{story.outline.lessonTr}</Text>
+              <View
+                style={{
+                  backgroundColor: colors.surfaceRaised,
+                  borderRadius: radius.md,
+                  padding: spacing.md,
+                  gap: 2,
+                }}
+              >
+                <Text variant="caption" tone="muted">
+                  Bu masalın kalbi
+                </Text>
+                <Text variant="bodyStrong" style={{ color: colors.primary }}>
+                  {story.outline.lessonTr}
+                </Text>
               </View>
             )}
 
@@ -137,13 +166,15 @@ export default function Onay(): ReactNode {
                 onLayout={(event) => {
                   variantSectionY.current = event.nativeEvent.layout.y;
                 }}
-                style={styles.section}
+                style={{ gap: spacing.sm }}
               >
-                <Text style={styles.sectionTitle}>Kahramanınızı seçin</Text>
-                <Text style={styles.sectionHint}>
+                <Text variant="heading" accessibilityRole="header">
+                  Kahramanınızı seçin
+                </Text>
+                <Text variant="caption" tone="muted">
                   Üç çizimden birini seçin — kitabın her sayfasında bu kahraman olacak.
                 </Text>
-                <View style={styles.variantRow}>
+                <View style={[styles.variantRow, { gap: spacing.sm }]}>
                   {variants.map((variant, index) => (
                     <VariantCard
                       key={variant.id}
@@ -160,33 +191,51 @@ export default function Onay(): ReactNode {
             )}
 
             {/* 12 sahne */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
+            <View style={{ gap: spacing.sm }}>
+              <Text variant="heading" accessibilityRole="header">
                 {`Hikayenin akışı (${String(story.outline?.scenes.length ?? 0)} sahne)`}
               </Text>
               {story.outline?.scenes.map((scene) => (
-                <View key={scene.pageNo} style={styles.sceneRow}>
-                  <Text style={styles.sceneNo}>{scene.pageNo}</Text>
+                <View
+                  key={scene.pageNo}
+                  style={[
+                    styles.sceneRow,
+                    {
+                      gap: spacing.sm,
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                      borderRadius: radius.sm,
+                      padding: spacing.sm,
+                    },
+                  ]}
+                >
+                  <View style={[styles.sceneNoCircle, { backgroundColor: colors.surfaceRaised }]}>
+                    <Text variant="label" style={{ color: colors.primary }}>
+                      {scene.pageNo}
+                    </Text>
+                  </View>
                   <View style={styles.sceneBody}>
-                    <Text style={styles.sceneText}>{scene.summaryTr}</Text>
-                    <Text style={styles.sceneEmotion}>{scene.emotion}</Text>
+                    <Text variant="caption" style={styles.sceneText}>
+                      {scene.summaryTr}
+                    </Text>
+                    <Text variant="caption" tone="accent">
+                      {scene.emotion}
+                    </Text>
                   </View>
                 </View>
               ))}
             </View>
 
             {/* Maliyet + eylemler */}
-            <View style={styles.costBox}>
-              <Text style={styles.costTitle}>
-                {toplamKredi !== undefined
+            <NoticeBox
+              tone="legal"
+              titleTr={
+                toplamKredi !== undefined
                   ? `Onaylarsanız ${toplamKredi} kredi düşer`
-                  : 'Onaylarsanız kitap üretimi başlar'}
-              </Text>
-              <Text style={styles.costHint}>
-                Metinler yazılır, 12 sayfa + kapak çizilir. Beğenmezseniz şimdi vazgeçin —
-                başka hiçbir ücret alınmaz.
-              </Text>
-            </View>
+                  : 'Onaylarsanız kitap üretimi başlar'
+              }
+              bodyTr="Metinler yazılır, 12 sayfa + kapak çizilir. Beğenmezseniz şimdi vazgeçin — başka hiçbir ücret alınmaz."
+            />
 
             {actionError !== undefined && <ErrorBanner error={actionError} />}
 
@@ -197,7 +246,7 @@ export default function Onay(): ReactNode {
                 void approve();
               }}
             />
-            <View style={styles.secondaryRow}>
+            <View style={[styles.secondaryRow, { gap: spacing.sm }]}>
               <View style={styles.secondaryCell}>
                 <SecondaryButton
                   label={busy === 'reject' ? 'Yenileniyor…' : 'Başka bir açı'}
@@ -235,29 +284,51 @@ function VariantCard({
   selected: boolean;
   onPress: () => void;
 }): ReactNode {
+  const { colors, radius } = useTheme();
   const [failed, setFailed] = useState(false);
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected }}
       onPress={onPress}
-      style={[styles.variantCard, selected && styles.variantSelected]}
+      style={[
+        styles.variantCard,
+        {
+          borderColor: selected ? colors.primary : colors.border,
+          borderRadius: radius.md,
+          backgroundColor: selected ? colors.surfaceRaised : colors.surface,
+        },
+      ]}
     >
+      {selected && (
+        <View style={styles.variantCheck}>
+          <SelectedCheck />
+        </View>
+      )}
       {failed ? (
-        <View style={styles.variantFallback}>
-          <Text style={styles.variantFallbackText}>{String(index + 1)}</Text>
+        <View style={[styles.variantFallback, { backgroundColor: colors.surfaceMuted }]}>
+          <Text variant="title" tone="muted">
+            {String(index + 1)}
+          </Text>
         </View>
       ) : (
         <Image
           accessibilityLabel={`Karakter çizimi ${String(index + 1)}`}
           source={{ uri: url }}
-          style={styles.variantImage}
+          style={[styles.variantImage, { backgroundColor: colors.surfaceMuted }]}
           onError={() => {
             setFailed(true);
           }}
         />
       )}
-      <Text style={[styles.variantLabel, selected && styles.variantLabelSelected]}>
+      <Text
+        variant="caption"
+        center
+        style={[
+          styles.variantLabel,
+          selected ? { color: colors.primary, fontWeight: '700' } : { color: colors.inkMuted },
+        ]}
+      >
         {selected ? '✓ Seçildi' : `Çizim ${String(index + 1)}`}
       </Text>
     </Pressable>
@@ -265,81 +336,33 @@ function VariantCard({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: spacing.md, paddingBottom: spacing.xl, gap: spacing.md },
-  kicker: { ...typography.label, color: colors.accent, letterSpacing: 1 },
-  waiting: { ...typography.body, color: colors.inkMuted },
-  title: { ...typography.title, color: colors.ink },
-  lessonBox: {
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: 2,
-  },
-  lessonLabel: { ...typography.caption, color: colors.inkMuted },
-  lessonText: { ...typography.body, color: colors.ink, fontWeight: '600' },
+  safe: { flex: 1 },
+  scroll: { paddingBottom: 48 },
+  kicker: { letterSpacing: 1 },
 
-  section: { gap: spacing.sm },
-  sectionTitle: { ...typography.heading, color: colors.ink },
-  sectionHint: { ...typography.caption, color: colors.inkMuted },
-
-  variantRow: { flexDirection: 'row', gap: spacing.sm },
-  variantCard: {
-    flex: 1,
-    borderWidth: 2,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    overflow: 'hidden',
-    backgroundColor: colors.surface,
-  },
-  variantSelected: { borderColor: colors.primary },
-  variantImage: { width: '100%', aspectRatio: 1, backgroundColor: colors.surfaceMuted },
+  variantRow: { flexDirection: 'row' },
+  variantCard: { flex: 1, borderWidth: 2, overflow: 'hidden' },
+  variantCheck: { position: 'absolute', top: 8, right: 8, zIndex: 1 },
+  variantImage: { width: '100%', aspectRatio: 1 },
   variantFallback: {
     width: '100%',
     aspectRatio: 1,
-    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  variantFallbackText: { ...typography.title, color: colors.inkMuted },
-  variantLabel: {
-    ...typography.caption,
-    textAlign: 'center',
-    paddingVertical: 6,
-    color: colors.inkMuted,
-  },
-  variantLabelSelected: { color: colors.primary, fontWeight: '700' },
+  variantLabel: { paddingVertical: 6 },
 
-  sceneRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.sm,
-    padding: spacing.sm,
-  },
-  sceneNo: {
-    ...typography.label,
-    color: colors.primary,
-    width: 24,
-    textAlign: 'center',
+  sceneRow: { flexDirection: 'row', borderWidth: 1, alignItems: 'flex-start' },
+  sceneNoCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sceneBody: { flex: 1, gap: 2 },
-  sceneText: { ...typography.caption, fontSize: 14, lineHeight: 20, color: colors.ink },
-  sceneEmotion: { ...typography.caption, color: colors.accent },
+  sceneText: { fontSize: 14, lineHeight: 20 },
 
-  costBox: {
-    backgroundColor: '#FFF1E6',
-    borderColor: colors.primary,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: 4,
-  },
-  costTitle: { ...typography.label, fontSize: 16, color: colors.primary },
-  costHint: { ...typography.caption, color: colors.ink },
-
-  secondaryRow: { flexDirection: 'row', gap: spacing.sm },
+  secondaryRow: { flexDirection: 'row' },
   secondaryCell: { flex: 1 },
 });

@@ -1,12 +1,11 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { StyleSheet, TextInput } from 'react-native';
 
 import { validateGivenName } from '@kendihikayem/shared';
+import { Input } from '@kendihikayem/ui';
 
 import { Caption, Card, PrimaryButton, Screen, Title } from '../../components/ui';
-import { colors, radius, spacing, typography } from '../../constants/theme';
 import { Chip, ChipRow, StepBar } from '../../features/onboarding/components';
 import { useWizardDraft } from '../../features/onboarding/draft';
 import {
@@ -33,7 +32,7 @@ export default function Kahraman(): ReactNode {
 
   return (
     <Screen>
-      <StepBar step={3} total={5} labelTr="Adım 3 / 5 — Kahraman" />
+      <StepBar step={3} total={5} labelTr="Yeni Masal · Kahraman" />
       <Title>Kahramanımız kim?</Title>
 
       <Card>
@@ -54,26 +53,24 @@ export default function Kahraman(): ReactNode {
           />
         </ChipRow>
         {!draft.heroIsChild && (
-          <>
-            <TextInput
-              accessibilityLabel="Kahramanın adı"
-              autoCapitalize="words"
-              autoCorrect={false}
-              maxLength={30}
-              onChangeText={(value) => {
-                setCustomHero(value);
-                const validation = validateGivenName(value);
-                if (validation.ok) patch({ heroName: validation.normalized });
-              }}
-              placeholder="Kahramanın adı"
-              placeholderTextColor={colors.inkMuted}
-              style={styles.input}
-              value={customHero}
-            />
-            {customHero.length > 0 && heroValidation !== undefined && !heroValidation.ok && (
-              <Caption>{heroValidation.messageTr ?? 'Bu isim kullanılamıyor.'}</Caption>
-            )}
-          </>
+          <Input
+            label="Kahramanın adı"
+            autoCapitalize="words"
+            autoCorrect={false}
+            maxLength={30}
+            onChangeText={(value) => {
+              setCustomHero(value);
+              const validation = validateGivenName(value);
+              if (validation.ok) patch({ heroName: validation.normalized });
+            }}
+            placeholder="Örn. Luna"
+            value={customHero}
+            errorTr={
+              customHero.length > 0 && heroValidation !== undefined && !heroValidation.ok
+                ? (heroValidation.messageTr ?? 'Bu isim kullanılamıyor.')
+                : undefined
+            }
+          />
         )}
       </Card>
 
@@ -94,16 +91,3 @@ export default function Kahraman(): ReactNode {
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  input: {
-    ...typography.body,
-    color: colors.ink,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 12,
-  },
-});

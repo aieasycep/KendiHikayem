@@ -16,7 +16,7 @@ export default function Stil(): ReactNode {
 
   return (
     <Screen>
-      <StepBar step={4} total={5} labelTr="Adım 4 / 5 — Çizim stili" />
+      <StepBar step={4} total={5} labelTr="Yeni Masal · Çizim stili" />
       <Title>Hangi çizim stili?</Title>
 
       <StyleGrid

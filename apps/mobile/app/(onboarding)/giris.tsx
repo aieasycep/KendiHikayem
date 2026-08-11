@@ -4,9 +4,9 @@ import type { ReactNode } from 'react';
 import { StyleSheet, TextInput } from 'react-native';
 
 import type { ApiError } from '@kendihikayem/contract';
+import { Input, Text, useTheme } from '@kendihikayem/ui';
 
-import { Body, Caption, Card, Heading, PrimaryButton, Screen, Title } from '../../components/ui';
-import { colors, radius, spacing, typography } from '../../constants/theme';
+import { Body, Caption, Card, PrimaryButton, Screen, Title } from '../../components/ui';
 import { ErrorBanner, SecondaryButton } from '../../features/onboarding/components';
 import { isMockMode } from '../../lib/api';
 import { startOtp, verifyOtp, type OtpChallenge } from '../../lib/session';
@@ -20,6 +20,7 @@ import { startOtp, verifyOtp, type OtpChallenge } from '../../lib/session';
  */
 export default function Giris(): ReactNode {
   const router = useRouter();
+  const { colors, radius, spacing, type } = useTheme();
   const { donus } = useLocalSearchParams<{ donus?: string }>();
 
   const [phone, setPhone] = useState('');
@@ -84,17 +85,14 @@ export default function Giris(): ReactNode {
       </Body>
 
       <Card>
-        <Heading>Telefon numarası</Heading>
-        <TextInput
-          accessibilityLabel="Telefon numarası"
+        <Input
+          label="Telefon numarası"
           autoComplete="tel"
           editable={challenge === undefined}
           keyboardType="phone-pad"
           maxLength={17}
           onChangeText={setPhone}
           placeholder="05xx xxx xx xx"
-          placeholderTextColor={colors.inkMuted}
-          style={styles.input}
           value={phone}
         />
         {challenge === undefined ? (
@@ -117,8 +115,18 @@ export default function Giris(): ReactNode {
                 setCode(value.replace(/\D/g, ''));
               }}
               placeholder="6 haneli kod"
-              placeholderTextColor={colors.inkMuted}
-              style={[styles.input, styles.codeInput]}
+              placeholderTextColor={colors.textDim}
+              style={[
+                type.body,
+                styles.codeInput,
+                {
+                  color: colors.ink,
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  borderRadius: radius.md,
+                  paddingHorizontal: spacing.md,
+                },
+              ]}
               value={code}
             />
             <PrimaryButton
@@ -142,10 +150,10 @@ export default function Giris(): ReactNode {
 
       {error !== undefined && <ErrorBanner error={error} />}
 
-      <Caption>
+      <Text variant="caption" tone="muted">
         Misafir olarak yaptığınız her şey — seçimleriniz, çocuk profili, krediler — bu hesapla
         birleşir. Hiçbir veri kaybolmaz.
-      </Caption>
+      </Text>
     </Screen>
   );
 }
@@ -160,15 +168,12 @@ function normalizeTrPhone(raw: string): string | undefined {
 }
 
 const styles = StyleSheet.create({
-  input: {
-    ...typography.body,
-    color: colors.ink,
-    backgroundColor: colors.background,
+  codeInput: {
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
     paddingVertical: 12,
+    minHeight: 52,
+    letterSpacing: 8,
+    textAlign: 'center',
+    fontWeight: '700',
   },
-  codeInput: { letterSpacing: 8, textAlign: 'center', fontWeight: '700' },
 });

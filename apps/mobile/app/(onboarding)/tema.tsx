@@ -16,7 +16,7 @@ export default function Tema(): ReactNode {
 
   return (
     <Screen>
-      <StepBar step={2} total={5} labelTr="Adım 2 / 5 — Tema" />
+      <StepBar step={2} total={5} labelTr="Yeni Masal · Tema" />
       <Title>Nasıl bir masal olsun?</Title>
 
       <ThemeGrid
