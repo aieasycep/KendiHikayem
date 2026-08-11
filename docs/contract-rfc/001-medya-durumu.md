@@ -59,3 +59,32 @@ doğru değil.
 - Medyanın kırık olma durumu için yeni alan gerekmiyor: adres çözülemezse
   istemci zaten yer tutucuya düşüyor. Bu yol `medya_404` senaryosuyla prova
   edilebilir hâlde tutuldu.
+
+---
+
+## Faz 2 notu — görsel hattı ajanı (A4), 2026-08-11
+
+Gerçek görsel üretimi hattı yazıldı (`packages/providers/src/image`, `packages/media`,
+`apps/worker/src/processors/image*`). RFC'nin iki önerisi artık **varsayım değil, üretilen
+veri**:
+
+**1. `imageAttempts` — veri var, sözleşmede yeri yok.**
+QA döngüsü her denemede `story_pages.image_attempts`'i SQL'de artırıyor
+(`processors/image-assets.ts` → `setPageImageStatus`). Uçtan uca testte ölçülen değerler:
+QA'yı 2. denemede geçen sayfa `2`, hiç geçemeyip `manual_review`'a düşen sayfa `3`.
+Ayrıca `story_pages.image_qa` artık ölçüm taşıyor: `textScore`, `paletteDeltaE`,
+`safeZoneVariance`, `failedChecks`, ve arka ucu olmayan kontroller için
+`unavailableChecks`. İstemci bugün bunların hiçbirini göremiyor; RFC'deki
+`imageAttempts` + `imageLastAttemptAt` alanları bu veriyi açardı.
+
+**2. `SignedMedia.provisional` — hâlâ taşınamıyor, ama artık gerçek bir durum var.**
+Bir sayfa `manual_review`'a düştüğünde ekranda yer tutucu gösteriliyor
+(`packages/media` → `buildPlaceholder`). Eldeki en iyi karenin geçici olarak
+gösterilmesi (RFC'nin asıl senaryosu) bilinçli olarak YAPILMADI: sözleşmede "bu kare
+kesin değil" işareti olmadığı için, ebeveyn geçici bir kareyi nihai sanabilir. Yani bu
+alan eklenene kadar ürün daha az bilgi gösteriyor — daha yanlış değil.
+
+Üçüncü bir gözlem, RFC'nin kapsamı dışında ama aynı aileden: `story_pages.image_qa`
+ölçümleri kalibrasyon için tutuluyor (SPEC §8.3 kimlik eşiği "ilk 200 sayfada insan
+etiketiyle kalibre edilir" diyor). Bunları ops paneline taşıyacak bir uç yok; şimdilik
+doğrudan SQL ile okunuyor.
