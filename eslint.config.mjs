@@ -1,5 +1,6 @@
 import js from '@eslint/js';
 import boundaries from 'eslint-plugin-boundaries';
+import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
@@ -283,6 +284,43 @@ export default tseslint.config(
     files: ['packages/config/**/*.ts'],
     rules: {
       'no-restricted-syntax': 'off',
+    },
+  },
+
+  // React Hooks rules for the client apps and the shared UI package.
+  //
+  // exhaustive-deps is the single highest-value rule here: a stale closure in the
+  // player (word highlighting runs on every animation frame) or in the recorder
+  // (the dB meter samples on a timer) produces a bug that only shows up on a real
+  // device, which is exactly the class of defect we cannot catch in CI.
+  {
+    files: ['apps/mobile/**/*.{ts,tsx}', 'apps/web/**/*.{ts,tsx}', 'packages/ui/**/*.{ts,tsx}'],
+    plugins: { 'react-hooks': reactHooks },
+    rules: {
+      // The two classic rules are hard errors: breaking either one produces a bug
+      // that reproduces only on a device, under a specific interleaving.
+      ...reactHooks.configs.recommended.rules,
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'error',
+
+      // v7 also ships the React Compiler rules. They are worth listening to, but
+      // they are advisory until the screens they flag are finished — demoted to
+      // warnings so they stay visible without blocking a half-written feature.
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/refs': 'warn',
+      'react-hooks/immutability': 'warn',
+      'react-hooks/purity': 'warn',
+      'react-hooks/globals': 'warn',
+      'react-hooks/set-state-in-render': 'warn',
+      'react-hooks/preserve-manual-memoization': 'warn',
+      'react-hooks/incompatible-library': 'warn',
+      'react-hooks/static-components': 'warn',
+      'react-hooks/unsupported-syntax': 'warn',
+      'react-hooks/use-memo': 'warn',
+      'react-hooks/error-boundaries': 'warn',
+      'react-hooks/config': 'warn',
+      'react-hooks/gating': 'warn',
+      'react-hooks/component-hook-factories': 'warn',
     },
   },
 

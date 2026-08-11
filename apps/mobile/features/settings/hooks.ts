@@ -204,7 +204,7 @@ export function useDeleteVoiceProfile() {
         const res = await api().voice.remove({
           params: { voiceProfileId },
           headers: { 'idempotency-key': newIdempotencyKey('sesprofilsil') },
-          body: { confirm: true },
+          body: { sideEffectsAcknowledged: true },
         });
         if (res.status !== 202) throw asApiError(res.body);
         return { sideEffectsTr: res.body.sideEffectsTr };
