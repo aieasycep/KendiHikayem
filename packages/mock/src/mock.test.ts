@@ -512,3 +512,101 @@ describe('aşamalı görsel teslimi', () => {
     expect(done.pages.filter((page) => page.imageStatus === 'ready')).toHaveLength(11);
   });
 });
+
+describe('demo varlık kapsamı', () => {
+  /**
+   * ⚠️ BU TEST BİR BEKÇİDİR, dekorasyon değil.
+   *
+   * Mock'un ürettiği her demo medya adresinin `apps/mobile/assets/demo/` altında
+   * bir dosyası ve `apps/mobile/lib/demoMedia.ts` içinde bir satırı olmalıdır.
+   * Yeni bir hikaye/stil/ses fixture'ı eklenip varlık eklenmezse o ekran demo
+   * APK'sında yine boş kutu gösterir — kullanıcının ilk turda yaşadığı sorun
+   * tam olarak buydu.
+   *
+   * Liste değiştiyse yapılacak: görseli/sesi üret
+   * (`python3 apps/mobile/assets/demo/generate_images.py`), sonra
+   * `apps/mobile/lib/demoMedia.ts` içindeki eşlemeye satırı ekle ve bu listeyi
+   * güncelle.
+   */
+  const RUNTIME_ONLY_KEYS = [
+    /* İstek anında üretilenler: sistem sesi manifesti ve aşamalı teslimle
+     * gelen Ahmet sayfaları (5-12). Bunların da eşlemede karşılığı vardır. */
+    'audio/story/elif/sistem.mp3',
+    ...Array.from({ length: 8 }, (_, i) => `img/story/ahmet/sayfa-${i + 5}.webp`),
+  ];
+
+  it('fixture’lardaki demo medya adresleri bilinen varlık listesiyle aynı', async () => {
+    const fixtures = await import('./fixtures');
+    const keys = new Set<string>();
+    const seen = new WeakSet<object>();
+    const walk = (value: unknown): void => {
+      if (typeof value === 'string') {
+        if (value.startsWith(`${DEMO_MEDIA_BASE}/`)) keys.add(value.slice(DEMO_MEDIA_BASE.length + 1));
+        return;
+      }
+      if (value === null || typeof value !== 'object') return;
+      if (seen.has(value)) return;
+      seen.add(value);
+      for (const item of Object.values(value as Record<string, unknown>)) walk(item);
+    };
+    walk(fixtures);
+
+    expect([...keys].sort()).toEqual(
+      [
+        'audio/story/elif/anne-sayfa-6.mp3',
+        'audio/story/elif/anne.mp3',
+        'audio/voice/anne-onizleme.mp3',
+        'audio/voice/baba-onizleme.mp3',
+        'audio/voice/deniz.mp3',
+        'audio/voice/ege.mp3',
+        'audio/voice/kerem.mp3',
+        'audio/voice/nur.mp3',
+        'img/character/ahmet-sheet.webp',
+        'img/character/deniz-sheet.webp',
+        'img/character/elif-sheet.webp',
+        'img/character/elif-v1.webp',
+        'img/character/elif-v2.webp',
+        'img/character/elif-v3.webp',
+        'img/character/findik-sheet.webp',
+        'img/character/zeynep-v1.webp',
+        'img/character/zeynep-v2.webp',
+        'img/character/zeynep-v3.webp',
+        'img/format/kare21-yumusak.webp',
+        'img/format/kare21.webp',
+        'img/story/ahmet/kapak.webp',
+        'img/story/ahmet/sayfa-1.webp',
+        'img/story/ahmet/sayfa-2.webp',
+        'img/story/ahmet/sayfa-3.webp',
+        'img/story/ahmet/sayfa-4.webp',
+        'img/story/deniz/kapak.webp',
+        'img/story/deniz/sayfa-1.webp',
+        'img/story/deniz/sayfa-2.webp',
+        'img/story/deniz/sayfa-3.webp',
+        'img/story/deniz/sayfa-4.webp',
+        'img/story/deniz/sayfa-5.webp',
+        'img/story/deniz/sayfa-6.webp',
+        'img/story/deniz/sayfa-7.webp',
+        'img/story/deniz/sayfa-8.webp',
+        'img/story/elif/kapak.webp',
+        'img/story/elif/sayfa-1.webp',
+        'img/story/elif/sayfa-10.webp',
+        'img/story/elif/sayfa-11.webp',
+        'img/story/elif/sayfa-12.webp',
+        'img/story/elif/sayfa-2.webp',
+        'img/story/elif/sayfa-3.webp',
+        'img/story/elif/sayfa-4.webp',
+        'img/story/elif/sayfa-5.webp',
+        'img/story/elif/sayfa-6.webp',
+        'img/story/elif/sayfa-7.webp',
+        'img/story/elif/sayfa-8.webp',
+        'img/story/elif/sayfa-9.webp',
+        'img/style/anadolu.webp',
+        'img/style/cizgi-defter.webp',
+        'img/style/kesik-kagit.webp',
+        'img/style/pastel.webp',
+        'img/style/suluboya.webp',
+      ].sort(),
+    );
+    expect(RUNTIME_ONLY_KEYS).toHaveLength(9);
+  });
+});
