@@ -15,6 +15,10 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@kendihikayem/contract": "workspace:*",
     "@kendihikayem/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@kendihikayem/mock": "workspace:*"
   }
 }

@@ -1,4 +1,15 @@
 {
   "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    /**
+     * Consumed as source (main: ./src/index.ts + tsconfig paths), so no .d.ts is emitted.
+     * `declaration` is off for the same reason as packages/providers and packages/mock:
+     * `packages/contract` cannot serialise ts-rest's inferred router types into a
+     * declaration file, and this package imports the contract's error catalogue.
+     */
+    "declaration": false,
+    "declarationMap": false,
+    "types": ["node"]
+  },
   "include": ["src/**/*.ts"]
 }
