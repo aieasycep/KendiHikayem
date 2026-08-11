@@ -49,12 +49,18 @@ export function pageIndexAtMs(pages: readonly PlayerPage[], positionMs: number):
   return low;
 }
 
-/** Cümle vurgusu (granularity 'sentence' olduğunda). -1 = cümle başlamadı. */
+/**
+ * Cümle vurgusu (granularity 'sentence' olduğunda). -1 = cümle başlamadı.
+ *
+ * Zamanlaması olmayan (startMs === endMs) cümleler ATLANIR: hizalayıcı bir
+ * cümleye zaman verememişse (örn. yalnız noktalama) vurgu ona hiç uğramaz.
+ * Bu yüzden dizi monotonik varsayılmaz ve erken çıkış yapılmaz.
+ */
 export function activeSentenceIndex(page: PlayerPage, positionMs: number): number {
   let active = -1;
   for (const sentence of page.sentences) {
+    if (sentence.endMs <= sentence.startMs) continue;
     if (sentence.startMs <= positionMs) active = sentence.i;
-    else break;
   }
   return active;
 }

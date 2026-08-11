@@ -16,7 +16,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { useEffect, useRef, type ReactElement, type ReactNode } from 'react';
+import { useEffect, useState, type ReactElement, type ReactNode } from 'react';
 
 import { useTheme } from '../theme';
 import { Text } from './Text';
@@ -31,7 +31,7 @@ export interface SheetProps {
 
 export function Sheet({ open, onClose, titleTr, children }: SheetProps): ReactElement {
   const { colors, radius, spacing, motion } = useTheme();
-  const slide = useRef(new Animated.Value(0)).current;
+  const [slide] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     Animated.timing(slide, {

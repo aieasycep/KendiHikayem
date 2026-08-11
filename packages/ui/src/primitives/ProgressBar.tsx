@@ -7,7 +7,7 @@
  */
 
 import { Animated, StyleSheet, View } from 'react-native';
-import { useEffect, useRef, type ReactElement } from 'react';
+import { useEffect, useState, type ReactElement } from 'react';
 
 import { useTheme } from '../theme';
 import { Text } from './Text';
@@ -23,8 +23,8 @@ export interface ProgressBarProps {
 
 export function ProgressBar({ value, labelTr, detailTr }: ProgressBarProps): ReactElement {
   const { colors, radius, spacing, motion } = useTheme();
-  const fill = useRef(new Animated.Value(0)).current;
-  const crawl = useRef(new Animated.Value(0)).current;
+  const [fill] = useState(() => new Animated.Value(0));
+  const [crawl] = useState(() => new Animated.Value(0));
   const indeterminate = value === undefined;
 
   useEffect(() => {

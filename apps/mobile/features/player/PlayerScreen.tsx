@@ -182,7 +182,7 @@ function PlayerInner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bedtimeOn, karaoke.pageIndex]);
 
-  const dimAnim = useRef(new Animated.Value(0)).current;
+  const [dimAnim] = useState(() => new Animated.Value(0));
   useEffect(() => {
     Animated.timing(dimAnim, {
       toValue: dimTarget,

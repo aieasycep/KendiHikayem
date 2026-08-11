@@ -79,12 +79,16 @@ describe('pageIndexAtMs', () => {
 });
 
 describe('activeSentenceIndex', () => {
-  it('cümle başlangıçlarına göre ilerler', () => {
+  it('cümle başlangıçlarına göre ilerler; zamanlanmamış cümleler atlanır', () => {
     const page = PLAYER_MANIFEST.pages[0] as PlayerPage;
     expect(activeSentenceIndex(page, page.startMs - 1)).toBe(-1);
-    const last = page.sentences[page.sentences.length - 1];
+    /* Mock verisinde token içermeyen (startMs === endMs) cümleler olabilir —
+       son ZAMANLANMIŞ cümlenin başlangıcında o cümle aktif olmalıdır. */
+    const timed = page.sentences.filter((s) => s.endMs > s.startMs);
+    const last = timed[timed.length - 1];
     if (last !== undefined) {
       expect(activeSentenceIndex(page, last.startMs)).toBe(last.i);
+      expect(activeSentenceIndex(page, page.endMs + 1_000)).toBe(last.i);
     }
   });
 });

@@ -7,14 +7,18 @@
  * dolabilir.
  *
  * Davranış:
- *   1. `localUri` verilmişse önce o denenir (çevrimdışı öncelik).
+ *   1. `localUri` verilmişse önce o denenir (çevrimdışı öncelik), hata verirse
+ *      uzak URL'e düşülür.
  *   2. Yüklenene kadar yumuşak nabızlı yer tutucu.
  *   3. Hata olursa sıcak renkli, harf monogramlı yer tutucu + isteğe bağlı not.
  *      Kırık görsel simgesi ASLA gösterilmez.
+ *
+ * Durum, prop'lardan TÜRETİLİR (effect yok): hangi adreslerin battığı/yüklendiği
+ * kümelerde tutulur, kaynak listesi her render'da bu kümelere göre çözülür.
  */
 
 import { Image, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { useEffect, useState, type ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 
 import { useTheme } from '../theme';
 import { Skeleton } from '../primitives/Skeleton';
@@ -36,8 +40,6 @@ export interface MediaImageProps {
   style?: StyleProp<ViewStyle>;
 }
 
-type Phase = 'loading' | 'ready' | 'failed';
-
 export function MediaImage({
   uri,
   localUri,
@@ -49,13 +51,15 @@ export function MediaImage({
   style,
 }: MediaImageProps): ReactElement {
   const { colors, radius } = useTheme();
-  const [phase, setPhase] = useState<Phase>('loading');
-  const [source, setSource] = useState<string | undefined>(localUri ?? uri);
+  const [failedUris, setFailedUris] = useState<ReadonlySet<string>>(new Set());
+  const [loadedUris, setLoadedUris] = useState<ReadonlySet<string>>(new Set());
 
-  useEffect(() => {
-    setSource(localUri ?? uri);
-    setPhase(localUri !== undefined || uri !== undefined ? 'loading' : 'failed');
-  }, [uri, localUri]);
+  const candidates = [localUri, uri].filter(
+    (value): value is string => value !== undefined && value.length > 0,
+  );
+  const source = candidates.find((candidate) => !failedUris.has(candidate));
+  const phase: 'loading' | 'ready' | 'failed' =
+    source === undefined ? 'failed' : loadedUris.has(source) ? 'ready' : 'loading';
 
   const finalRadius = borderRadius ?? radius.cover;
   const monogram = (placeholderLabelTr ?? '·').trim().charAt(0).toLocaleUpperCase('tr-TR');
@@ -66,22 +70,16 @@ export function MediaImage({
       accessibilityLabel={altTr ?? placeholderLabelTr}
       style={[{ aspectRatio, borderRadius: finalRadius, overflow: 'hidden' }, style]}
     >
-      {source !== undefined && phase !== 'failed' ? (
+      {source !== undefined ? (
         <Image
           source={{ uri: source }}
           resizeMode="cover"
           style={StyleSheet.absoluteFill}
           onLoad={() => {
-            setPhase('ready');
+            setLoadedUris((previous) => new Set(previous).add(source));
           }}
           onError={() => {
-            // Yerel kopya bozuksa uzak URL'e düş; o da düşerse yer tutucu.
-            if (source === localUri && uri !== undefined && uri !== localUri) {
-              setSource(uri);
-              setPhase('loading');
-            } else {
-              setPhase('failed');
-            }
+            setFailedUris((previous) => new Set(previous).add(source));
           }}
         />
       ) : null}

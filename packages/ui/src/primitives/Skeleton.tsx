@@ -6,7 +6,7 @@
  */
 
 import { Animated, type DimensionValue, type StyleProp, type ViewStyle } from 'react-native';
-import { useEffect, useRef, type ReactElement } from 'react';
+import { useEffect, useState, type ReactElement } from 'react';
 
 import { useTheme } from '../theme';
 
@@ -27,7 +27,7 @@ export function Skeleton({
   style,
 }: SkeletonProps): ReactElement {
   const { colors, radius } = useTheme();
-  const pulse = useRef(new Animated.Value(0.4)).current;
+  const [pulse] = useState(() => new Animated.Value(0.4));
 
   useEffect(() => {
     const loop = Animated.loop(
