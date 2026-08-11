@@ -45,6 +45,7 @@ import {
   Sheet,
   Text,
   ThemeScope,
+  fontFamilies,
   palette,
   useTheme,
 } from '@kendihikayem/ui';
@@ -760,7 +761,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  kicker: { fontSize: 11, lineHeight: 15, letterSpacing: 0.88 },
+  kicker: {
+    fontFamily: fontFamilies.bodySemiBold,
+    fontSize: 11,
+    lineHeight: 15,
+    letterSpacing: 0.88,
+  },
 
   /* Kapak — Figma: padding 40 0 36; küçük ekranda esner. */
   coverArea: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 24 },
@@ -772,7 +778,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, lineHeight: 29, letterSpacing: -0.24 },
   voiceRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   voiceIcon: { fontSize: 14, lineHeight: 18 },
-  voiceLabel: { fontSize: 14, lineHeight: 19, fontWeight: '600' },
+  voiceLabel: { fontFamily: fontFamilies.bodySemiBold, fontSize: 14, lineHeight: 19 },
   silentBadge: { marginTop: 4 },
 
   /* Dalga formu — Figma: 28 çubuk, genişlik 3, aralık 3. */
@@ -855,9 +861,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(176,156,224,0.2)',
     borderColor: 'rgba(176,156,224,0.5)',
   },
-  chipText: { fontSize: 13, lineHeight: 17, fontWeight: '700' },
+  chipText: { fontFamily: fontFamilies.bodyBold, fontSize: 13, lineHeight: 17 },
   chipTimer: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  chipTimerText: { fontSize: 13, lineHeight: 17, fontWeight: '600' },
+  chipTimerText: { fontFamily: fontFamilies.bodySemiBold, fontSize: 13, lineHeight: 17 },
 
   /* Metni göster — Figma: padding 20 0 0. */
   showTextRow: { alignItems: 'center', paddingTop: 20, paddingBottom: 8 },
@@ -869,7 +875,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 10,
   },
-  showTextLabel: { fontSize: 14, lineHeight: 19, fontWeight: '600' },
+  showTextLabel: { fontFamily: fontFamilies.bodySemiBold, fontSize: 14, lineHeight: 19 },
 
   dimOverlay: {
     position: 'absolute',
