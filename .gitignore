@@ -51,6 +51,9 @@ Thumbs.db
 # local infra volumes
 infra/docker/data/
 
+# yerelde repo kokunden baslatilan redis-server'in anlik goruntusu
+dump.rdb
+
 # MEDIA_STORAGE_DRIVER=filesystem yazdigi yerel medya (MEDIA_LOCAL_ROOT varsayilani)
 .data/
 
