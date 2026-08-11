@@ -14,7 +14,10 @@
     "@kendihikayem/config": "workspace:*",
     "@kendihikayem/contract": "workspace:*",
     "@kendihikayem/db": "workspace:*",
+    "@kendihikayem/media": "workspace:*",
+    "@kendihikayem/pdf": "workspace:*",
     "@kendihikayem/providers": "workspace:*",
+    "@kendihikayem/safety": "workspace:*",
     "@kendihikayem/shared": "workspace:*",
     "bullmq": "6.0.11",
     "ioredis": "5.9.0"

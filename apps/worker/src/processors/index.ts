@@ -29,9 +29,23 @@ import {
   updateProgress,
 } from '../jobs/repository';
 import { appendJobEvent, enqueueOutbox } from '../jobs/events';
+import { buildImageContext } from './image-context';
+import {
+  storyFillProcessor,
+  storyOutlineProcessor,
+  storyPageRewriteProcessor,
+} from './story-processors';
+import {
+  makeCharacterSheetProcessor,
+  makeImagePageProcessor,
+  makeStylePlateProcessor,
+  memoiseContext,
+} from './image';
 import { commitReservation, releaseReservation } from '../cost/reservation';
+import { createAudioConcatProcessor, createTtsChunkProcessor } from './audio-render';
+import { createVoiceCreateProcessor, createVoiceDeleteProcessor } from './audio-voice';
+import { pdfBuild, printStatus, printSubmit } from './print';
 import { actualCostForJob } from '../cost/ledger.pg';
-import { estimateCost } from '@kendihikayem/providers';
 
 export type WorkerProcessor = (
   runtime: WorkerRuntime,
@@ -118,115 +132,26 @@ async function emitProgress(
 
 /* ── llm queue ─────────────────────────────────────────────────────────────── */
 
-/** Stage 1: the cheap skeleton gate. Ends in `waiting_approval`, not `succeeded`. */
-const storyOutline: WorkerProcessor = async (runtime, job) => {
-  const { jobId, userId, correlationId } = job.data;
-  await ensureRunning(runtime, jobId);
-  await emitProgress(runtime, jobId, 0, 3, 'Hikayenin iskeleti kuruluyor');
+/**
+ * Stage 1 and stage 2 (A3). The DOMAIN — prompts, schema validation, the Turkish quality
+ * gate, the six safety layers, the DB writes — lives in `story-generation.ts`; what stays
+ * here is this file's job: closing the job so the reservation settles.
+ *
+ * `story.outline` is NOT closed on purpose: it parks in `waiting_approval` at ⏸ GATE 1 and
+ * is closed by the approve (or reject) endpoint.
+ */
+const storyOutline: WorkerProcessor = storyOutlineProcessor;
 
-  const storyId = String(job.data.ref?.['storyId'] ?? '');
-  const estimate = estimateCost('story_outline', {}, runtime.priceBook);
-
-  const result = await runStep({
-    db: runtime.db,
-    jobId,
-    userId,
-    correlationId,
-    stepKey: stepKeys.llmOutline(),
-    stepKind: 'llm',
-    operation: 'llm.complete',
-    stepInput: { storyId, stage: 'outline' },
-    router: runtime.routers.llm,
-    // TODO(A3): real system prompt + STYLE_DNA, cacheable prefix per SPEC §6.2 rule 2.
-    invoke: (adapter, ctx) =>
-      adapter.complete(
-        {
-          purpose: 'outline',
-          messages: [
-            { role: 'system', content: 'KendiHikayem outline stage', cacheable: true },
-            { role: 'user', content: `story:${storyId}` },
-          ],
-          maxOutputTokens: 2000,
-          responseFormat: 'json',
-          batch: true,
-        },
-        ctx,
-      ),
-    toOutput: (value) => ({ text: value.text, tokens: value.tokens, model: value.model }),
-    cache: {
-      kind: 'llm',
-      provider: runtime.adapters.llm.provider,
-      model: 'configured',
-      params: { purpose: 'outline' },
-      prompt: `story:${storyId}`,
-      estimatedUsd: estimate.breakdownUsd.llm,
-    },
-  });
-
-  if (result.status === 'failed') throw result.error;
-
-  await emitProgress(runtime, jobId, 3, 3, 'İskelet hazır, onayınızı bekliyor');
-
-  // ⏸ GATE 1. The job parks here; stage 2 is enqueued only by the approve endpoint.
-  await transitionJob(runtime.db, jobId, 'waiting_approval');
-  await appendJobEvent(runtime.db, jobId, 'job.awaiting_approval', {
-    jobId,
-    approvalKind: 'skeleton',
-  });
-  return { status: 'waiting_approval' };
+const storyFill: WorkerProcessor = async (runtime, job) => {
+  const result = await storyFillProcessor(runtime, job);
+  await closeJob(runtime, job.data.jobId, { stepPrefix: 'llm:illustration_prompt:' });
+  return result;
 };
 
-/** Stage 2 parent: fill the pages. Children produce the per-page illustration prompts. */
-const storyFill: WorkerProcessor = async (runtime, job) => {
-  const { jobId, userId, correlationId } = job.data;
-  await ensureRunning(runtime, jobId);
-
-  const storyId = String(job.data.ref?.['storyId'] ?? '');
-  const pageCount = Number(job.data.ref?.['pageCount'] ?? 12);
-  const estimate = estimateCost('story_fill', { pageCount }, runtime.priceBook);
-
-  await emitProgress(runtime, jobId, 0, pageCount, 'Hikaye yazılıyor');
-
-  const result = await runStep({
-    db: runtime.db,
-    jobId,
-    userId,
-    correlationId,
-    stepKey: stepKeys.llmFill(),
-    stepKind: 'llm',
-    operation: 'llm.complete',
-    stepInput: { storyId, stage: 'fill', pageCount },
-    router: runtime.routers.llm,
-    // TODO(A3): staged prompts, effort:high, per-page emission of `page.ready`.
-    invoke: (adapter, ctx) =>
-      adapter.complete(
-        {
-          purpose: 'fill',
-          messages: [
-            { role: 'system', content: 'KendiHikayem fill stage', cacheable: true },
-            { role: 'user', content: `story:${storyId}:pages:${pageCount}` },
-          ],
-          maxOutputTokens: 7000,
-          effort: 'high',
-          batch: true,
-        },
-        ctx,
-      ),
-    toOutput: (value) => ({ text: value.text, tokens: value.tokens }),
-    cache: {
-      kind: 'llm',
-      provider: runtime.adapters.llm.provider,
-      model: 'configured',
-      params: { purpose: 'fill', pageCount },
-      prompt: `story:${storyId}`,
-      estimatedUsd: estimate.breakdownUsd.llm,
-    },
-  });
-
-  if (result.status === 'failed') throw result.error;
-
-  await closeJob(runtime, jobId, { stepPrefix: 'llm:illustration_prompt:' });
-  return { status: 'succeeded' };
+const storyPageRewrite: WorkerProcessor = async (runtime, job) => {
+  const result = await storyPageRewriteProcessor(runtime, job);
+  await closeJob(runtime, job.data.jobId);
+  return result;
 };
 
 /** One illustration prompt per page. Failing one page must not stop the other eleven. */
@@ -265,82 +190,26 @@ const illustrationPrompt: WorkerProcessor = async (runtime, job) => {
 
 /* ── image queue ───────────────────────────────────────────────────────────── */
 
-/** One page (or the cover). Progressive delivery: emit `page.image.ready` immediately. */
-const imagePage: WorkerProcessor = async (runtime, job) => {
-  const { jobId, userId, correlationId, stepKey, pageNo } = job.data;
-  await ensureRunning(runtime, jobId);
-
-  const storyId = String(job.data.ref?.['storyId'] ?? '');
-  const print = Boolean(job.data.ref?.['print']);
-  const resolution = print ? 'print_4k' : 'screen_2k';
-  const estimate = estimateCost('page_reillustrate', { print }, runtime.priceBook);
-
-  const promptEn = `page ${pageNo ?? 'cover'} of story ${storyId}`;
-
-  const result = await runStep({
+/**
+ * The illustration processors live in `processors/image.ts` (owner: A4). They are built
+ * here rather than imported as constants because each one needs an `ImageContext` — the
+ * adapter route chosen by `API_MODE`, the object store, the QA thresholds — and that
+ * context is per-runtime, not per-module.
+ */
+const imageContextFor = memoiseContext((runtime) =>
+  buildImageContext({
     db: runtime.db,
-    jobId,
-    userId,
-    correlationId,
-    stepKey: stepKey ?? stepKeys.imagePage(pageNo ?? 1),
-    stepKind: 'image',
-    operation: 'image.generate',
-    stepInput: { storyId, pageNo, resolution, promptEn },
-    router: runtime.routers.image,
-    // TODO(A4): real refs (style plate, character sheet, face_ref, previous page) and the
-    // §8.3 QA gate — identity cosine, OCR leak, palette ΔE, safe zone.
-    invoke: (adapter, ctx) =>
-      adapter.generate(
-        {
-          purpose: pageNo === undefined ? 'cover' : 'page',
-          promptEn,
-          references: [
-            { kind: 'style_plate', assetId: String(job.data.ref?.['stylePlateAssetId'] ?? '') },
-            {
-              kind: 'character_sheet',
-              assetId: String(job.data.ref?.['characterSheetAssetId'] ?? ''),
-            },
-            { kind: 'face_ref', assetId: String(job.data.ref?.['faceRefAssetId'] ?? '') },
-          ],
-          aspectRatio: '1:1',
-          resolution,
-          batch: true,
-          // ⚠️ Explicit: the vendor default is OFF for a children's product (SPEC §8.2).
-          safety: { blockLevel: 'BLOCK_MOST' },
-        },
-        ctx,
-      ),
-    toOutput: (value) => ({
-      sha256: value.image.sha256,
-      width: value.image.width,
-      height: value.image.height,
-      mimeType: value.image.mimeType,
-    }),
-    cache: {
-      kind: 'image',
-      provider: runtime.adapters.image.provider,
-      model: 'configured',
-      params: { resolution, pageNo },
-      prompt: promptEn,
-      estimatedUsd: estimate.breakdownUsd.image,
-    },
-  });
+    env: runtime.env,
+    // Reuse the runtime's image route so mock/live selection and the cost ledger stay in
+    // one place; `buildRuntime` already chose it from `API_MODE`.
+    adapters: [...runtime.routers.image.route],
+    routerOptions: { ledger: runtime.ledger, breakers: runtime.breakers },
+  }),
+);
 
-  if (result.status === 'failed') {
-    // TODO(A4): flip `story_pages.image_status` to 'manual_review' so ops sees it and the
-    // reader shows a placeholder + "yeniden dene" instead of blocking the book.
-    throw result.error;
-  }
-
-  if (pageNo !== undefined) {
-    await appendJobEvent(runtime.db, jobId, 'page.image.ready', {
-      storyId,
-      pageNo,
-      cached: result.status === 'skipped',
-    });
-  }
-  return { status: result.status };
-};
+const imagePage = makeImagePageProcessor(imageContextFor);
+const imageStylePlate = makeStylePlateProcessor(imageContextFor);
+const imageCharacterSheet = makeCharacterSheetProcessor(imageContextFor);
 
 /* ── media queue ───────────────────────────────────────────────────────────── */
 
@@ -370,62 +239,50 @@ const bookAssemble: WorkerProcessor = async (runtime, job) => {
 
 /* ── voice queue ───────────────────────────────────────────────────────────── */
 
+/**
+ * ⭐ The chunk render, the voice clone and the join all live in `audio-*.ts` (A5). They are
+ * built per-runtime rather than being plain constants because each one needs the resolved
+ * voice settings — chunk size, loudness target, slot policy — which come from config and
+ * differ per environment.
+ */
 const ttsChunk: WorkerProcessor = async (runtime, job) => {
-  const { jobId, userId, correlationId, stepKey, pageNo } = job.data;
-  await ensureRunning(runtime, jobId);
-
-  const ref = job.data.ref ?? {};
-  const chunkIndex = Number(ref['chunkIndex'] ?? 0);
-  const tier = (ref['tier'] as 'draft' | 'quality') ?? 'quality';
-  const voice = ref['voice'] as { kind: 'cloned' | 'system'; providerVoiceId: string };
-  // TODO(A5): read the real chunk text; splitting happens on paragraph/page boundaries,
-  // never mid-sentence (SPEC §7 step 10).
-  const text = String(ref['text'] ?? `chunk ${chunkIndex}`);
-  const estimate = estimateCost('audio_render', { characters: text.length, tier }, runtime.priceBook);
-
-  const result = await runStep({
-    db: runtime.db,
-    jobId,
-    userId,
-    correlationId,
-    stepKey: stepKey ?? stepKeys.ttsChunk(chunkIndex),
-    stepKind: 'tts',
-    operation: 'tts.synth',
-    stepInput: { chunkIndex, textHash: ref['textHash'], tier, voice },
-    router: runtime.routers.tts,
-    invoke: (adapter, ctx) =>
-      adapter.synthesize(
-        { text, voice, tier, languageCode: 'tr', outputFormat: 'mp3_44100_128' },
-        ctx,
-      ),
-    toOutput: (value) => ({ durationMs: value.durationMs, billedCharacters: value.billedCharacters }),
-    cache: {
-      kind: 'tts_chunk',
-      provider: runtime.adapters.tts.provider,
-      model: 'configured',
-      params: { tier, voiceId: voice?.providerVoiceId },
-      prompt: String(ref['textHash'] ?? text),
-      estimatedUsd: estimate.breakdownUsd.tts,
-    },
-  });
-
-  if (result.status === 'failed') throw result.error;
-
-  await appendJobEvent(runtime.db, jobId, 'audio.chunk.ready', {
-    storyId: String(ref['storyId'] ?? ''),
-    renditionId: String(ref['renditionId'] ?? ''),
-    pageNo: pageNo ?? 1,
-    chunkIndex,
-    cached: result.status === 'skipped',
-  });
-  return { status: result.status };
+  await ensureRunning(runtime, job.data.jobId);
+  return createTtsChunkProcessor({ settings: runtime.ttsSettings })(runtime, job);
 };
 
+/**
+ * FAN-IN. Joins the chunks, normalises to −16 LUFS, writes the page marks and the word
+ * timings, then closes the job. A missing chunk failed the parent already
+ * (`failParentOnFailure` in the flow): a hole in the middle of a story is not a partial
+ * success the way a missing illustration is.
+ */
 const audioConcat: WorkerProcessor = async (runtime, job) => {
   const { jobId } = job.data;
-  // TODO(A5): ffmpeg concat + 350 ms silence + loudnorm −16 LUFS, then WhisperX alignment.
+  const result = await createAudioConcatProcessor({ settings: runtime.ttsSettings })(runtime, job);
   await closeJob(runtime, jobId, { stepPrefix: 'tts:chunk:' });
-  return { status: 'succeeded' };
+  return { status: 'succeeded', ...result };
+};
+
+/** Voice cloning: consent chain → stitched reference → vendor voice → preview (SPEC §7 §8). */
+const voiceCreate: WorkerProcessor = async (runtime, job) => {
+  const { jobId } = job.data;
+  await ensureRunning(runtime, jobId);
+  await emitProgress(runtime, jobId, 0, 3, 'Sesiniz hazırlanıyor');
+
+  const result = await createVoiceCreateProcessor({ settings: runtime.ttsSettings })(runtime, job);
+
+  await emitProgress(runtime, jobId, 3, 3, 'Sesiniz hazır, dinleyebilirsiniz');
+  await closeJob(runtime, jobId);
+  return result;
+};
+
+/** Erasure: schedules the provider → storage → rows chain (SPEC §7 step 11). */
+const voiceDelete: WorkerProcessor = async (runtime, job) => {
+  const { jobId } = job.data;
+  await ensureRunning(runtime, jobId);
+  const result = await createVoiceDeleteProcessor()(runtime, job);
+  await closeJob(runtime, jobId);
+  return result;
 };
 
 /* ── Skeletons for the remaining job kinds ─────────────────────────────────── */
@@ -469,18 +326,18 @@ export const PROCESSORS: Record<QueueName, Record<string, WorkerProcessor>> = {
     'story.outline': storyOutline,
     'story.fill': storyFill,
     'llm.illustration_prompt': illustrationPrompt,
-    'story.page_rewrite': skeleton('A3', 'Sayfa yeniden yazılıyor'),
+    'story.page_rewrite': storyPageRewrite,
   },
   image: {
     'image.page': imagePage,
     'image.cover': imagePage,
-    'image.character_sheet': skeleton('A4', 'Karakter sayfası çiziliyor'),
-    'image.style_plate': skeleton('A4', 'Stil plakası hazırlanıyor'),
+    'image.character_sheet': imageCharacterSheet,
+    'image.style_plate': imageStylePlate,
   },
   voice: {
     'tts.chunk': ttsChunk,
-    'voice.create': skeleton('A5', 'Sesiniz hazırlanıyor'),
-    'voice.delete': skeleton('A5', 'Ses siliniyor'),
+    'voice.create': voiceCreate,
+    'voice.delete': voiceDelete,
   },
   media: {
     'book.assemble': bookAssemble,
@@ -488,8 +345,11 @@ export const PROCESSORS: Record<QueueName, Record<string, WorkerProcessor>> = {
     'export.mp4': skeleton('A5', 'Video hazırlanıyor'),
   },
   print: {
-    'pdf.build': skeleton('A6', 'Baskı dosyası hazırlanıyor'),
-    'print.submit': skeleton('A6', 'Baskı siparişi iletiliyor'),
+    // A6: layout + preflight + PDF bytes, then the partner. `pdf.build` never reaches the
+    // printer when the preflight fails — see flows/print.flow.ts.
+    'pdf.build': pdfBuild,
+    'print.submit': printSubmit,
+    'print.status': printStatus,
   },
   ops: {
     'privacy.export': skeleton('A1', 'Verileriniz dışa aktarılıyor'),
