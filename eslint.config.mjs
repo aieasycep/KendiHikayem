@@ -25,18 +25,56 @@ const CLIENT_SAFE_PACKAGES = ['contract', 'mock', 'ui', 'shared'];
 /** Everything else: DB access, provider SDKs, secrets, heavy Node-only tooling. */
 const SERVER_ONLY_PACKAGES = ['db', 'providers', 'safety', 'config', 'media', 'pdf'];
 
+/**
+ * AI/payment vendor SDKs. Only packages/providers may import these (SPEC §3 rule 6).
+ * Enforced with `no-restricted-imports` rather than `boundaries` because that rule needs
+ * no module resolution: it fires even before the SDK is installed, which is exactly the
+ * moment an agent is most likely to reach for it.
+ */
+const PROVIDER_SDKS = [
+  '@anthropic-ai/*',
+  '@anthropic-ai/*/**',
+  'openai',
+  'openai/**',
+  '@google/genai',
+  '@google/generative-ai',
+  'elevenlabs',
+  'elevenlabs/**',
+  '@cartesia/*',
+  'iyzipay',
+];
+
+/** Server-side infrastructure that must never end up in a client bundle. */
+const SERVER_LIBS = [
+  'fastify',
+  'fastify/**',
+  'bullmq',
+  'drizzle-orm',
+  'drizzle-orm/**',
+  'pg',
+  'postgres',
+  'ioredis',
+  'node:fs',
+  'node:child_process',
+];
+
+const PROVIDER_SDK_MESSAGE =
+  "SINIR İHLALİ (SPEC §3, kural 6): sağlayıcı SDK'sı yalnızca packages/providers altında import edilebilir.";
+const SERVER_LIB_MESSAGE =
+  'SINIR İHLALİ (SPEC §3): sunucu kütüphaneleri istemci uygulamasına giremez.';
+
 const elements = [
-  ...CLIENT_APPS.map((dir) => ({ type: 'app-client', pattern: `${dir}/**/*`, mode: 'full' })),
-  ...SERVER_APPS.map((dir) => ({ type: 'app-server', pattern: `${dir}/**/*`, mode: 'full' })),
+  ...CLIENT_APPS.map((dir) => ({ type: 'app-client', pattern: `${dir}/**/*`, partialMatch: false })),
+  ...SERVER_APPS.map((dir) => ({ type: 'app-server', pattern: `${dir}/**/*`, partialMatch: false })),
   ...CLIENT_SAFE_PACKAGES.map((name) => ({
     type: 'pkg-client-safe',
     pattern: `packages/${name}/**/*`,
-    mode: 'full',
+    partialMatch: false,
   })),
   ...SERVER_ONLY_PACKAGES.map((name) => ({
     type: 'pkg-server-only',
     pattern: `packages/${name}/**/*`,
-    mode: 'full',
+    partialMatch: false,
   })),
 ];
 
@@ -64,6 +102,9 @@ export default tseslint.config(
     languageOptions: {
       sourceType: 'commonjs',
       globals: { ...globals.node },
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
     },
   },
 
@@ -93,6 +134,34 @@ export default tseslint.config(
             'Model adı koda gömülemez (SPEC §3, sınır kuralı 6). packages/config üzerinden okuyun.',
         },
       ],
+      'no-restricted-imports': [
+        'error',
+        { patterns: [{ group: PROVIDER_SDKS, message: PROVIDER_SDK_MESSAGE }] },
+      ],
+    },
+  },
+
+  // Client apps additionally may not import server infrastructure.
+  {
+    files: CLIENT_APPS.map((dir) => `${dir}/**/*.{ts,tsx}`),
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: PROVIDER_SDKS, message: PROVIDER_SDK_MESSAGE },
+            { group: SERVER_LIBS, message: SERVER_LIB_MESSAGE },
+          ],
+        },
+      ],
+    },
+  },
+
+  // packages/providers is the sanctioned home of every vendor SDK.
+  {
+    files: ['packages/providers/**/*.ts'],
+    rules: {
+      'no-restricted-imports': 'off',
     },
   },
 
@@ -114,60 +183,106 @@ export default tseslint.config(
       },
     },
     rules: {
-      'boundaries/element-types': [
+      'boundaries/dependencies': [
         'error',
         {
+          // Deny by default: a package added later is walled off until someone states,
+          // in this file, who is allowed to depend on it.
           default: 'disallow',
           message:
-            'SINIR İHLALİ: "${file.type}" katmanı "${dependency.type}" katmanını import edemez. ' +
-            'İstemci uygulamaları yalnızca packages/{contract,mock,ui,shared} kullanabilir (SPEC §3).',
-          rules: [
+            'SINIR İHLALİ (SPEC §3): bu katman o katmanı import edemez. İstemci uygulamaları ' +
+            '(apps/mobile, apps/web, apps/ops) yalnızca packages/{contract,mock,ui,shared} kullanabilir.',
+          policies: [
+            // Third-party and Node core modules are fine anywhere unless disallowed below.
             {
-              from: ['app-client'],
-              allow: ['app-client', 'pkg-client-safe'],
+              allow: { to: { module: { origin: 'external' } } },
             },
             {
-              from: ['app-server'],
-              allow: ['app-server', 'pkg-client-safe', 'pkg-server-only'],
+              allow: { to: { module: { origin: 'core' } } },
             },
+
+            // Rule 1 — client apps see only the client-safe packages.
             {
-              from: ['pkg-server-only'],
-              allow: ['pkg-client-safe', 'pkg-server-only'],
+              from: { element: { type: 'app-client' } },
+              allow: {
+                to: { element: { types: { anyOf: ['app-client', 'pkg-client-safe'] } } },
+              },
             },
+            // Server processes may reach anywhere inside the repo.
             {
-              from: ['pkg-client-safe'],
-              allow: ['pkg-client-safe'],
+              from: { element: { type: 'app-server' } },
+              allow: {
+                to: {
+                  element: {
+                    types: { anyOf: ['app-server', 'pkg-client-safe', 'pkg-server-only'] },
+                  },
+                },
+              },
+            },
+            // Server-only packages may compose with each other and with client-safe ones.
+            {
+              from: { element: { type: 'pkg-server-only' } },
+              allow: {
+                to: { element: { types: { anyOf: ['pkg-client-safe', 'pkg-server-only'] } } },
+              },
+            },
+            // Client-safe packages must stay client-safe: they may only use each other.
+            {
+              from: { element: { type: 'pkg-client-safe' } },
+              allow: { to: { element: { type: 'pkg-client-safe' } } },
+            },
+
+            // Rule 6 — provider SDKs only inside packages/providers.
+            {
+              from: {
+                element: { types: { anyOf: ['app-client', 'app-server', 'pkg-client-safe'] } },
+              },
+              disallow: {
+                to: {
+                  module: {
+                    origin: 'external',
+                    source: [
+                      '@anthropic-ai/**',
+                      'openai',
+                      '@google/genai',
+                      '@google/generative-ai',
+                      'elevenlabs',
+                      '@cartesia/**',
+                      'iyzipay',
+                    ],
+                  },
+                },
+              },
+              message:
+                "SINIR İHLALİ (SPEC §3, kural 6): sağlayıcı SDK'sı yalnızca packages/providers altında import edilebilir.",
+            },
+            // A client bundle must never pull in server infrastructure libraries.
+            {
+              from: { element: { type: 'app-client' } },
+              disallow: {
+                to: {
+                  module: {
+                    origin: 'external',
+                    source: ['fastify', 'bullmq', 'drizzle-orm', 'pg', 'postgres', 'ioredis'],
+                  },
+                },
+              },
+              message:
+                'SINIR İHLALİ (SPEC §3): sunucu kütüphaneleri istemci uygulamasına giremez.',
             },
           ],
         },
       ],
-      // Provider SDKs may only be imported inside packages/providers (SPEC §3 rule 6).
-      'boundaries/external': [
-        'error',
-        {
-          default: 'allow',
-          message:
-            'SINIR İHLALİ: sağlayıcı SDK\'sı yalnızca packages/providers altında import edilebilir (SPEC §3).',
-          rules: [
-            {
-              from: ['app-client', 'app-server', 'pkg-client-safe'],
-              disallow: [
-                '@anthropic-ai/*',
-                'openai',
-                '@google/genai',
-                '@google/generative-ai',
-                'elevenlabs',
-                '@cartesia/*',
-                'iyzipay',
-              ],
-            },
-            {
-              from: ['app-client'],
-              disallow: ['fastify', 'bullmq', 'drizzle-orm', 'pg', 'postgres', 'ioredis'],
-            },
-          ],
-        },
-      ],
+    },
+  },
+
+  // packages/config is the ONE place a model id may appear as a literal — that is the
+  // whole point of the package (SPEC §3 rule 6 says "hardcoded model name = lint error",
+  // and "not hardcoded" means "declared here, overridable by env").
+  {
+    files: ['packages/config/**/*.ts'],
+    rules: {
+      'no-restricted-syntax': 'off',
     },
   },
 

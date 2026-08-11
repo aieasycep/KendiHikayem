@@ -18,9 +18,7 @@ const config: ExpoConfig = {
   version: '0.1.0',
   orientation: 'portrait',
   userInterfaceStyle: 'light',
-  newArchEnabled: true,
-  // Turkish is the only supported locale in V1 — the whole product is TR-first.
-  locales: {},
+  // The New Architecture is the only architecture in SDK 57 — no flag to set.
   extra: {
     apiMode,
     apiBaseUrl,
@@ -49,7 +47,7 @@ const config: ExpoConfig = {
   android: {
     package: 'com.kendihikayem.app',
     versionCode: 1,
-    edgeToEdgeEnabled: true,
+    // Edge-to-edge is the default from SDK 54 onwards and is no longer a config key.
     adaptiveIcon: {
       backgroundColor: '#FFF8F0',
     },
