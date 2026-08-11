@@ -91,6 +91,10 @@ export default tseslint.config(
       '**/ios/**',
       '**/coverage/**',
       '**/*.d.ts',
+      // Reference material, not shipped code: the Figma Make export of the
+      // approved design. It is web React + Tailwind and is never built or
+      // imported — we port from it by hand into packages/ui and apps/mobile.
+      'design/figma/**',
     ],
   },
 
