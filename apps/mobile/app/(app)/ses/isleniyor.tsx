@@ -4,12 +4,12 @@ import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import type { ApiError } from '@kendihikayem/contract';
-import { Text, useTheme } from '@kendihikayem/ui';
+import { Text } from '@kendihikayem/ui';
 
 import { ErrorBanner, SecondaryButton } from '../../../features/onboarding/components';
 import { useWizardDraft } from '../../../features/onboarding/draft';
 import { useVoiceFlow } from '../../../features/voice/flow';
-import { FloatingBook, NightScreen } from '../../../features/wizard/NightFlow';
+import { NightScreen, ProcessingRing } from '../../../features/wizard/NightFlow';
 import { api, asApiError, newIdempotencyKey, toApiError } from '../../../lib/api';
 import { useJob } from '../../../lib/useJob';
 
@@ -110,19 +110,15 @@ export default function Isleniyor(): ReactNode {
         </>
       ) : (
         <View style={styles.center}>
-          <FloatingBook />
+          <ProcessingRing />
           <View style={styles.messages}>
             <Text variant="heading" center style={styles.stepNow} accessibilityLiveRegion="polite">
-              {job?.progress.labelTr ?? 'Sesiniz hazırlanıyor…'}
+              Sesin hazırlanıyor…
             </Text>
             <Text variant="caption" center style={styles.subtle}>
-              Bu yaklaşık yarım dakika sürer. Kayıtlarınız birleştiriliyor, ses profiliniz
-              üretiliyor ve çocuğunuz için kısa bir örnek cümle seslendiriliyor.
+              {job?.progress.labelTr ?? 'Hazır olduğunda sana haber vereceğiz.'}
             </Text>
           </View>
-          <StepDots
-            steps={(job?.steps ?? []).map((step) => ({ key: step.stepKey, status: step.status }))}
-          />
         </View>
       )}
 
@@ -134,56 +130,13 @@ export default function Isleniyor(): ReactNode {
   );
 }
 
-function StepDots({
-  steps,
-}: {
-  steps: { key: string; status: string }[];
-}): ReactNode {
-  const { colors } = useTheme();
-  if (steps.length === 0) return null;
-  return (
-    <View style={styles.stepList}>
-      {steps.map((step) => (
-        <View key={step.key} style={styles.stepRow}>
-          <Text
-            variant="label"
-            style={[
-              styles.stepIcon,
-              { color: step.status === 'succeeded' ? colors.success : colors.inkMuted },
-            ]}
-          >
-            {step.status === 'succeeded' ? '✓' : step.status === 'running' ? '●' : '○'}
-          </Text>
-          <Text
-            variant="caption"
-            style={{
-              color:
-                step.status === 'running'
-                  ? colors.ink
-                  : step.status === 'succeeded'
-                    ? colors.success
-                    : colors.inkMuted,
-              fontWeight: step.status === 'running' ? '700' : '400',
-            }}
-          >
-            {step.key}
-          </Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   title: { color: '#FFFFFF' },
-  center: { alignItems: 'center', gap: 28, paddingTop: 40 },
+  center: { alignItems: 'center', gap: 24, paddingTop: 96 },
   messages: { gap: 8, paddingHorizontal: 8 },
-  stepNow: { color: '#FFFFFF', fontSize: 22, lineHeight: 30 },
-  subtle: { color: 'rgba(176,156,224,0.8)' },
-
-  stepList: { gap: 6, alignSelf: 'stretch', paddingHorizontal: 16 },
-  stepRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  stepIcon: { width: 18 },
+  /* Figma processing: Fraunces 24/600 beyaz. */
+  stepNow: { color: '#FFFFFF', fontSize: 24, lineHeight: 32 },
+  subtle: { color: 'rgba(176,156,224,0.7)' },
 
   footnote: { color: 'rgba(255,255,255,0.45)', marginTop: 8 },
 });

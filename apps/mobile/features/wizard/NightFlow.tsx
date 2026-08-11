@@ -15,12 +15,132 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Animated, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 import { StorybookLogo, Text, ThemeScope, palette, useTheme } from '@kendihikayem/ui';
 
 /** Splash ile aynı gece degradesi — uygulama tek gece gökyüzü tanır. */
 export const NIGHT_GRADIENT = [palette.deepPlum, palette.royalPurple, palette.night950] as const;
+
+/**
+ * Figma `StoryGenerating` mesaj akışı — TASARIMDAKİ METİNLER BİREBİR.
+ * Son eleman yalnızca iş bittiğinde gösterilir; iş sürerken akış sondan bir
+ * önceki mesajda bekler (tasarım da aynı şekilde min() ile tavanlıyor).
+ */
+export const TALE_MESSAGES = [
+  'Hikâyenin kahramanı hazırlanıyor…',
+  'Biraz yıldız tozu ekliyoruz…',
+  'Sihirli sözcükler seçiliyor…',
+  'Masalın renkleri belirleniyor…',
+  'Son dokunuşlar yapılıyor…',
+  'Masalın hazır! ✨',
+] as const;
+
+/**
+ * Tasarımın masalsı dönen mesajları (büyük Fraunces satır) + tasarımın alt
+ * satır yuvasında GERÇEK durum bilgisi (`statusTr`, ör. job.progress.labelTr).
+ * Görsel akış tasarımın; veri sözleşmeden.
+ */
+export function TaleMessages({
+  done = false,
+  statusTr,
+}: {
+  /** İş bitti → "Masalın hazır! ✨" gösterilir. */
+  done?: boolean;
+  /** Alt satır: tasarımdaki "Ege ve Kayıp Yıldız hazırlanıyor" yuvası. */
+  statusTr?: string;
+}): ReactNode {
+  const [msgIndex, setMsgIndex] = useState(0);
+
+  useEffect(() => {
+    if (done) return undefined;
+    const interval = setInterval(() => {
+      setMsgIndex((prev) => Math.min(prev + 1, TALE_MESSAGES.length - 2));
+    }, 1000);
+    return () => {
+      clearInterval(interval);
+    };
+  }, [done]);
+
+  return (
+    <View style={styles.taleBox}>
+      <Text
+        variant="heading"
+        center
+        style={styles.taleBig}
+        accessibilityLiveRegion="polite"
+      >
+        {done ? TALE_MESSAGES[TALE_MESSAGES.length - 1] : TALE_MESSAGES[msgIndex]}
+      </Text>
+      {statusTr !== undefined && (
+        <Text variant="caption" center style={styles.taleStatus}>
+          {statusTr}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+/**
+ * Tasarımın ilerleme çubuğu: 280 genişlik, 4 yükseklik, mor→altın degrade dolgu.
+ * Dolgu oranı GERÇEK iş ilerlemesinden gelir (adım sayısı), yüzde uydurulmaz.
+ */
+export function NightProgress({ ratio }: { ratio: number }): ReactNode {
+  const clamped = Math.max(0.05, Math.min(1, ratio));
+  const width: `${number}%` = `${Math.round(clamped * 100)}%`;
+  return (
+    <View style={styles.progressWrap}>
+      <View style={styles.progressTrack}>
+        <LinearGradient
+          colors={[palette.nightPurple, '#FFD97D']}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={[styles.progressFill, { width }]}
+        />
+      </View>
+    </View>
+  );
+}
+
+/**
+ * Figma `VoiceStudio` processing görünümündeki dönen halka: 80'lik lavanta
+ * daire içinde açık uçlu çember, yavaşça döner.
+ */
+export function ProcessingRing(): ReactNode {
+  const [spin] = useState(() => new Animated.Value(0));
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(spin, { toValue: 1, duration: 3000, useNativeDriver: true }),
+    );
+    loop.start();
+    return () => {
+      loop.stop();
+    };
+  }, [spin]);
+
+  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+
+  return (
+    <Animated.View
+      accessibilityElementsHidden
+      style={[styles.processingRing, { transform: [{ rotate }] }]}
+    >
+      <Svg width={40} height={40} viewBox="0 0 24 24" fill="none">
+        <Circle
+          cx={12}
+          cy={12}
+          r={10}
+          stroke={palette.lavender}
+          strokeWidth={1.5}
+          strokeLinecap="round"
+          strokeDasharray={40}
+          strokeDashoffset={10}
+        />
+      </Svg>
+    </Animated.View>
+  );
+}
 
 /** Deterministic star field — same layout every launch, no Math.random in render. */
 const STARS = Array.from({ length: 22 }, (_, i) => ({
@@ -201,6 +321,30 @@ const styles = StyleSheet.create({
   scroll: { padding: 24, paddingBottom: 48, gap: 16 },
 
   star: { position: 'absolute', borderRadius: 2, backgroundColor: '#FFFFFF' },
+
+  /* Figma StoryGenerating: Fraunces 22, beyaz, min 60 yükseklik; alt satır lavanta. */
+  taleBox: { gap: 12, paddingHorizontal: 8, alignItems: 'center' },
+  taleBig: { color: '#FFFFFF', fontSize: 22, lineHeight: 30, minHeight: 60 },
+  taleStatus: { color: 'rgba(176,156,224,0.7)' },
+
+  /* Figma: 280 genişlik · 4 yükseklik · mor→altın degrade dolgu. */
+  progressWrap: { width: '100%', maxWidth: 280, alignSelf: 'center' },
+  progressTrack: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    overflow: 'hidden',
+  },
+  progressFill: { height: '100%', borderRadius: 2 },
+
+  processingRing: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(176,156,224,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   bookBox: {
     alignSelf: 'center',
