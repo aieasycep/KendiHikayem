@@ -14,10 +14,13 @@
     "@kendihikayem/config": "workspace:*",
     "@kendihikayem/contract": "workspace:*",
     "@kendihikayem/db": "workspace:*",
+    "@kendihikayem/providers": "workspace:*",
     "@kendihikayem/shared": "workspace:*",
+    "@kendihikayem/worker": "workspace:*",
     "@ts-rest/core": "3.52.1",
     "@ts-rest/fastify": "3.52.1",
     "@ts-rest/open-api": "3.52.1",
+    "drizzle-orm": "0.45.2",
     "fastify": "5.11.3",
     "zod": "3.25.76"
   }
