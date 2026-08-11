@@ -36,7 +36,9 @@ export function useKaraoke(
     positionMs: 0,
   });
   const stateRef = useRef(state);
-  stateRef.current = state;
+  useEffect(() => {
+    stateRef.current = state;
+  });
 
   useEffect(() => {
     if (manifest === undefined) return;

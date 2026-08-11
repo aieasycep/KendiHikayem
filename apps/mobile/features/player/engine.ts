@@ -71,7 +71,9 @@ export function usePlayerEngine(options: {
   const clock = useRef<ClockRef>({ baseMs: 0, baseAt: 0, playing: false, rate: 1 });
   const endedRef = useRef(false);
   const onEndedRef = useRef(onEnded);
-  onEndedRef.current = onEnded;
+  useEffect(() => {
+    onEndedRef.current = onEnded;
+  });
 
   // Hoparlörden, sessiz anahtarına rağmen çal (yatma saati: telefon sessizde olur).
   useEffect(() => {
