@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   apk:
-    name: Debug APK derle
+    name: APK derle (release, debug keystore ile imzali)
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -83,22 +83,31 @@ jobs:
           restore-keys: |
             gradle-${{ runner.os }}-
 
-      - name: 11) APK derle (assembleDebug)
-        # DIKKAT: assembleDebug kullaniyoruz. Debug APK, Android'in varsayilan debug
-        # keystore'u ile IMZALANIR ve telefona dogrudan kurulabilir. assembleRelease
-        # ise imzasiz cikar ve "Uygulama yuklenmedi" hatasi verir.
+      - name: 11) APK derle (assembleRelease)
+        # NEDEN assembleRelease, assembleDebug DEGIL:
+        #
+        # Debug APK, JS paketini ICINE GOMMEZ -- calisma aninda Metro gelistirme
+        # sunucusundan (localhost:8081) indirmeye calisir. Telefonda Metro olmadigi
+        # icin paket hic yuklenmiyor, React hic mount olmuyor ve uygulama splash
+        # ekraninda sonsuza kadar takili kaliyordu. Bu tam olarak yasanan hataydi.
+        # (Gommek icin `bundleInDebug` gerekir; Expo sablonu bunu ayarlamaz.)
+        #
+        # Release derlemesi paketi APK'ya gomer ve Expo sablonunda
+        # `release { signingConfig signingConfigs.debug }` tanimli oldugu icin
+        # android/app/debug.keystore ile IMZALANIR -- yani telefona dogrudan kurulur.
+        # Ek fayda: minify + kaynak kucultme ile APK belirgin sekilde kuculur.
         #
         # reactNativeArchitectures: yalnizca gercek telefonlarin mimarileri derlenir
         # (arm64-v8a = 2017 sonrasi her telefon, armeabi-v7a = eski 32-bit cihazlar).
         # x86/x86_64 (emulator) atlanir; derleme suresini yaklasik yariya indirir.
         # Emulatorde test etmek isterseniz listeye x86_64 ekleyin.
         working-directory: apps/mobile/android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+        run: ./gradlew assembleRelease --no-daemon --stacktrace -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
 
       - name: 12) APK'yi dogrula
         run: |
           set -euo pipefail
-          APK="apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk"
+          APK="apps/mobile/android/app/build/outputs/apk/release/app-release.apk"
           if [ ! -f "$APK" ]; then
             echo "::error::APK bulunamadi: $APK"
             exit 1
@@ -109,7 +118,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: kendihikayem-debug-apk
-          path: apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          path: apps/mobile/android/app/build/outputs/apk/release/app-release.apk
           retention-days: 30
           if-no-files-found: error
 
@@ -121,7 +130,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          APK="apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk"
+          APK="apps/mobile/android/app/build/outputs/apk/release/app-release.apk"
           cp "$APK" kendihikayem.apk
 
           TAG="apk-son"
