@@ -1,11 +1,10 @@
 /**
- * NightCover — oynatıcının üst görsel alanı.
+ * NightCover — oynatıcının kapak karosu (Figma `AudioPlayer.tsx` "Cover art").
  *
- * Sayfa görseli yüklenebilirse tam ekran gösterilir. Yüklenemezse (mock CDN
- * 404, imzalı URL süresi doldu, sayfa resmi henüz üretimde) tasarımdaki gece
- * kapağı devreye girer: koyu mor degrade, yıldızlar ve camsı emoji karosu —
- * Figma `AudioPlayer.tsx` kapak dili. Kırık görsel ya da monogram YOK; ekran
- * yatma saatinde her koşulda sakin ve masalsı kalır.
+ * Tasarım: 220×220, köşe 32, 160° koyu mor degrade (#2D1B69 → #7C5CBF), ortada
+ * 88 punto emoji, mor parlak gölge. Sayfa görseli yüklenebilirse degradenin
+ * üzerine oturur; yüklenemezse (mock CDN 404, imzalı URL süresi doldu) karo
+ * zaten ekrandadır — kırık görsel ya da monogram YOK.
  */
 
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,14 +14,6 @@ import { useState, type ReactElement } from 'react';
 import { palette } from '@kendihikayem/ui';
 
 import { coverVisual } from '../library/cover';
-
-/** Deterministik yıldız alanı — her render aynı gökyüzü. */
-const STARS = Array.from({ length: 20 }, (_, i) => ({
-  size: i % 4 === 0 ? 3 : 2,
-  opacity: 0.15 + (i % 5) * 0.08,
-  top: `${(i * 41 + 5) % 100}%` as const,
-  left: `${(i * 67 + 9) % 100}%` as const,
-}));
 
 export interface NightCoverProps {
   /** Emoji seçimi için hikaye kimliği. */
@@ -48,36 +39,14 @@ export function NightCover({ seed, uri, localUri, altTr }: NightCoverProps): Rea
   const { emoji } = coverVisual(seed);
 
   return (
-    <View
-      style={styles.fill}
-      accessibilityRole="image"
-      accessibilityLabel={altTr}
-    >
-      {/* Gece kapağı — görsel gelene kadar (ya da hiç gelmezse) zemin. */}
+    <View style={styles.tile} accessibilityRole="image" accessibilityLabel={altTr}>
       <LinearGradient
         colors={[palette.royalPurple, palette.purple600]}
         start={{ x: 0.2, y: 0 }}
         end={{ x: 0.8, y: 1 }}
         style={[StyleSheet.absoluteFill, styles.center]}
       >
-        {STARS.map((star, i) => (
-          <View
-            key={i}
-            style={[
-              styles.star,
-              {
-                width: star.size,
-                height: star.size,
-                opacity: star.opacity,
-                top: star.top,
-                left: star.left,
-              },
-            ]}
-          />
-        ))}
-        <View style={styles.tile}>
-          <RNText style={styles.emoji}>{emoji}</RNText>
-        </View>
+        <RNText style={styles.emoji}>{emoji}</RNText>
       </LinearGradient>
 
       {source !== undefined ? (
@@ -98,24 +67,22 @@ export function NightCover({ seed, uri, localUri, altTr }: NightCoverProps): Rea
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1, overflow: 'hidden' },
-  center: { alignItems: 'center', justifyContent: 'center' },
-  star: { position: 'absolute', borderRadius: 2, backgroundColor: '#FFFFFF' },
+  /* Figma: width/height 220, radius 32, boxShadow 0 24 64 rgba(124,92,191,0.5)
+   * + 1px rgba(176,156,224,0.15) halka. */
   tile: {
-    width: 150,
-    height: 150,
+    width: 220,
+    height: 220,
     borderRadius: 32,
-    backgroundColor: 'rgba(255,255,255,0.10)',
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(176,156,224,0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: 'rgba(176,156,224,0.15)',
     shadowColor: '#7C5CBF',
     shadowOpacity: 0.5,
-    shadowRadius: 32,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 8,
+    shadowRadius: 64,
+    shadowOffset: { width: 0, height: 24 },
+    elevation: 12,
   },
-  emoji: { fontSize: 64, lineHeight: 80 },
+  center: { alignItems: 'center', justifyContent: 'center' },
+  emoji: { fontSize: 88, lineHeight: 104 },
   hidden: { opacity: 0 },
 });

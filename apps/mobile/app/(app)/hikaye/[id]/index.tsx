@@ -1,57 +1,43 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, View, type TextStyle } from 'react-native';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
 
 import { useQueryClient } from '@tanstack/react-query';
 
-import type { Story, StoryPage } from '@kendihikayem/contract';
+import type { StoryPage } from '@kendihikayem/contract';
 import { possessive } from '@kendihikayem/shared';
 import {
-  Badge,
   Button,
   Card,
   ErrorState,
   JobProgressCard,
-  MediaImage,
   NoticeBox,
   PlayIcon,
-  Row,
   Screen,
   Sheet,
   Skeleton,
   Text,
+  fontFamilies,
   palette,
   useTheme,
 } from '@kendihikayem/ui';
 
 import { PageEditSheet } from '../../../../features/library/PageEditSheet';
+import { PagesSheet } from '../../../../features/library/PagesSheet';
 import { OfflineCard } from '../../../../features/library/OfflineCard';
 import { coverVisual } from '../../../../features/library/cover';
-import { ArrowLeftIcon } from '../../../../features/library/icons';
+import { ArrowLeftIcon, ShareIcon } from '../../../../features/library/icons';
 import {
   isStoryInProgress,
   useApproveStory,
   useDeleteStory,
   useStory,
-  useToggleFavorite,
+  useStoryTheme,
 } from '../../../../features/library/hooks';
 import { useOfflineIndex } from '../../../../features/library/offline';
 import { useApproveOutline, useRejectOutline } from '../../../../features/library/outlineHooks';
 import { isJobTerminal, useJob } from '../../../../lib/useJob';
-
-const STATUS_TR: Record<Story['status'], string> = {
-  draft: 'Taslak',
-  outline_generating: 'İskelet hazırlanıyor',
-  outline_ready: 'Onayınızı bekliyor',
-  outline_rejected: 'İskelet reddedildi',
-  content_generating: 'Masal yazılıyor',
-  content_ready: 'Resimler bekleniyor',
-  images_generating: 'Resimler çiziliyor',
-  ready: 'Hazır — onayınızı bekliyor',
-  approved: 'Hazır',
-  failed: 'Üretim başarısız',
-};
 
 /** Hero yıldız alanı — her açılışta aynı yerleşim (render'da Math.random yok). */
 const HERO_STARS = Array.from({ length: 16 }, (_, i) => ({
@@ -61,28 +47,37 @@ const HERO_STARS = Array.from({ length: 16 }, (_, i) => ({
   left: `${(i * 71 + 11) % 100}%` as const,
 }));
 
+/** Tasarımdaki konfeti noktaları — renk ve konum formülü Figma'dan birebir. */
+const CONFETTI = ['#FFD97D', '#F08B6E', '#8DB89A', '#B09CE0'].map((color, i) => ({
+  color,
+  top: `${30 + i * 15}%` as const,
+  left: `${i % 2 === 0 ? 15 + i * 10 : 70 - i * 8}%` as const,
+}));
+
 /**
- * Hikaye detayı — Figma `StoryResult.tsx` taşıması: sinematik gece degradeli
- * kapak, "«çocuk» için hazırlandı" rozeti, büyük serif başlık, meta satırı,
- * degrade "Dinlemeye Başla" CTA'sı, ikincil eylem ızgarası ve "Hikâyeden bir
- * kesit" kartı.
+ * Hikaye detayı — Figma `StoryResult.tsx` birebir taşıması: 360'lık gece
+ * degradeli kapak (geri + paylaş düğmeleri, yüzen emoji karosu, konfeti),
+ * "EGE İÇİN HAZIRLANDI" hapı, Fraunces 30 başlık, "⏱ · 🎙 · tema" meta satırı,
+ * degrade "Dinlemeye Başla" CTA'sı, tasarımdaki BEŞ eylem kartı
+ * (Oku / Düzenle / Görselleştir / Kitap Yap / Paylaş) ve "Hikâyeden bir kesit".
  *
- * İŞLEV KORUNDU: P02/P03 sayfa düzenleme, Kapı 1 + Kapı 2 onayları, iş takibi,
- * favori, çevrimdışı indirme, silme onayı.
+ * İŞLEV KORUNDU: P02/P03 sayfa düzenleme "Düzenle"/"Görselleştir" kartlarından
+ * açılan Sayfalar alt sayfasında; Kapı 1 + Kapı 2 onayları, iş takibi,
+ * çevrimdışı indirme ve silme akışları durum bazlı bloklar olarak durur.
  */
 export default function HikayeDetay(): ReactNode {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { colors, radius, type } = useTheme();
+  const { colors } = useTheme();
   const { id, sayfa } = useLocalSearchParams<{ id: string; sayfa?: string }>();
 
   const storyQuery = useStory(id);
   const story = storyQuery.data;
+  const themeQuery = useStoryTheme(story?.themeCode);
 
   const offlineIndex = useOfflineIndex();
   const offlineMeta = id !== undefined ? offlineIndex.data?.[id] : undefined;
 
-  const toggleFavorite = useToggleFavorite();
   const approveStory = useApproveStory();
   const deleteStory = useDeleteStory();
   const approveOutline = useApproveOutline();
@@ -103,6 +98,7 @@ export default function HikayeDetay(): ReactNode {
 
   /* B02'den "Bu sayfayı düzelt" → ?sayfa=N ile gelinir. */
   const [editPageNo, setEditPageNo] = useState<number | undefined>(undefined);
+  const [pagesOpen, setPagesOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   useEffect(() => {
     if (sayfa !== undefined) {
@@ -116,13 +112,29 @@ export default function HikayeDetay(): ReactNode {
     [story, editPageNo],
   );
 
+  /* Kapak karosu "float" animasyonu — tasarımdaki yüzen yıldız. */
+  const [floatAnim] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
+        Animated.timing(floatAnim, { toValue: 0, duration: 2000, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => {
+      loop.stop();
+    };
+  }, [floatAnim]);
+  const floatY = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -6] });
+
   if (storyQuery.isLoading) {
     return (
       <Screen>
         <Skeleton height={260} rounded />
         <Skeleton height={30} width="70%" />
         <Skeleton height={18} width="50%" />
-        <Skeleton height={56} rounded />
+        <Skeleton height={64} rounded />
         <Skeleton aspectRatio={1.8} rounded />
       </Screen>
     );
@@ -153,7 +165,6 @@ export default function HikayeDetay(): ReactNode {
   const inProgress = isStoryInProgress(story.status);
   const readyPages = story.pages.filter((page) => page.textTr !== undefined);
   const canListen = readyPages.length > 0;
-  const approved = story.status === 'approved';
   const awaitingGate2 = story.status === 'ready';
   const awaitingGate1 = story.status === 'outline_ready';
 
@@ -161,31 +172,53 @@ export default function HikayeDetay(): ReactNode {
   const defaultRendition =
     story.audio.find((r) => r.isDefault && r.status === 'succeeded') ??
     story.audio.find((r) => r.status === 'succeeded' || r.status === 'stale');
+  const theme = themeQuery.data;
 
-  /** Meta satırı — tasarımdaki "6 dakika · Anne'nin sesi · Uzay" dizisi. */
+  /** Meta satırı — tasarım: "⏱ 6 dakika · 🎙 Anne'nin sesi · 🚀 Uzay".
+   * Süre ve ses seslendirme verisinden, tema katalogdan gelir; veri yoksa öge düşer. */
   const metaItems: { icon: string; textTr: string }[] = [
-    { icon: '📖', textTr: `${story.pageCount} sayfa` },
-    { icon: '🧒', textTr: `${story.ageBand} yaş` },
     ...(defaultRendition?.durationMs !== undefined
       ? [
           {
             icon: '⏱',
-            textTr: `${Math.max(1, Math.round(defaultRendition.durationMs / 60_000))} dk`,
+            textTr: `${Math.max(1, Math.round(defaultRendition.durationMs / 60_000))} dakika`,
           },
         ]
       : []),
     ...(defaultRendition !== undefined
       ? [{ icon: '🎙', textTr: defaultRendition.voiceLabel }]
       : []),
+    ...(theme !== undefined ? [{ icon: theme.icon, textTr: theme.titleTr }] : []),
   ];
 
-  /** İkincil eylem ızgarası — tasarımdaki emoji kartları, gerçek rotalara bağlı. */
+  /** Tasarımdaki BEŞ eylem — etiket ve emoji Figma'dan birebir. */
   const gridActions: { emoji: string; labelTr: string; onPress: () => void }[] = [
     {
-      emoji: '🎙',
-      labelTr: 'Sesler',
+      emoji: '📖',
+      labelTr: 'Oku',
       onPress: () => {
-        router.push({ pathname: '/(app)/hikaye/[id]/sesler', params: { id: story.id as string } });
+        router.push({ pathname: '/(app)/hikaye/[id]/oynat', params: { id: story.id as string } });
+      },
+    },
+    {
+      emoji: '✏️',
+      labelTr: 'Düzenle',
+      onPress: () => {
+        setPagesOpen(true);
+      },
+    },
+    {
+      emoji: '🎨',
+      labelTr: 'Görselleştir',
+      onPress: () => {
+        setPagesOpen(true);
+      },
+    },
+    {
+      emoji: '📚',
+      labelTr: 'Kitap Yap',
+      onPress: () => {
+        router.push({ pathname: '/(app)/bastir/[id]', params: { id: story.id as string } });
       },
     },
     {
@@ -195,20 +228,11 @@ export default function HikayeDetay(): ReactNode {
         router.push({ pathname: '/(app)/hikaye/[id]/paylas', params: { id: story.id as string } });
       },
     },
-    {
-      emoji: '📚',
-      labelTr: 'Bastır',
-      onPress: () => {
-        router.push({ pathname: '/(app)/bastir/[id]', params: { id: story.id as string } });
-      },
-    },
   ];
 
-  const serifExcerpt: TextStyle = { ...type.heading, fontSize: 15, lineHeight: 24 };
-
   return (
-    <Screen flush>
-      {/* ── Sinematik kapak ────────────────────────────────── */}
+    <Screen flush style={styles.screen}>
+      {/* ── Kapak — Figma: 360, üç duraklı gece degradesi ───── */}
       <LinearGradient
         colors={[palette.royalPurple, palette.purple600, palette.lavender]}
         locations={[0, 0.6, 1]}
@@ -232,6 +256,13 @@ export default function HikayeDetay(): ReactNode {
           />
         ))}
 
+        {CONFETTI.map((dot, i) => (
+          <View
+            key={i}
+            style={[styles.confetti, { backgroundColor: dot.color, top: dot.top, left: dot.left }]}
+          />
+        ))}
+
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Geri dön"
@@ -245,71 +276,55 @@ export default function HikayeDetay(): ReactNode {
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={story.isFavorite ? 'Favorilerden çıkar' : 'Favorilere ekle'}
+          accessibilityLabel="Paylaş"
           onPress={() => {
-            toggleFavorite.mutate({ storyId: story.id as string, isFavorite: !story.isFavorite });
+            router.push({
+              pathname: '/(app)/hikaye/[id]/paylas',
+              params: { id: story.id as string },
+            });
           }}
-          style={[styles.heroButton, styles.heroFavorite]}
+          style={[styles.heroButton, styles.heroShare]}
         >
-          <Text variant="heading" style={styles.heroHeart}>
-            {story.isFavorite ? '♥' : '♡'}
-          </Text>
+          <ShareIcon size={16} color="#FFFFFF" />
         </Pressable>
 
-        <View style={styles.heroTile}>
+        <Animated.View style={[styles.heroTile, { transform: [{ translateY: floatY }] }]}>
           <Text style={styles.heroEmoji} accessibilityElementsHidden>
             {visual.emoji}
           </Text>
-        </View>
+        </Animated.View>
       </LinearGradient>
 
       <View style={styles.content}>
-        {/* ── Bilgi bloğu ──────────────────────────────────── */}
-        <View
-          style={[styles.pill, { backgroundColor: colors.surfaceRaised, borderRadius: radius.pill }]}
-        >
-          <Text variant="caption" style={[styles.pillText, { color: colors.primary }]}>
-            {story.childId !== undefined
-              ? `${story.heroName} için hazırlandı`.toLocaleUpperCase('tr-TR')
-              : `${possessive(story.heroName)} masalı`.toLocaleUpperCase('tr-TR')}
+        {/* ── "EGE İÇİN HAZIRLANDI" hapı ─────────────────────── */}
+        <View style={styles.pill}>
+          <Text style={[styles.pillText, { color: colors.primary }]}>
+            {(story.childId !== undefined
+              ? `${story.heroName} için hazırlandı`
+              : `${possessive(story.heroName)} masalı`
+            ).toLocaleUpperCase('tr-TR')}
           </Text>
         </View>
 
-        <Text variant="title" accessibilityRole="header">
+        <Text accessibilityRole="header" style={[styles.h1, { color: colors.ink }]}>
           {story.title ?? `${possessive(story.heroName)} masalı`}
         </Text>
 
-        <Row gap="md" wrap>
-          {metaItems.map((item) => (
-            <Row key={`${item.icon}-${item.textTr}`} gap="xs">
-              <Text variant="caption" accessibilityElementsHidden>
-                {item.icon}
-              </Text>
-              <Text variant="caption" tone="muted">
-                {item.textTr}
-              </Text>
-            </Row>
-          ))}
-        </Row>
-
-        <Row gap="xs" wrap>
-          <Badge
-            labelTr={STATUS_TR[story.status]}
-            tone={approved ? 'success' : inProgress ? 'accent' : 'neutral'}
-          />
-          {story.audio
-            .filter((rendition) => rendition.status === 'succeeded' || rendition.status === 'stale')
-            .map((rendition) => (
-              <Badge
-                key={rendition.id as string}
-                labelTr={rendition.voiceLabel}
-                tone={rendition.status === 'stale' ? 'warning' : 'accent'}
-                icon="🔊"
-              />
+        {/* ── Meta satırı ────────────────────────────────────── */}
+        {metaItems.length > 0 ? (
+          <View style={styles.metaRow}>
+            {metaItems.map((item) => (
+              <View key={`${item.icon}-${item.textTr}`} style={styles.metaItem}>
+                <Text style={styles.metaIcon} accessibilityElementsHidden>
+                  {item.icon}
+                </Text>
+                <Text style={[styles.metaText, { color: colors.inkMuted }]}>{item.textTr}</Text>
+              </View>
             ))}
-        </Row>
+          </View>
+        ) : null}
 
-        {/* ── Üretim durumu (aşamalı teslim) ───────────────── */}
+        {/* ── Üretim durumu (aşamalı teslim — işlev) ─────────── */}
         {job !== undefined && !isJobTerminal(job) ? (
           <JobProgressCard
             labelTr={job.progress.labelTr}
@@ -330,7 +345,7 @@ export default function HikayeDetay(): ReactNode {
           />
         ) : null}
 
-        {/* ── ⏸ KAPI 1 — iskelet onayı ─────────────────────── */}
+        {/* ── ⏸ KAPI 1 — iskelet onayı (işlev) ───────────────── */}
         {awaitingGate1 && story.outline !== undefined ? (
           <Card>
             <Text variant="heading">{story.outline.titleTr}</Text>
@@ -384,7 +399,7 @@ export default function HikayeDetay(): ReactNode {
           </Card>
         ) : null}
 
-        {/* ── ⏸ KAPI 2 — hikaye onayı ──────────────────────── */}
+        {/* ── ⏸ KAPI 2 — hikaye onayı (işlev) ────────────────── */}
         {awaitingGate2 ? (
           <NoticeBox
             tone="info"
@@ -398,6 +413,13 @@ export default function HikayeDetay(): ReactNode {
                 approveStory.mutate({ storyId: story.id as string });
               }}
             />
+            <Button
+              label="Sayfaları incele"
+              variant="secondary"
+              onPress={() => {
+                setPagesOpen(true);
+              }}
+            />
             {approveStory.error !== null ? (
               <Text variant="caption" tone="danger">
                 {approveStory.error.messageTr}
@@ -406,7 +428,7 @@ export default function HikayeDetay(): ReactNode {
           </NoticeBox>
         ) : null}
 
-        {/* ── Ana eylem: dinle ─────────────────────────────── */}
+        {/* ── "Dinlemeye Başla" CTA — Figma degrade düğme ────── */}
         {canListen && !awaitingGate2 ? (
           <Pressable
             accessibilityRole="button"
@@ -423,29 +445,17 @@ export default function HikayeDetay(): ReactNode {
               colors={[palette.nightPurple, palette.purple600]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={[styles.listenCta, { borderRadius: radius.lg }]}
+              style={styles.listenCta}
             >
               <PlayIcon size={20} color="#FFFFFF" />
-              <Text variant="bodyStrong" style={styles.listenLabel}>
+              <Text style={styles.listenLabel}>
                 {story.audio.length > 0 ? 'Dinlemeye Başla' : 'Okumaya Başla'}
               </Text>
             </LinearGradient>
           </Pressable>
         ) : null}
-        {canListen && awaitingGate2 ? (
-          <Button
-            label="Önizle ve dinle"
-            variant="secondary"
-            onPress={() => {
-              router.push({
-                pathname: '/(app)/hikaye/[id]/oynat',
-                params: { id: story.id as string },
-              });
-            }}
-          />
-        ) : null}
 
-        {/* ── İkincil eylem ızgarası ───────────────────────── */}
+        {/* ── Beş eylem kartı — Figma birebir ────────────────── */}
         {canListen ? (
           <View style={styles.actionGrid}>
             {gridActions.map((action) => (
@@ -459,14 +469,13 @@ export default function HikayeDetay(): ReactNode {
                   {
                     backgroundColor: pressed ? colors.surfaceMuted : colors.surface,
                     borderColor: colors.border,
-                    borderRadius: radius.sm,
                   },
                 ]}
               >
                 <Text style={styles.actionEmoji} accessibilityElementsHidden>
                   {action.emoji}
                 </Text>
-                <Text variant="caption" style={styles.actionLabel} tone="muted">
+                <Text style={[styles.actionLabel, { color: colors.inkMuted }]}>
                   {action.labelTr}
                 </Text>
               </Pressable>
@@ -474,70 +483,27 @@ export default function HikayeDetay(): ReactNode {
           </View>
         ) : null}
 
-        {/* ── Hikâyeden bir kesit ──────────────────────────── */}
+        {/* ── Hikâyeden bir kesit ────────────────────────────── */}
         {readyPages[0]?.textTr !== undefined ? (
-          <Card>
-            <Text variant="caption" style={[styles.pillText, { color: colors.primary }]}>
+          <View
+            style={[
+              styles.excerptCard,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.pillText, styles.excerptKicker, { color: colors.primary }]}>
               {'Hikâyeden bir kesit'.toLocaleUpperCase('tr-TR')}
             </Text>
-            <Text style={serifExcerpt} numberOfLines={5}>
-              {`“${readyPages[0].textTr}”`}
+            <Text style={[styles.excerptText, { color: colors.ink }]} numberOfLines={5}>
+              {`"${readyPages[0].textTr}"`}
             </Text>
-          </Card>
+          </View>
         ) : null}
 
-        {/* ── Çevrimdışı ───────────────────────────────────── */}
+        {/* ── Çevrimdışı (işlev — ürünün indirme girişi) ─────── */}
         {canListen ? <OfflineCard story={story} /> : null}
 
-        {/* ── Sayfalar ─────────────────────────────────────── */}
-        {readyPages.length > 0 ? (
-          <>
-            <Text variant="heading">Sayfalar</Text>
-            <View style={styles.pageGrid}>
-              {story.pages.map((page) => {
-                const pageReady = page.textTr !== undefined;
-                return (
-                  <Pressable
-                    key={page.id as string}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${page.pageNo}. sayfa${pageReady ? '' : ' — hazırlanıyor'}`}
-                    disabled={!pageReady}
-                    onPress={() => {
-                      setEditPageNo(page.pageNo);
-                    }}
-                    style={styles.pageCell}
-                  >
-                    <MediaImage
-                      uri={page.image?.url}
-                      localUri={offlineMeta?.files[`page-${page.pageNo}`]}
-                      placeholderLabelTr={`${page.pageNo}`}
-                      placeholderNoteTr={
-                        page.imageStatus === 'manual_review'
-                          ? 'Resim kontrol ediliyor'
-                          : pageReady
-                            ? 'Resim hazırlanıyor'
-                            : 'Sırada'
-                      }
-                      aspectRatio={1}
-                      altTr={`${page.pageNo}. sayfa`}
-                    />
-                    <Row justify="space-between">
-                      <Text variant="caption" tone="muted">{`Sayfa ${page.pageNo}`}</Text>
-                      {page.editedByUser ? <Badge labelTr="Düzenlendi" tone="accent" /> : null}
-                    </Row>
-                    {pageReady ? (
-                      <Text variant="caption" tone="muted" numberOfLines={2}>
-                        {page.textTr}
-                      </Text>
-                    ) : null}
-                  </Pressable>
-                );
-              })}
-            </View>
-          </>
-        ) : null}
-
-        {/* ── Tehlikeli bölge ──────────────────────────────── */}
+        {/* ── Silme (işlev) ──────────────────────────────────── */}
         <Button
           label="Hikayeyi sil"
           variant="danger"
@@ -548,6 +514,19 @@ export default function HikayeDetay(): ReactNode {
       </View>
 
       {/* ── Sheet'ler ────────────────────────────────────────── */}
+      <PagesSheet
+        story={story}
+        offlineMeta={offlineMeta}
+        open={pagesOpen}
+        onClose={() => {
+          setPagesOpen(false);
+        }}
+        onSelectPage={(pageNo) => {
+          setPagesOpen(false);
+          setEditPageNo(pageNo);
+        }}
+      />
+
       <PageEditSheet
         storyId={story.id as string}
         page={editPage}
@@ -602,16 +581,19 @@ export default function HikayeDetay(): ReactNode {
 }
 
 const styles = StyleSheet.create({
+  /* Dikey ritim tasarımdaki kenar boşluklarıyla kurulur. */
+  screen: { gap: 0 },
   pressedDim: { opacity: 0.85 },
 
-  /* Hero */
+  /* Kapak — Figma: 360, yıldızlar, konfeti, 160'lık camsı karo. */
   hero: {
-    height: 280,
+    height: 360,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   star: { position: 'absolute', borderRadius: 2, backgroundColor: '#FFFFFF' },
+  confetti: { position: 'absolute', width: 8, height: 8, borderRadius: 4 },
   heroButton: {
     position: 'absolute',
     top: 12,
@@ -623,46 +605,79 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 1,
   },
-  heroBack: { left: 16 },
-  heroFavorite: { right: 16 },
-  heroHeart: { color: '#FFFFFF', fontSize: 20, lineHeight: 24 },
+  heroBack: { left: 20 },
+  heroShare: { right: 20 },
   heroTile: {
-    width: 150,
-    height: 150,
+    width: 160,
+    height: 160,
     borderRadius: 32,
     backgroundColor: 'rgba(255,255,255,0.12)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOpacity: 0.3,
+    shadowRadius: 60,
+    shadowOffset: { width: 0, height: 20 },
+    elevation: 10,
   },
-  heroEmoji: { fontSize: 64, lineHeight: 80 },
+  heroEmoji: { fontSize: 72, lineHeight: 88 },
 
-  /* İçerik */
-  content: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 48, gap: 16 },
+  /* İçerik — Figma: padding 28 24 0. */
+  content: { paddingHorizontal: 24, paddingTop: 28, paddingBottom: 40, gap: 16 },
+
+  /* Hap — Figma: rgba(124,92,191,0.1), yarıçap 20, 6/14 dolgu. */
   pill: {
     alignSelf: 'flex-start',
+    backgroundColor: 'rgba(124,92,191,0.1)',
+    borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 6,
+    marginBottom: -4,
   },
-  pillText: { fontSize: 12, lineHeight: 16, fontWeight: '700', letterSpacing: 0.7 },
+  pillText: {
+    fontFamily: fontFamilies.bodyBold,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 0.72,
+  },
 
-  /* Dinle CTA */
+  h1: {
+    fontFamily: fontFamilies.display,
+    fontSize: 30,
+    lineHeight: 36,
+    letterSpacing: -0.3,
+  },
+
+  /* Meta — Figma: gap 16, ikon 14, metin 13/600. */
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 12 },
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  metaIcon: { fontSize: 14, lineHeight: 18 },
+  metaText: { fontFamily: fontFamilies.bodySemiBold, fontSize: 13, lineHeight: 18 },
+
+  /* CTA — Figma: 20 dolgu, yarıçap 20, 18/800 metin, mor gölge. */
   listenCta: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    paddingVertical: 18,
+    padding: 20,
+    borderRadius: 20,
     shadowColor: '#7C5CBF',
     shadowOpacity: 0.4,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 8 },
     elevation: 6,
   },
-  listenLabel: { color: '#FFFFFF' },
+  listenLabel: {
+    fontFamily: fontFamilies.bodyExtraBold,
+    fontSize: 18,
+    lineHeight: 24,
+    color: '#FFFFFF',
+  },
 
-  /* Eylem ızgarası */
+  /* Beş eylem — Figma: 5 sütun, yarıçap 14, 12/4 dolgu, 10/700 etiket. */
   actionGrid: { flexDirection: 'row', gap: 8 },
   actionCell: {
     flex: 1,
@@ -670,16 +685,24 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 12,
     paddingHorizontal: 4,
+    borderRadius: 14,
     borderWidth: 1,
   },
   actionEmoji: { fontSize: 20, lineHeight: 26 },
-  actionLabel: { fontSize: 12, lineHeight: 16, fontWeight: '700' },
-
-  /* Sayfalar */
-  pageGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+  actionLabel: {
+    fontFamily: fontFamilies.bodyBold,
+    fontSize: 10,
+    lineHeight: 14,
+    textAlign: 'center',
   },
-  pageCell: { width: '47%', gap: 6 },
+
+  /* Kesit kartı — Figma: yarıçap 20, 20 dolgu, Fraunces 15 italik. */
+  excerptCard: { marginTop: 12, padding: 20, borderRadius: 20, borderWidth: 1 },
+  excerptKicker: { marginBottom: 10 },
+  excerptText: {
+    fontFamily: fontFamilies.display,
+    fontSize: 15,
+    lineHeight: 26,
+    fontStyle: 'italic',
+  },
 });

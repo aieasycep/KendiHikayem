@@ -1,20 +1,16 @@
 import { useRouter } from 'expo-router';
-import { useMemo, useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, TextInput, View, type TextStyle } from 'react-native';
+import { useMemo, useState, type ReactElement, type ReactNode } from 'react';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import type { StorySummary } from '@kendihikayem/contract';
-import { possessive } from '@kendihikayem/shared';
 import {
-  Badge,
-  Button,
-  Chip,
-  EmptyState,
   ErrorState,
   PlayIcon,
-  Row,
   Screen,
   Skeleton,
   Text,
+  fontFamilies,
+  palette,
   useTheme,
 } from '@kendihikayem/ui';
 
@@ -23,11 +19,9 @@ import { useOfflineIndex } from '../../../features/library/offline';
 import { CoverArt, relativeDateTr } from '../../../features/library/cover';
 import { SearchIcon } from '../../../features/library/icons';
 
-type Filter =
-  | { kind: 'all' }
-  | { kind: 'favorites' }
-  | { kind: 'downloaded' }
-  | { kind: 'child'; childId: string; nameTr: string };
+/** Figma `Library.tsx` sekmeleri — birebir. */
+const TABS = ['Tümü', 'Sesli', 'Kitaplar', 'Favoriler'] as const;
+type Tab = (typeof TABS)[number];
 
 const IN_PROGRESS_TR: Partial<Record<StorySummary['status'], string>> = {
   outline_generating: 'İskelet hazırlanıyor',
@@ -44,56 +38,58 @@ function isPlayable(status: StorySummary['status']): boolean {
   return status === 'approved' || status === 'ready';
 }
 
+/** Tasarımdaki kart rozeti: ses rozeti mercan, diğerleri mor (Figma birebir). */
+function CardBadge({ labelTr, voice = false }: { labelTr: string; voice?: boolean }): ReactElement {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={[
+        styles.badge,
+        { backgroundColor: voice ? 'rgba(240,139,110,0.12)' : palette.lavenderMist },
+      ]}
+    >
+      <Text style={[styles.badgeText, { color: voice ? palette.coral : colors.primary }]}>
+        {labelTr}
+      </Text>
+    </View>
+  );
+}
+
 /**
- * L01 Kitaplık — Figma `Library.tsx` taşıması: büyük serif başlık + "n hikâye ·
- * m çocuk" alt satırı, arama kutusu, filtre çipleri ve yatay hikaye kartları
- * (pastel kapak + rozetler + tarih + oynat düğmesi). L02 çocuk filtresi ve L03
- * boş durumlar korunur.
+ * L01 Kitaplık — Figma `Library.tsx` birebir taşıması: büyük serif başlık +
+ * "n hikâye · m çocuk" alt satırı, arama kutusu, "Tümü / Sesli / Kitaplar /
+ * Favoriler" sekmeleri ve yatay hikaye kartları (72×90 pastel kapak, tek satır
+ * başlık, meta satırı, rozetler, tarih + oynat dairesi).
  *
- * ÇEVRİMDIŞI: liste isteği düşerse indirilen masallar diskten listelenir —
- * uçak modunda kitaplık asla bomboş bir hata ekranı olmaz.
+ * ÇEVRİMDIŞI (işlev): liste isteği düşerse indirilen masallar diskten
+ * listelenir — uçak modunda kitaplık asla bomboş bir hata ekranı olmaz.
  */
 export default function Kitaplik(): ReactNode {
   const router = useRouter();
-  const { colors, radius, type } = useTheme();
-  const [filter, setFilter] = useState<Filter>({ kind: 'all' });
+  const { colors } = useTheme();
+  const [activeTab, setActiveTab] = useState<Tab>('Tümü');
   const [search, setSearch] = useState('');
 
-  const storiesQuery = useStories(
-    filter.kind === 'child'
-      ? { childId: filter.childId }
-      : filter.kind === 'favorites'
-        ? { onlyFavorites: true }
-        : {},
-  );
+  const storiesQuery = useStories();
   const childrenQuery = useChildren();
   const offlineIndex = useOfflineIndex();
 
   const offline = useMemo(() => offlineIndex.data ?? {}, [offlineIndex.data]);
   const stories = useMemo(() => storiesQuery.data ?? [], [storiesQuery.data]);
 
-  const visibleStories = useMemo(() => {
+  /* Tasarımdaki filtre davranışı: arama + sekme, istemci tarafında. */
+  const filtered = useMemo(() => {
     const query = search.trim().toLocaleLowerCase('tr-TR');
     return stories.filter((story) => {
-      if (filter.kind === 'downloaded' && offline[story.id as string] === undefined) return false;
       if (query.length > 0 && !story.title.toLocaleLowerCase('tr-TR').includes(query)) {
         return false;
       }
+      if (activeTab === 'Sesli') return story.hasAudio;
+      if (activeTab === 'Kitaplar') return story.printedCount > 0;
+      if (activeTab === 'Favoriler') return story.isFavorite;
       return true;
     });
-  }, [stories, filter, offline, search]);
-
-  /** "3. sayfada kaldınız" — en güncel yarım kalan masal. */
-  const continueStory = useMemo(
-    () =>
-      stories.find(
-        (story) =>
-          story.lastReadPageNo !== undefined &&
-          story.lastReadPageNo > 1 &&
-          isPlayable(story.status),
-      ),
-    [stories],
-  );
+  }, [stories, search, activeTab]);
 
   const openStory = (storyId: string): void => {
     router.push({ pathname: '/(app)/hikaye/[id]', params: { id: storyId } });
@@ -102,30 +98,31 @@ export default function Kitaplik(): ReactNode {
     router.push({ pathname: '/(app)/hikaye/[id]/oynat', params: { id: storyId } });
   };
 
-  /** Kart başlığı — Fraunces, liste ölçüsünde. */
-  const serifCard: TextStyle = { ...type.heading, fontSize: 16, lineHeight: 21 };
-
   const childCount = childrenQuery.data?.length ?? 0;
   const subtitleTr =
     childCount > 0
       ? `${stories.length} hikâye · ${childCount} çocuk`
       : `${stories.length} hikâye`;
 
-  /* ── Çevrimdışı geri düşüş: ağ yok ama indirilenler var ── */
+  /* ── Çevrimdışı geri düşüş: ağ yok ama indirilenler var (işlev) ── */
   if (storiesQuery.isError && Object.keys(offline).length > 0) {
     return (
-      <Screen>
-        <Text variant="title" accessibilityRole="header">
-          Hikâyelerim
-        </Text>
-        <ErrorState
-          compact
-          offline
-          messageTr="Şu an sunucuya ulaşılamıyor. İndirdiğiniz masallar aşağıda — hepsi internetsiz açılır."
-          onRetry={() => {
-            void storiesQuery.refetch();
-          }}
-        />
+      <Screen flush style={styles.screen}>
+        <View style={styles.headerBlock}>
+          <Text accessibilityRole="header" style={[styles.h1, { color: colors.ink }]}>
+            Hikâyelerim
+          </Text>
+        </View>
+        <View style={styles.section}>
+          <ErrorState
+            compact
+            offline
+            messageTr="Şu an sunucuya ulaşılamıyor. İndirdiğiniz masallar aşağıda — hepsi internetsiz açılır."
+            onRetry={() => {
+              void storiesQuery.refetch();
+            }}
+          />
+        </View>
         <View style={styles.list}>
           {Object.values(offline).map((meta) => (
             <Pressable
@@ -136,24 +133,21 @@ export default function Kitaplik(): ReactNode {
                 playStory(meta.storyId);
               }}
               style={({ pressed }) => [
-                styles.storyCard,
+                styles.card,
                 {
                   backgroundColor: pressed ? colors.surfaceMuted : colors.surface,
                   borderColor: colors.border,
-                  borderRadius: radius.lg,
                 },
               ]}
             >
-              <CoverArt
-                seed={meta.storyId}
-                localUri={meta.files['cover']}
-                style={styles.cover}
-              />
+              <CoverArt seed={meta.storyId} localUri={meta.files['cover']} style={styles.cover} />
               <View style={styles.cardBody}>
-                <Text style={serifCard} numberOfLines={2}>
+                <Text numberOfLines={1} style={[styles.cardTitle, { color: colors.ink }]}>
                   {meta.titleTr}
                 </Text>
-                <Badge labelTr="İndirildi" tone="success" icon="✓" />
+                <View style={styles.badgeRow}>
+                  <CardBadge labelTr="İndirildi" />
+                </View>
               </View>
             </Pressable>
           ))}
@@ -163,182 +157,107 @@ export default function Kitaplik(): ReactNode {
   }
 
   return (
-    <Screen>
-      {/* ── Başlık ─────────────────────────────────────────── */}
-      <View style={styles.header}>
-        <Text variant="title" accessibilityRole="header">
+    <Screen flush style={styles.screen}>
+      {/* ── Başlık — Figma: Fraunces 30 + "n hikâye · m çocuk" ── */}
+      <View style={styles.headerBlock}>
+        <Text accessibilityRole="header" style={[styles.h1, { color: colors.ink }]}>
           Hikâyelerim
         </Text>
         {storiesQuery.isSuccess ? (
-          <Text variant="caption" tone="muted">
-            {subtitleTr}
-          </Text>
+          <Text style={[styles.subtitle, { color: colors.inkMuted }]}>{subtitleTr}</Text>
         ) : null}
       </View>
 
-      {/* ── Arama ──────────────────────────────────────────── */}
-      <View
-        style={[
-          styles.searchBox,
-          { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md },
-        ]}
-      >
-        <SearchIcon size={16} />
-        <TextInput
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Hikâye ara…"
-          placeholderTextColor={colors.textDim}
-          accessibilityLabel="Hikâye ara"
-          returnKeyType="search"
-          style={[styles.searchInput, { ...type.caption, fontSize: 15, color: colors.ink }]}
-        />
-      </View>
-
-      {/* ── Filtre çipleri (L02 çocuk seçici dahil) ────────── */}
-      <Row gap="sm" wrap>
-        <Chip
-          label="Tümü"
-          selected={filter.kind === 'all'}
-          onPress={() => {
-            setFilter({ kind: 'all' });
-          }}
-        />
-        {(childrenQuery.data ?? []).map((child) => (
-          <Chip
-            key={child.id as string}
-            label={child.givenName}
-            selected={filter.kind === 'child' && filter.childId === (child.id as string)}
-            onPress={() => {
-              setFilter({ kind: 'child', childId: child.id as string, nameTr: child.givenName });
-            }}
-          />
-        ))}
-        <Chip
-          label="Favoriler"
-          icon="♥"
-          selected={filter.kind === 'favorites'}
-          onPress={() => {
-            setFilter({ kind: 'favorites' });
-          }}
-        />
-        <Chip
-          label="İndirilenler"
-          icon="⬇"
-          selected={filter.kind === 'downloaded'}
-          onPress={() => {
-            setFilter({ kind: 'downloaded' });
-          }}
-        />
-      </Row>
-
-      {/* ── Devam kartı ────────────────────────────────────── */}
-      {continueStory !== undefined && filter.kind === 'all' && search.trim().length === 0 ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${continueStory.title} — ${continueStory.lastReadPageNo}. sayfada kaldınız, devam et`}
-          onPress={() => {
-            playStory(continueStory.id as string);
-          }}
-          style={({ pressed }) => [
-            styles.storyCard,
-            {
-              backgroundColor: pressed ? colors.surfaceMuted : colors.surfaceRaised,
-              borderColor: colors.primary,
-              borderRadius: radius.lg,
-            },
+      {/* ── Arama — Figma: 2px kenarlık, 16 yarıçap, sol büyüteç ── */}
+      <View style={styles.section}>
+        <View
+          style={[
+            styles.searchBox,
+            { backgroundColor: colors.surface, borderColor: colors.border },
           ]}
         >
-          <CoverArt
-            seed={continueStory.id as string}
-            uri={continueStory.cover?.url}
-            localUri={offline[continueStory.id as string]?.files['cover']}
-            style={styles.cover}
+          <View style={styles.searchIcon} pointerEvents="none">
+            <SearchIcon size={16} color={colors.inkMuted} />
+          </View>
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Hikâye ara…"
+            placeholderTextColor={colors.inkMuted}
+            accessibilityLabel="Hikâye ara"
+            returnKeyType="search"
+            style={[styles.searchInput, { color: colors.ink }]}
           />
-          <View style={styles.cardBody}>
-            <Text variant="caption" tone="accent">
-              {`${continueStory.lastReadPageNo}. sayfada kaldınız`}
-            </Text>
-            <Text style={serifCard} numberOfLines={2}>
-              {continueStory.title}
-            </Text>
-            <Text variant="caption" tone="muted">
-              Kaldığınız yerden dinlemek için dokunun
-            </Text>
-          </View>
-          <View
-            style={[styles.playCircle, { backgroundColor: colors.primary }]}
-            accessibilityElementsHidden
-          >
-            <PlayIcon size={16} color={colors.inkOnPrimary} />
-          </View>
-        </Pressable>
-      ) : null}
+        </View>
+      </View>
 
-      {/* ── Liste / durumlar ───────────────────────────────── */}
+      {/* ── Sekmeler — Figma: Tümü / Sesli / Kitaplar / Favoriler ── */}
+      <View style={styles.tabRow}>
+        {TABS.map((tab) => {
+          const active = activeTab === tab;
+          return (
+            <Pressable
+              key={tab}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              onPress={() => {
+                setActiveTab(tab);
+              }}
+              style={[
+                styles.tab,
+                active
+                  ? [styles.tabActive, { backgroundColor: colors.primary }]
+                  : { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+              ]}
+            >
+              <Text style={[styles.tabText, { color: active ? '#FFFFFF' : colors.inkMuted }]}>
+                {tab}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {/* ── Liste / durumlar ── */}
       {storiesQuery.isLoading ? (
         <View style={styles.list}>
           {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} height={110} rounded />
+            <Skeleton key={i} height={118} rounded />
           ))}
         </View>
       ) : storiesQuery.isError ? (
-        <ErrorState
-          messageTr={storiesQuery.error.messageTr}
-          offline={storiesQuery.error.code === 'PROVIDER_UNAVAILABLE'}
-          onRetry={() => {
-            void storiesQuery.refetch();
-          }}
-        />
-      ) : visibleStories.length === 0 ? (
-        search.trim().length > 0 ? (
-          <EmptyState
-            icon="🔍"
-            titleTr="Bu adla bir masal yok"
-            bodyTr="Farklı bir kelimeyle arayın ya da filtreyi değiştirin."
-          />
-        ) : filter.kind === 'all' ? (
-          <EmptyState
-            icon="📖"
-            titleTr="İlk masalın burada yaşayacak"
-            bodyTr="Çocuğunuza özel ilk masalı üç dakikada oluşturun — kahraman o olsun."
-            actionLabelTr="İlk masalı oluştur"
-            onAction={() => {
-              router.push('/(app)/sihirbaz');
+        <View style={styles.section}>
+          <ErrorState
+            messageTr={storiesQuery.error.messageTr}
+            offline={storiesQuery.error.code === 'PROVIDER_UNAVAILABLE'}
+            onRetry={() => {
+              void storiesQuery.refetch();
             }}
           />
-        ) : (
-          <EmptyState
-            icon={filter.kind === 'downloaded' ? '⬇' : filter.kind === 'favorites' ? '♥' : '🧒'}
-            titleTr={
-              filter.kind === 'downloaded'
-                ? 'İndirilen masal yok'
-                : filter.kind === 'favorites'
-                  ? 'Favori masal yok'
-                  : `${possessive(filter.kind === 'child' ? filter.nameTr : '')} masalı yok`
-            }
-            bodyTr={
-              filter.kind === 'downloaded'
-                ? 'Bir masalın sayfasındaki "Cihaza indir" ile internetsiz kullanıma hazırlayın.'
-                : filter.kind === 'favorites'
-                  ? 'Masal sayfasındaki kalp ile favorilere ekleyin.'
-                  : 'Bu çocuk için yeni bir masal oluşturabilirsiniz.'
-            }
-          />
-        )
+        </View>
+      ) : filtered.length === 0 ? (
+        /* Figma boş durumu — birebir metinler. */
+        <View style={styles.empty}>
+          <Text style={styles.emptyIcon} accessibilityElementsHidden>
+            📚
+          </Text>
+          <Text accessibilityRole="header" center style={[styles.emptyTitle, { color: colors.ink }]}>
+            İlk masalın burada yaşayacak.
+          </Text>
+          <Text center style={[styles.emptyBody, { color: colors.inkMuted }]}>
+            Henüz bu kategoride hikâye yok.
+          </Text>
+        </View>
       ) : (
         <View style={styles.list}>
-          {visibleStories.map((story) => {
+          {filtered.map((story) => {
             const storyId = story.id as string;
-            const meta = offline[storyId];
+            const downloaded = offline[storyId] !== undefined;
             const progressTr = IN_PROGRESS_TR[story.status];
-            const metaLine = [
-              story.childName,
-              `${story.ageBand} yaş`,
-              ...(story.hasAudio && story.voiceLabels.length > 0
-                ? [story.voiceLabels[0] ?? '']
-                : []),
-            ]
+            const voiceLabel = story.hasAudio ? story.voiceLabels[0] : undefined;
+            /* Figma meta satırı: "çocuk · süre · anlatıcı" — sözleşmede süre
+             * alanı yok; eldeki alanlar aynı sırayla basılır. */
+            const metaLine = [story.childName, voiceLabel]
               .filter((part): part is string => part !== undefined && part.length > 0)
               .join(' · ');
             return (
@@ -350,47 +269,44 @@ export default function Kitaplik(): ReactNode {
                   openStory(storyId);
                 }}
                 style={({ pressed }) => [
-                  styles.storyCard,
+                  styles.card,
                   {
                     backgroundColor: pressed ? colors.surfaceMuted : colors.surface,
                     borderColor: colors.border,
-                    borderRadius: radius.lg,
                   },
                 ]}
               >
-                <CoverArt
-                  seed={storyId}
-                  uri={story.cover?.url}
-                  localUri={meta?.files['cover']}
-                  style={styles.cover}
-                />
+                {/* Kapak — Figma: 72×90, yarıçap 12, pastel + emoji */}
+                <CoverArt seed={storyId} uri={story.cover?.url} localUri={offline[storyId]?.files['cover']} style={styles.cover} />
 
+                {/* Bilgi */}
                 <View style={styles.cardBody}>
-                  <Text style={serifCard} numberOfLines={2}>
+                  <Text numberOfLines={1} style={[styles.cardTitle, { color: colors.ink }]}>
                     {story.title}
                   </Text>
-                  <Text variant="caption" tone="muted" numberOfLines={1}>
-                    {metaLine}
-                  </Text>
-                  <Row gap="xs" wrap>
-                    {story.isFavorite ? <Badge labelTr="Favori" icon="♥" tone="danger" /> : null}
-                    {progressTr !== undefined ? (
-                      <Badge
-                        labelTr={progressTr}
-                        tone={story.status === 'failed' ? 'danger' : 'accent'}
-                      />
-                    ) : null}
-                    {meta !== undefined ? (
-                      <Badge labelTr="İndirildi" tone="success" icon="✓" />
-                    ) : null}
-                    {story.hasAudio && story.voiceLabels.length > 0 ? (
-                      <Badge labelTr={story.voiceLabels[0] ?? ''} icon="🔊" tone="accent" />
-                    ) : null}
-                  </Row>
+                  {metaLine.length > 0 ? (
+                    <Text numberOfLines={1} style={[styles.cardMeta, { color: colors.inkMuted }]}>
+                      {metaLine}
+                    </Text>
+                  ) : null}
+
+                  {/* Rozetler — Figma: ses mercan, diğerleri mor */}
+                  {voiceLabel !== undefined ||
+                  story.printedCount > 0 ||
+                  progressTr !== undefined ||
+                  downloaded ? (
+                    <View style={styles.badgeRow}>
+                      {voiceLabel !== undefined ? <CardBadge labelTr={voiceLabel} voice /> : null}
+                      {story.printedCount > 0 ? <CardBadge labelTr="Kitap hazır" /> : null}
+                      {progressTr !== undefined ? <CardBadge labelTr={progressTr} /> : null}
+                      {downloaded ? <CardBadge labelTr="İndirildi" /> : null}
+                    </View>
+                  ) : null}
                 </View>
 
+                {/* Tarih + oynat — Figma sağ sütun */}
                 <View style={styles.cardSide}>
-                  <Text variant="caption" tone="muted" style={styles.dateText}>
+                  <Text style={[styles.dateText, { color: colors.inkMuted }]}>
                     {relativeDateTr(story.createdAt)}
                   </Text>
                   {isPlayable(story.status) ? (
@@ -401,10 +317,7 @@ export default function Kitaplik(): ReactNode {
                       onPress={() => {
                         playStory(storyId);
                       }}
-                      style={({ pressed }) => [
-                        styles.playCircle,
-                        { backgroundColor: pressed ? colors.primary : colors.surfaceRaised },
-                      ]}
+                      style={[styles.playCircle, { backgroundColor: palette.lavenderMist }]}
                     >
                       <PlayIcon size={14} color={colors.primary} />
                     </Pressable>
@@ -415,43 +328,72 @@ export default function Kitaplik(): ReactNode {
           })}
         </View>
       )}
-
-      {/* Tek birincil eylem: yeni masal (boş durumda zaten var). */}
-      {visibleStories.length > 0 ? (
-        <Button
-          label="Yeni masal oluştur"
-          onPress={() => {
-            router.push('/(app)/sihirbaz');
-          }}
-        />
-      ) : null}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { gap: 2 },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    minHeight: 48,
-  },
-  searchInput: { flex: 1, paddingVertical: 12 },
+  /* Dikey ritim tasarımdaki dolgularla kurulur; Screen'in varsayılan gap'i kapalı. */
+  screen: { gap: 0 },
 
-  list: { gap: 12 },
-  storyCard: {
+  /* Başlık — Figma: padding 52 24 20 (üst boşluğu güvenli alan verir). */
+  headerBlock: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 20, gap: 4 },
+  h1: {
+    fontFamily: fontFamilies.display,
+    fontSize: 30,
+    lineHeight: 37,
+    letterSpacing: -0.3,
+  },
+  subtitle: { fontFamily: fontFamilies.bodyMedium, fontSize: 14, lineHeight: 19 },
+
+  section: { paddingHorizontal: 24, paddingBottom: 16 },
+
+  /* Arama — Figma: 2px kenarlık, yarıçap 16, 40px sol boşluk. */
+  searchBox: { borderWidth: 2, borderRadius: 16, justifyContent: 'center' },
+  searchIcon: { position: 'absolute', left: 14, zIndex: 1 },
+  searchInput: {
+    fontFamily: fontFamilies.body,
+    fontSize: 15,
+    paddingVertical: 14,
+    paddingLeft: 40,
+    paddingRight: 14,
+  },
+
+  /* Sekmeler — Figma: 8/18 dolgu, yarıçap 12, 13/700 punto. */
+  tabRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 24, paddingBottom: 20 },
+  tab: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 12 },
+  tabActive: {
+    shadowColor: '#7C5CBF',
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  tabText: { fontFamily: fontFamilies.bodyBold, fontSize: 13, lineHeight: 18 },
+
+  /* Liste + kart — Figma: yarıçap 20, 14 dolgu, yumuşak gölge. */
+  list: { paddingHorizontal: 24, gap: 12, paddingBottom: 24 },
+  card: {
     flexDirection: 'row',
     gap: 14,
     padding: 14,
+    borderRadius: 20,
     borderWidth: 1,
+    shadowColor: '#000000',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
   cover: { width: 72, height: 90 },
-  cardBody: { flex: 1, gap: 4, justifyContent: 'center' },
-  cardSide: { alignItems: 'flex-end', justifyContent: 'space-between', minWidth: 56 },
-  dateText: { fontSize: 11, lineHeight: 15 },
+  cardBody: { flex: 1, minWidth: 0, justifyContent: 'center', gap: 4 },
+  cardTitle: { fontFamily: fontFamilies.display, fontSize: 16, lineHeight: 21 },
+  cardMeta: { fontFamily: fontFamilies.bodyMedium, fontSize: 12, lineHeight: 16 },
+  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  badge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
+  badgeText: { fontFamily: fontFamilies.bodyBold, fontSize: 10, lineHeight: 14 },
+  cardSide: { alignItems: 'flex-end', justifyContent: 'space-between' },
+  dateText: { fontFamily: fontFamilies.bodyMedium, fontSize: 11, lineHeight: 15 },
   playCircle: {
     width: 32,
     height: 32,
@@ -459,4 +401,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
+  /* Boş durum — Figma: 60/32 dolgu, 48 emoji, Fraunces 22 başlık. */
+  empty: { paddingVertical: 60, paddingHorizontal: 32, alignItems: 'center' },
+  emptyIcon: { fontSize: 48, lineHeight: 58, marginBottom: 16 },
+  emptyTitle: { fontFamily: fontFamilies.display, fontSize: 22, lineHeight: 28, marginBottom: 8 },
+  emptyBody: { fontFamily: fontFamilies.body, fontSize: 14, lineHeight: 21 },
 });

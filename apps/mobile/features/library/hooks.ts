@@ -8,7 +8,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import type { ApiError, Story, StoryStatus, StorySummary } from '@kendihikayem/contract';
+import type { ApiError, Story, StoryStatus, StorySummary, StoryTheme } from '@kendihikayem/contract';
 
 import { api, asApiError, newIdempotencyKey, toApiError } from '../../lib/api';
 
@@ -66,6 +66,28 @@ export function useStory(storyId: string | undefined) {
       if (isStoryInProgress(story.status) || story.activeJobs.length > 0) return 2_500;
       return false;
     },
+  });
+}
+
+/**
+ * Hikayenin tema kartı — detay ekranındaki meta satırı (tasarımdaki
+ * "🚀 Uzay · Macera" ögesi) tema adını katalogdan çözer.
+ */
+export function useStoryTheme(themeCode: string | undefined) {
+  return useQuery<StoryTheme[], ApiError, StoryTheme | undefined>({
+    queryKey: ['library', 'themes'],
+    enabled: themeCode !== undefined,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      try {
+        const res = await api().catalog.themes({ query: { includeReligious: true } });
+        if (res.status !== 200) throw asApiError(res.body);
+        return res.body.items;
+      } catch (error) {
+        throw toApiError(error);
+      }
+    },
+    select: (items) => items.find((theme) => theme.code === themeCode),
   });
 }
 
