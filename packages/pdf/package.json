@@ -13,5 +13,16 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@kendihikayem/shared": "workspace:*",
+    "@pdf-lib/fontkit": "1.1.1",
+    "pdf-lib": "1.17.1",
+    "qrcode": "1.5.4"
+  },
+  "devDependencies": {
+    "@kendihikayem/mock": "workspace:*",
+    "@types/qrcode": "1.5.6",
+    "sharp": "0.35.3"
   }
 }

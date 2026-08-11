@@ -295,6 +295,9 @@ importers:
 
   packages/pdf:
     dependencies:
+      '@kendihikayem/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@pdf-lib/fontkit':
         specifier: 1.1.1
         version: 1.1.1
@@ -323,12 +326,22 @@ importers:
       '@kendihikayem/shared':
         specifier: workspace:*
         version: link:../shared
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
 
   packages/safety:
     dependencies:
+      '@kendihikayem/contract':
+        specifier: workspace:*
+        version: link:../contract
       '@kendihikayem/shared':
         specifier: workspace:*
         version: link:../shared
+    devDependencies:
+      '@kendihikayem/mock':
+        specifier: workspace:*
+        version: link:../mock
 
   packages/shared: {}
 
