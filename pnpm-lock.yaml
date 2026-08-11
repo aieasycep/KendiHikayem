@@ -56,9 +56,15 @@ importers:
       '@kendihikayem/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@kendihikayem/providers':
+        specifier: workspace:*
+        version: link:../../packages/providers
       '@kendihikayem/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@kendihikayem/worker':
+        specifier: workspace:*
+        version: link:../worker
       '@ts-rest/core':
         specifier: 3.52.1
         version: 3.52.1(@types/node@22.18.13)(zod@3.25.76)
@@ -68,6 +74,9 @@ importers:
       '@ts-rest/open-api':
         specifier: 3.52.1
         version: 3.52.1(@ts-rest/core@3.52.1(@types/node@22.18.13)(zod@3.25.76))(zod@3.25.76)
+      drizzle-orm:
+        specifier: 0.45.2
+        version: 0.45.2(expo-sqlite@57.0.1(expo@57.0.12)(react-native@0.86.2(@types/react@19.2.18)(react@19.2.8))(react@19.2.8))(postgres@3.4.9)
       fastify:
         specifier: 5.11.3
         version: 5.11.3
