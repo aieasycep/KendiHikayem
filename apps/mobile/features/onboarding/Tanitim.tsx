@@ -14,7 +14,7 @@
  */
 
 import * as SecureStore from 'expo-secure-store';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -89,7 +89,7 @@ const SLIDES: Slide[] = [
 
 function Dot({ active, onPress }: { active: boolean; onPress: () => void }): ReactNode {
   const { colors } = useTheme();
-  const anim = useRef(new Animated.Value(active ? 1 : 0)).current;
+  const [anim] = useState(() => new Animated.Value(active ? 1 : 0));
 
   useEffect(() => {
     Animated.timing(anim, {
@@ -127,9 +127,9 @@ export function Tanitim({ onDone }: { onDone: () => void }): ReactNode {
 
   // Tasarımdaki fadeIn (illüstrasyon, 0.4s) + fadeUp (metin, 0.5s) — slayt
   // değişince yeniden oynar.
-  const illusOpacity = useRef(new Animated.Value(0)).current;
-  const textOpacity = useRef(new Animated.Value(0)).current;
-  const textShift = useRef(new Animated.Value(16)).current;
+  const [illusOpacity] = useState(() => new Animated.Value(0));
+  const [textOpacity] = useState(() => new Animated.Value(0));
+  const [textShift] = useState(() => new Animated.Value(16));
 
   useEffect(() => {
     illusOpacity.setValue(0);

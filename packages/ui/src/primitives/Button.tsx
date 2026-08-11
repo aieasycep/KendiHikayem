@@ -149,7 +149,8 @@ export function Button({
           style={
             isPrimary
               ? [
-                  styles.primaryLabel,
+                  styles.primaryLabelColor,
+                  !compact && styles.primaryLabel, // Figma CTA: 17 pt yalnız tam genişlikte
                   fontsReady
                     ? { fontFamily: fontFamilies.bodyExtraBold }
                     : styles.primaryLabelFallback,
@@ -181,9 +182,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 6,
   },
-  /* Figma: Nunito 800 · 17 · beyaz · letterSpacing 0.01em */
+  /* Figma: birincil buton metni her iki temada da beyazdır (degrade sabit). */
+  primaryLabelColor: { color: '#FFFFFF' },
+  /* Figma: Nunito 800 · 17 · letterSpacing 0.01em */
   primaryLabel: {
-    color: '#FFFFFF',
     fontSize: 17,
     lineHeight: 23,
     letterSpacing: 0.17,

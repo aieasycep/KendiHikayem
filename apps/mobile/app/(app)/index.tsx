@@ -102,7 +102,7 @@ export default function AnaSayfa(): ReactNode {
   const serifRail: TextStyle = { ...type.heading, fontSize: 13, lineHeight: 17 };
 
   return (
-    <Screen flush testID="anasayfa">
+    <Screen flush style={styles.scroll} testID="anasayfa">
       {/* ── 1. Karşılama (Figma: sabit akşam selamı) ──────────── */}
       <LinearGradient
         colors={['rgba(176, 156, 224, 0.15)', 'rgba(176, 156, 224, 0)']}
@@ -436,6 +436,10 @@ export default function AnaSayfa(): ReactNode {
 }
 
 const styles = StyleSheet.create({
+  /* Screen'in varsayılan 16px bölüm arası boşluğu kapatılır — tasarımın ritmi
+   * her bölümün kendi 24px alt dolgusudur (Figma: padding "0 24px 24px"). */
+  scroll: { gap: 0 },
+
   pressedDim: { opacity: 0.85 },
 
   /* Figma kart gölgeleri */
@@ -461,14 +465,15 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
 
-  /* Karşılama */
+  /* Karşılama — Figma: padding "56px 24px 24px" (56'nın durum çubuğu kısmını
+   * SafeArea verir → +12). */
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingTop: 12,
+    paddingBottom: 24,
     gap: 16,
   },
   headerTexts: { flex: 1, gap: 4 },
@@ -494,8 +499,8 @@ const styles = StyleSheet.create({
   /* "Tümü" bağlantısı — Figma: 13 · 600 */
   linkAll: { fontSize: 13, lineHeight: 18, fontWeight: '600' },
 
-  /* Bölüm iskeleti */
-  section: { paddingHorizontal: 24, paddingTop: 16, gap: 12 },
+  /* Bölüm iskeleti — Figma: her bölüm "0 24px 24px", başlık altı 12 */
+  section: { paddingHorizontal: 24, paddingBottom: 24, gap: 12 },
   lastSection: { paddingBottom: 32 },
   sectionTitle: { fontSize: 18, lineHeight: 24 },
   list: { gap: 8 },
@@ -573,8 +578,8 @@ const styles = StyleSheet.create({
   progressTrack: { height: 4, borderRadius: 2, overflow: 'hidden', marginTop: 4 },
   progressFill: { height: '100%', borderRadius: 2 },
 
-  /* Son hikayeler şeridi */
-  railSection: { paddingTop: 16, gap: 12 },
+  /* Son hikayeler şeridi — Figma: padding "0 0 24px" */
+  railSection: { paddingBottom: 24, gap: 12 },
   railHeader: { paddingHorizontal: 24 },
   rail: { paddingHorizontal: 24, gap: 12 },
   railLoading: { flexDirection: 'row', gap: 12, paddingHorizontal: 24 },
