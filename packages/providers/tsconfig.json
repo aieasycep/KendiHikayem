@@ -1,4 +1,14 @@
 {
   "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    /**
+     * Kaynak olarak tüketilen paket (main: ./src/index.ts + tsconfig paths).
+     * `declaration` kapalı: `packages/contract` ts-rest'in çıkarsanan dev tiplerini
+     * .d.ts'e serileştiremiyor (bkz. packages/mock/tsconfig.json ile aynı gerekçe).
+     */
+    "declaration": false,
+    "declarationMap": false,
+    "types": ["node"]
+  },
   "include": ["src/**/*.ts"]
 }

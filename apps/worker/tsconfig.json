@@ -1,4 +1,10 @@
 {
   "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    /** Bkz. packages/mock/tsconfig.json — sözleşme tipleri .d.ts'e serileştirilemiyor. */
+    "declaration": false,
+    "declarationMap": false,
+    "types": ["node"]
+  },
   "include": ["src/**/*.ts"]
 }
