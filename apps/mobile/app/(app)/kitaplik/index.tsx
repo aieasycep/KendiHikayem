@@ -1,25 +1,27 @@
 import { useRouter } from 'expo-router';
 import { useMemo, useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View, type TextStyle } from 'react-native';
 
 import type { StorySummary } from '@kendihikayem/contract';
 import { possessive } from '@kendihikayem/shared';
 import {
   Badge,
   Button,
-  Card,
   Chip,
   EmptyState,
   ErrorState,
-  MediaImage,
+  PlayIcon,
   Row,
   Screen,
   Skeleton,
   Text,
+  useTheme,
 } from '@kendihikayem/ui';
 
 import { useChildren, useStories } from '../../../features/library/hooks';
 import { useOfflineIndex } from '../../../features/library/offline';
+import { CoverArt, relativeDateTr } from '../../../features/library/cover';
+import { SearchIcon } from '../../../features/library/icons';
 
 type Filter =
   | { kind: 'all' }
@@ -37,16 +39,25 @@ const IN_PROGRESS_TR: Partial<Record<StorySummary['status'], string>> = {
   failed: 'Sorun oluştu',
 };
 
+/** Dinlenebilir/okunabilir durumlar — kart üstünde oynat düğmesi çıkar. */
+function isPlayable(status: StorySummary['status']): boolean {
+  return status === 'approved' || status === 'ready';
+}
+
 /**
- * L01 Kitaplık — kapak ızgarası, filtre çipleri, "3. sayfada kaldınız" devam
- * kartı; L02 çocuk profili filtresi; L03 boş durum.
+ * L01 Kitaplık — Figma `Library.tsx` taşıması: büyük serif başlık + "n hikâye ·
+ * m çocuk" alt satırı, arama kutusu, filtre çipleri ve yatay hikaye kartları
+ * (pastel kapak + rozetler + tarih + oynat düğmesi). L02 çocuk filtresi ve L03
+ * boş durumlar korunur.
  *
  * ÇEVRİMDIŞI: liste isteği düşerse indirilen masallar diskten listelenir —
  * uçak modunda kitaplık asla bomboş bir hata ekranı olmaz.
  */
 export default function Kitaplik(): ReactNode {
   const router = useRouter();
+  const { colors, radius, type } = useTheme();
   const [filter, setFilter] = useState<Filter>({ kind: 'all' });
+  const [search, setSearch] = useState('');
 
   const storiesQuery = useStories(
     filter.kind === 'child'
@@ -62,11 +73,15 @@ export default function Kitaplik(): ReactNode {
   const stories = useMemo(() => storiesQuery.data ?? [], [storiesQuery.data]);
 
   const visibleStories = useMemo(() => {
-    if (filter.kind === 'downloaded') {
-      return stories.filter((story) => offline[story.id as string] !== undefined);
-    }
-    return stories;
-  }, [stories, filter, offline]);
+    const query = search.trim().toLocaleLowerCase('tr-TR');
+    return stories.filter((story) => {
+      if (filter.kind === 'downloaded' && offline[story.id as string] === undefined) return false;
+      if (query.length > 0 && !story.title.toLocaleLowerCase('tr-TR').includes(query)) {
+        return false;
+      }
+      return true;
+    });
+  }, [stories, filter, offline, search]);
 
   /** "3. sayfada kaldınız" — en güncel yarım kalan masal. */
   const continueStory = useMemo(
@@ -75,7 +90,7 @@ export default function Kitaplik(): ReactNode {
         (story) =>
           story.lastReadPageNo !== undefined &&
           story.lastReadPageNo > 1 &&
-          (story.status === 'approved' || story.status === 'ready'),
+          isPlayable(story.status),
       ),
     [stories],
   );
@@ -83,12 +98,26 @@ export default function Kitaplik(): ReactNode {
   const openStory = (storyId: string): void => {
     router.push({ pathname: '/(app)/hikaye/[id]', params: { id: storyId } });
   };
+  const playStory = (storyId: string): void => {
+    router.push({ pathname: '/(app)/hikaye/[id]/oynat', params: { id: storyId } });
+  };
+
+  /** Kart başlığı — Fraunces, liste ölçüsünde. */
+  const serifCard: TextStyle = { ...type.heading, fontSize: 16, lineHeight: 21 };
+
+  const childCount = childrenQuery.data?.length ?? 0;
+  const subtitleTr =
+    childCount > 0
+      ? `${stories.length} hikâye · ${childCount} çocuk`
+      : `${stories.length} hikâye`;
 
   /* ── Çevrimdışı geri düşüş: ağ yok ama indirilenler var ── */
   if (storiesQuery.isError && Object.keys(offline).length > 0) {
     return (
       <Screen>
-        <Text variant="title">Kitaplık</Text>
+        <Text variant="title" accessibilityRole="header">
+          Hikâyelerim
+        </Text>
         <ErrorState
           compact
           offline
@@ -97,30 +126,35 @@ export default function Kitaplik(): ReactNode {
             void storiesQuery.refetch();
           }}
         />
-        <View style={styles.grid}>
+        <View style={styles.list}>
           {Object.values(offline).map((meta) => (
             <Pressable
               key={meta.storyId}
               accessibilityRole="button"
               accessibilityLabel={meta.titleTr}
               onPress={() => {
-                router.push({
-                  pathname: '/(app)/hikaye/[id]/oynat',
-                  params: { id: meta.storyId },
-                });
+                playStory(meta.storyId);
               }}
-              style={styles.cell}
+              style={({ pressed }) => [
+                styles.storyCard,
+                {
+                  backgroundColor: pressed ? colors.surfaceMuted : colors.surface,
+                  borderColor: colors.border,
+                  borderRadius: radius.lg,
+                },
+              ]}
             >
-              <MediaImage
+              <CoverArt
+                seed={meta.storyId}
                 localUri={meta.files['cover']}
-                placeholderLabelTr={meta.titleTr}
-                aspectRatio={1}
-                altTr={meta.titleTr}
+                style={styles.cover}
               />
-              <Text variant="label" numberOfLines={2}>
-                {meta.titleTr}
-              </Text>
-              <Badge labelTr="İndirildi" tone="success" icon="✓" />
+              <View style={styles.cardBody}>
+                <Text style={serifCard} numberOfLines={2}>
+                  {meta.titleTr}
+                </Text>
+                <Badge labelTr="İndirildi" tone="success" icon="✓" />
+              </View>
             </Pressable>
           ))}
         </View>
@@ -130,7 +164,36 @@ export default function Kitaplik(): ReactNode {
 
   return (
     <Screen>
-      <Text variant="title">Kitaplık</Text>
+      {/* ── Başlık ─────────────────────────────────────────── */}
+      <View style={styles.header}>
+        <Text variant="title" accessibilityRole="header">
+          Hikâyelerim
+        </Text>
+        {storiesQuery.isSuccess ? (
+          <Text variant="caption" tone="muted">
+            {subtitleTr}
+          </Text>
+        ) : null}
+      </View>
+
+      {/* ── Arama ──────────────────────────────────────────── */}
+      <View
+        style={[
+          styles.searchBox,
+          { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: radius.md },
+        ]}
+      >
+        <SearchIcon size={16} />
+        <TextInput
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Hikâye ara…"
+          placeholderTextColor={colors.textDim}
+          accessibilityLabel="Hikâye ara"
+          returnKeyType="search"
+          style={[styles.searchInput, { ...type.caption, fontSize: 15, color: colors.ink }]}
+        />
+      </View>
 
       {/* ── Filtre çipleri (L02 çocuk seçici dahil) ────────── */}
       <Row gap="sm" wrap>
@@ -170,51 +233,53 @@ export default function Kitaplik(): ReactNode {
       </Row>
 
       {/* ── Devam kartı ────────────────────────────────────── */}
-      {continueStory !== undefined && filter.kind === 'all' ? (
-        <Card
-          onPress={() => {
-            router.push({
-              pathname: '/(app)/hikaye/[id]/oynat',
-              params: { id: continueStory.id as string },
-            });
-          }}
+      {continueStory !== undefined && filter.kind === 'all' && search.trim().length === 0 ? (
+        <Pressable
+          accessibilityRole="button"
           accessibilityLabel={`${continueStory.title} — ${continueStory.lastReadPageNo}. sayfada kaldınız, devam et`}
+          onPress={() => {
+            playStory(continueStory.id as string);
+          }}
+          style={({ pressed }) => [
+            styles.storyCard,
+            {
+              backgroundColor: pressed ? colors.surfaceMuted : colors.surfaceRaised,
+              borderColor: colors.primary,
+              borderRadius: radius.lg,
+            },
+          ]}
         >
-          <Row gap="md">
-            <MediaImage
-              uri={continueStory.cover?.url}
-              localUri={offline[continueStory.id as string]?.files['cover']}
-              placeholderLabelTr={continueStory.title}
-              aspectRatio={1}
-              altTr=""
-              style={styles.continueCover}
-            />
-            <View style={styles.continueTexts}>
-              <Text variant="caption" tone="accent">
-                {`${continueStory.lastReadPageNo}. sayfada kaldınız`}
-              </Text>
-              <Text variant="bodyStrong" numberOfLines={2}>
-                {continueStory.title}
-              </Text>
-              <Text variant="caption" tone="muted">
-                Kaldığınız yerden dinlemek için dokunun
-              </Text>
-            </View>
-            <Text variant="title" tone="muted" accessibilityElementsHidden>
-              ▶
+          <CoverArt
+            seed={continueStory.id as string}
+            uri={continueStory.cover?.url}
+            localUri={offline[continueStory.id as string]?.files['cover']}
+            style={styles.cover}
+          />
+          <View style={styles.cardBody}>
+            <Text variant="caption" tone="accent">
+              {`${continueStory.lastReadPageNo}. sayfada kaldınız`}
             </Text>
-          </Row>
-        </Card>
+            <Text style={serifCard} numberOfLines={2}>
+              {continueStory.title}
+            </Text>
+            <Text variant="caption" tone="muted">
+              Kaldığınız yerden dinlemek için dokunun
+            </Text>
+          </View>
+          <View
+            style={[styles.playCircle, { backgroundColor: colors.primary }]}
+            accessibilityElementsHidden
+          >
+            <PlayIcon size={16} color={colors.inkOnPrimary} />
+          </View>
+        </Pressable>
       ) : null}
 
-      {/* ── Izgara / durumlar ──────────────────────────────── */}
+      {/* ── Liste / durumlar ───────────────────────────────── */}
       {storiesQuery.isLoading ? (
-        <View style={styles.grid}>
+        <View style={styles.list}>
           {[0, 1, 2, 3].map((i) => (
-            <View key={i} style={styles.cell}>
-              <Skeleton aspectRatio={1} rounded />
-              <Skeleton height={18} width="80%" />
-            </View>
+            <Skeleton key={i} height={110} rounded />
           ))}
         </View>
       ) : storiesQuery.isError ? (
@@ -226,10 +291,16 @@ export default function Kitaplik(): ReactNode {
           }}
         />
       ) : visibleStories.length === 0 ? (
-        filter.kind === 'all' ? (
+        search.trim().length > 0 ? (
+          <EmptyState
+            icon="🔍"
+            titleTr="Bu adla bir masal yok"
+            bodyTr="Farklı bir kelimeyle arayın ya da filtreyi değiştirin."
+          />
+        ) : filter.kind === 'all' ? (
           <EmptyState
             icon="📖"
-            titleTr="Henüz masalınız yok"
+            titleTr="İlk masalın burada yaşayacak"
             bodyTr="Çocuğunuza özel ilk masalı üç dakikada oluşturun — kahraman o olsun."
             actionLabelTr="İlk masalı oluştur"
             onAction={() => {
@@ -256,11 +327,20 @@ export default function Kitaplik(): ReactNode {
           />
         )
       ) : (
-        <View style={styles.grid}>
+        <View style={styles.list}>
           {visibleStories.map((story) => {
             const storyId = story.id as string;
             const meta = offline[storyId];
             const progressTr = IN_PROGRESS_TR[story.status];
+            const metaLine = [
+              story.childName,
+              `${story.ageBand} yaş`,
+              ...(story.hasAudio && story.voiceLabels.length > 0
+                ? [story.voiceLabels[0] ?? '']
+                : []),
+            ]
+              .filter((part): part is string => part !== undefined && part.length > 0)
+              .join(' · ');
             return (
               <Pressable
                 key={storyId}
@@ -269,32 +349,67 @@ export default function Kitaplik(): ReactNode {
                 onPress={() => {
                   openStory(storyId);
                 }}
-                style={styles.cell}
+                style={({ pressed }) => [
+                  styles.storyCard,
+                  {
+                    backgroundColor: pressed ? colors.surfaceMuted : colors.surface,
+                    borderColor: colors.border,
+                    borderRadius: radius.lg,
+                  },
+                ]}
               >
-                <MediaImage
+                <CoverArt
+                  seed={storyId}
                   uri={story.cover?.url}
                   localUri={meta?.files['cover']}
-                  placeholderLabelTr={story.title}
-                  placeholderNoteTr={progressTr}
-                  aspectRatio={1}
-                  altTr={`${story.title} kapağı`}
+                  style={styles.cover}
                 />
-                <Text variant="label" numberOfLines={2}>
-                  {story.title}
-                </Text>
-                <Row gap="xs" wrap>
-                  {story.isFavorite ? <Badge labelTr="Favori" icon="♥" tone="danger" /> : null}
-                  {progressTr !== undefined ? (
-                    <Badge
-                      labelTr={progressTr}
-                      tone={story.status === 'failed' ? 'danger' : 'accent'}
-                    />
+
+                <View style={styles.cardBody}>
+                  <Text style={serifCard} numberOfLines={2}>
+                    {story.title}
+                  </Text>
+                  <Text variant="caption" tone="muted" numberOfLines={1}>
+                    {metaLine}
+                  </Text>
+                  <Row gap="xs" wrap>
+                    {story.isFavorite ? <Badge labelTr="Favori" icon="♥" tone="danger" /> : null}
+                    {progressTr !== undefined ? (
+                      <Badge
+                        labelTr={progressTr}
+                        tone={story.status === 'failed' ? 'danger' : 'accent'}
+                      />
+                    ) : null}
+                    {meta !== undefined ? (
+                      <Badge labelTr="İndirildi" tone="success" icon="✓" />
+                    ) : null}
+                    {story.hasAudio && story.voiceLabels.length > 0 ? (
+                      <Badge labelTr={story.voiceLabels[0] ?? ''} icon="🔊" tone="accent" />
+                    ) : null}
+                  </Row>
+                </View>
+
+                <View style={styles.cardSide}>
+                  <Text variant="caption" tone="muted" style={styles.dateText}>
+                    {relativeDateTr(story.createdAt)}
+                  </Text>
+                  {isPlayable(story.status) ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`${story.title} masalını dinle`}
+                      hitSlop={8}
+                      onPress={() => {
+                        playStory(storyId);
+                      }}
+                      style={({ pressed }) => [
+                        styles.playCircle,
+                        { backgroundColor: pressed ? colors.primary : colors.surfaceRaised },
+                      ]}
+                    >
+                      <PlayIcon size={14} color={colors.primary} />
+                    </Pressable>
                   ) : null}
-                  {meta !== undefined ? <Badge labelTr="İndirildi" tone="success" icon="✓" /> : null}
-                  {story.hasAudio && story.voiceLabels.length > 0 ? (
-                    <Badge labelTr={story.voiceLabels[0] ?? ''} icon="🔊" tone="neutral" />
-                  ) : null}
-                </Row>
+                </View>
               </Pressable>
             );
           })}
@@ -315,8 +430,33 @@ export default function Kitaplik(): ReactNode {
 }
 
 const styles = StyleSheet.create({
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  cell: { width: '47%', gap: 6 },
-  continueCover: { width: 72 },
-  continueTexts: { flex: 1, gap: 2 },
+  header: { gap: 2 },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    minHeight: 48,
+  },
+  searchInput: { flex: 1, paddingVertical: 12 },
+
+  list: { gap: 12 },
+  storyCard: {
+    flexDirection: 'row',
+    gap: 14,
+    padding: 14,
+    borderWidth: 1,
+  },
+  cover: { width: 72, height: 90 },
+  cardBody: { flex: 1, gap: 4, justifyContent: 'center' },
+  cardSide: { alignItems: 'flex-end', justifyContent: 'space-between', minWidth: 56 },
+  dateText: { fontSize: 11, lineHeight: 15 },
+  playCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

@@ -11,6 +11,7 @@
  *    moduna düşer: vurgu sanal saatle akar, hiçbir şey bloklanmaz.
  */
 
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRouter } from 'expo-router';
 import {
   Animated,
@@ -32,10 +33,13 @@ import type { PlayerManifest } from '@kendihikayem/contract';
 import {
   Badge,
   Button,
-  MediaImage,
+  Chip,
+  PlayIcon,
+  Row,
   Sheet,
   Text,
   ThemeScope,
+  palette,
   useTheme,
 } from '@kendihikayem/ui';
 
@@ -43,8 +47,26 @@ import { bedtimeDim, bedtimeRate, bedtimeVolume, canWordHighlight } from './kara
 import { usePlayerEngine } from './engine';
 import { useKaraoke } from './useKaraoke';
 import { KaraokeText } from './KaraokeText';
+import { NightCover } from './NightCover';
+import { ChevronLeftIcon, ChevronRightThinIcon, PauseIcon } from './icons';
 import { useSaveProgress } from './hooks';
+import { ArrowLeftIcon } from '../library/icons';
 import { offlineAudio, offlinePageImage, type OfflineStoryMeta } from '../library/offline';
+
+/** "3:24" biçimli süre — tasarımdaki geçen/kalan süre satırı. */
+function fmtClock(ms: number): string {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+/** Tasarımdaki hız seçenekleri (Figma AudioPlayer "0.8x / 1x / 1.2x"). */
+const SPEED_OPTIONS = [
+  { labelTr: '0,8x', rate: 0.8 },
+  { labelTr: '1x', rate: 1 },
+  { labelTr: '1,2x', rate: 1.2 },
+] as const;
 
 export interface PlayerScreenProps {
   storyId: string;
@@ -91,6 +113,8 @@ function PlayerInner({
   );
   const [menuOpen, setMenuOpen] = useState(false);
   const [finished, setFinished] = useState(false);
+  /** Kullanıcının hız seçimi — uyku modu eğrisiyle ÇARPILIR, onu ezmez. */
+  const [userRate, setUserRate] = useState(1);
 
   const saveProgress = useSaveProgress();
   const highlightPossible = canWordHighlight(manifest) || manifest.pages.some((p) => p.sentences.length > 0);
@@ -168,7 +192,7 @@ function PlayerInner({
     if (page === undefined) return;
     if (!bedtimeOn) {
       engine.setVolume(1);
-      engine.setRate(1);
+      engine.setRate(userRate);
       return;
     }
     const input = {
@@ -178,9 +202,10 @@ function PlayerInner({
       targetEndVolume: manifest.bedtimeMode.targetEndVolume,
     };
     engine.setVolume(bedtimeVolume(input));
-    engine.setRate(bedtimeRate(input));
+    // Uyku eğrisi korunur; kullanıcı hızı eğriyle çarpılır.
+    engine.setRate(bedtimeRate(input) * userRate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bedtimeOn, karaoke.pageIndex]);
+  }, [bedtimeOn, karaoke.pageIndex, userRate]);
 
   const [dimAnim] = useState(() => new Animated.Value(0));
   useEffect(() => {
@@ -249,14 +274,11 @@ function PlayerInner({
     <View style={[styles.fill, { backgroundColor: colors.background }]}>
       {/* ── Görsel ─────────────────────────────────────────── */}
       <View style={{ height: imageHeight }}>
-        <MediaImage
+        <NightCover
+          seed={storyId}
           uri={page.image.url}
           localUri={offlinePageImage(offlineMeta, page.pageNo)}
-          placeholderLabelTr={manifest.titleTr}
-          placeholderNoteTr="Bu sayfanın resmi hazırlanıyor"
           altTr={`${page.pageNo}. sayfa görseli`}
-          borderRadius={0}
-          style={styles.image}
         />
         {/* Üst bar */}
         <View style={[styles.topBar, { paddingHorizontal: spacing.md, paddingTop: spacing.xl }]}>
@@ -266,19 +288,23 @@ function PlayerInner({
             onPress={() => {
               router.back();
             }}
-            style={[styles.roundButton, { backgroundColor: colors.scrim }]}
+            style={styles.roundButton}
           >
-            <Text variant="heading" style={{ color: '#FFFFFF' }}>
-              ✕
-            </Text>
+            <ArrowLeftIcon size={18} color="#FFFFFF" />
           </Pressable>
           <View style={styles.topCenter}>
-            <Text variant="label" style={{ color: '#FFFFFF' }} numberOfLines={1}>
+            <Text variant="caption" style={styles.kicker}>
+              {(engine.mode === 'silent' ? 'Sessiz okuma' : 'Şimdi dinliyorsun').toLocaleUpperCase(
+                'tr-TR',
+              )}
+            </Text>
+            <Text variant="label" style={styles.topTitle} numberOfLines={1}>
               {manifest.titleTr}
             </Text>
-            <Text variant="caption" style={{ color: '#FFFFFFB0' }}>
-              {engine.mode === 'silent' ? 'Sessiz okuma' : manifest.voice.label}
-              {` · ${page.pageNo} / ${pageCount}`}
+            <Text variant="caption" style={styles.topMeta}>
+              {engine.mode === 'silent'
+                ? `${page.pageNo} / ${pageCount}`
+                : `🎙 ${manifest.voice.label} · ${page.pageNo} / ${pageCount}`}
             </Text>
           </View>
           <Pressable
@@ -287,9 +313,9 @@ function PlayerInner({
             onPress={() => {
               setMenuOpen(true);
             }}
-            style={[styles.roundButton, { backgroundColor: colors.scrim }]}
+            style={styles.roundButton}
           >
-            <Text variant="heading" style={{ color: '#FFFFFF' }}>
+            <Text variant="heading" style={styles.roundGlyph}>
               ⋯
             </Text>
           </Pressable>
@@ -322,17 +348,29 @@ function PlayerInner({
           />
         </View>
 
-        {/* İnce ilerleme çizgisi */}
-        <View style={[styles.progressTrack, { backgroundColor: colors.surfaceMuted }]}>
-          <View
-            style={[
-              styles.progressFill,
-              {
-                backgroundColor: colors.primary,
-                width: `${Math.round(Math.max(0.02, Math.min(1, overallProgress)) * 100)}%`,
-              },
-            ]}
-          />
+        {/* İlerleme çizgisi + süre satırı */}
+        <View style={styles.progressWrap}>
+          <View style={[styles.progressTrack, { backgroundColor: colors.surfaceMuted }]}>
+            <LinearGradient
+              colors={[palette.nightPurple, palette.lavender]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[
+                styles.progressFill,
+                {
+                  width: `${Math.round(Math.max(0.02, Math.min(1, overallProgress)) * 100)}%`,
+                },
+              ]}
+            />
+          </View>
+          <View style={styles.timeRow}>
+            <Text variant="caption" tone="muted" style={styles.timeText}>
+              {fmtClock(karaoke.positionMs)}
+            </Text>
+            <Text variant="caption" tone="muted" style={styles.timeText}>
+              {`-${fmtClock(Math.max(0, manifest.totalDurationMs - karaoke.positionMs))}`}
+            </Text>
+          </View>
         </View>
 
         {/* Kontroller — baş parmak bölgesi */}
@@ -344,22 +382,33 @@ function PlayerInner({
             onPress={() => {
               goToPage(karaoke.pageIndex - 1);
             }}
-            style={[styles.sideButton, karaoke.pageIndex === 0 && styles.disabled]}
+            style={[
+              styles.sideButton,
+              { borderColor: colors.border },
+              karaoke.pageIndex === 0 && styles.disabled,
+            ]}
           >
-            <Text variant="title" tone="muted">
-              ‹
-            </Text>
+            <ChevronLeftIcon size={22} color={colors.inkMuted} />
           </Pressable>
 
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={engine.playing ? 'Duraklat' : 'Oynat'}
             onPress={engine.toggle}
-            style={[styles.playButton, { backgroundColor: colors.primary }]}
+            style={({ pressed }) => [pressed && styles.pressedDim]}
           >
-            <Text style={[styles.playGlyph, { color: colors.inkOnPrimary }]}>
-              {engine.playing ? '❚❚' : '▶'}
-            </Text>
+            <LinearGradient
+              colors={[palette.nightPurple, palette.purple600]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.playButton}
+            >
+              {engine.playing ? (
+                <PauseIcon size={28} color="#FFFFFF" />
+              ) : (
+                <PlayIcon size={30} color="#FFFFFF" />
+              )}
+            </LinearGradient>
           </Pressable>
 
           <Pressable
@@ -369,11 +418,13 @@ function PlayerInner({
             onPress={() => {
               goToPage(karaoke.pageIndex + 1);
             }}
-            style={[styles.sideButton, karaoke.pageIndex >= pageCount - 1 && styles.disabled]}
+            style={[
+              styles.sideButton,
+              { borderColor: colors.border },
+              karaoke.pageIndex >= pageCount - 1 && styles.disabled,
+            ]}
           >
-            <Text variant="title" tone="muted">
-              ›
-            </Text>
+            <ChevronRightThinIcon size={22} color={colors.inkMuted} />
           </Pressable>
         </View>
       </View>
@@ -435,6 +486,21 @@ function PlayerInner({
         }}
         titleTr="Oynatıcı ayarları"
       >
+        <Text variant="label" tone="muted">
+          Okuma hızı
+        </Text>
+        <Row gap="sm">
+          {SPEED_OPTIONS.map((option) => (
+            <Chip
+              key={option.labelTr}
+              label={option.labelTr}
+              selected={userRate === option.rate}
+              onPress={() => {
+                setUserRate(option.rate);
+              }}
+            />
+          ))}
+        </Row>
         <Button
           label={highlightOn ? 'Kelime vurgusunu kapat' : 'Kelime vurgusunu aç'}
           variant="secondary"
@@ -489,7 +555,7 @@ export function PlayerScreen(props: PlayerScreenProps): ReactElement {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  image: { width: '100%', height: '100%' },
+  pressedDim: { opacity: 0.85 },
   topBar: {
     position: 'absolute',
     top: 0,
@@ -500,18 +566,41 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   topCenter: { flex: 1, alignItems: 'center', gap: 2 },
+  kicker: {
+    color: 'rgba(255,255,255,0.65)',
+    fontSize: 10,
+    lineHeight: 14,
+    letterSpacing: 1,
+    textShadowColor: 'rgba(13,27,46,0.6)',
+    textShadowRadius: 6,
+  },
+  topTitle: {
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(13,27,46,0.6)',
+    textShadowRadius: 6,
+  },
+  topMeta: {
+    color: 'rgba(255,255,255,0.75)',
+    textShadowColor: 'rgba(13,27,46,0.6)',
+    textShadowRadius: 6,
+  },
   roundButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(13,27,46,0.45)',
   },
+  roundGlyph: { color: '#FFFFFF' },
   silentBadge: { position: 'absolute' },
   panel: { flex: 1, justifyContent: 'space-between' },
   textWrap: { flexShrink: 1, overflow: 'hidden' },
-  progressTrack: { height: 4, borderRadius: 2, overflow: 'hidden', marginVertical: 12 },
-  progressFill: { height: '100%' },
+  progressWrap: { marginVertical: 10, gap: 6 },
+  progressTrack: { height: 4, borderRadius: 2, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 2 },
+  timeRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  timeText: { fontSize: 12, lineHeight: 16 },
   controls: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -523,11 +612,17 @@ const styles = StyleSheet.create({
     borderRadius: 38,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#7C5CBF',
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
   },
-  playGlyph: { fontSize: 28, lineHeight: 34, fontWeight: '800' },
   sideButton: {
-    width: 56,
-    height: 56,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
