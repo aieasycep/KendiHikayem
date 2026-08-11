@@ -15,6 +15,10 @@ concurrency:
   # eskisini iptal etmesin -- baslatilan her derleme sonuna kadar gitsin.
   cancel-in-progress: false
 
+# Release olusturmak icin gerekli; varsayilan token salt okunurdur.
+permissions:
+  contents: write
+
 jobs:
   apk:
     name: Debug APK derle
@@ -109,7 +113,42 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-      - name: 14) Hata durumunda Gradle raporlarini yukle
+      # Artifact indirmek GitHub'a giris yapmayi gerektiriyor ve ZIP olarak geliyor --
+      # telefonda kurmak icin zahmetli. Release varligi ise girissiz, dogrudan
+      # indirilebilir ve linki sabit kalir: her derleme ayni etiketin uzerine yazar.
+      - name: 14) APK'yi Release olarak yayinla (telefondan dogrudan indirilir)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          APK="apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk"
+          cp "$APK" kendihikayem.apk
+
+          TAG="apk-son"
+          NOT="KendiHikayem test surumu (debug imzali).
+
+          Commit: ${{ github.sha }}
+          Derleme: ${{ github.run_number }} - $(date -u '+%d.%m.%Y %H:%M UTC')
+
+          KURULUM
+          1. Asagidaki kendihikayem.apk dosyasina telefonunuzun tarayicisindan dokunun.
+          2. 'Bilinmeyen kaynaklardan kuruluma izin ver' cikarsa onaylayin.
+          3. Uygulama tamamen demo veriyle calisir; internet gerekmez.
+
+          NOT: Gercek telefon icin derlenmistir (arm64-v8a, armeabi-v7a).
+          Emulatorde kurulmaz."
+
+          # Etiketi ve release'i her seferinde tazele ki link hep son APK'yi versin.
+          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "$TAG" kendihikayem.apk \
+            --title "KendiHikayem - son test APK'si" \
+            --notes "$NOT" \
+            --prerelease \
+            --target "${{ github.sha }}"
+
+          echo "Indirme linki: https://github.com/${{ github.repository }}/releases/download/$TAG/kendihikayem.apk"
+
+      - name: 15) Hata durumunda Gradle raporlarini yukle
         if: failure()
         uses: actions/upload-artifact@v4
         with:
