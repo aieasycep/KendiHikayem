@@ -41,6 +41,10 @@ byte düzeyinde karşılaştırır; fark varsa CI kırılır.
 - **`endpoints` manifestosu.** Yol/yöntem/yetki/idempotency/maliyet/SSE + hangi ekranda
   kullanıldığı. `EndpointKey` sözleşmeden türetilir: yeni uç eklenip manifest
   güncellenmezse hem contract hem mock DERLENMEZ.
+- **`createApiClient()` + `newIdempotencyKey()`.** Her uygulamanın `initClient` kalıbını
+  yeniden yazmasını ve `x-client-version` başlığını unutmasını engeller.
+- **İsim allowlist'i** SPEC §10.4 K1 ile birebir: en fazla üç sözcük, yalnızca Türkçe
+  harfler, sözcükler boşluk/kesme/tire ile ayrılır.
 
 ### SPEC-API'den bilinçli sapmalar
 
