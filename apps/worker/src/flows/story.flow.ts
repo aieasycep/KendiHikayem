@@ -20,6 +20,7 @@ import type { FlowJob } from 'bullmq';
 
 import { DEFAULT_JOB_OPTIONS, type JobPayload, type QueueRegistry } from '../queues';
 import { stepKeys } from '../jobs/hashing';
+import { queueJobId } from './book.flow';
 
 export interface StoryOutlineFlowInput {
   jobId: string;
@@ -48,7 +49,7 @@ export function buildStoryOutlineFlow(input: StoryOutlineFlowInput): FlowJob {
     opts: {
       ...DEFAULT_JOB_OPTIONS,
       priority: input.priority ?? 100,
-      jobId: `${input.jobId}:outline`,
+      jobId: queueJobId(input.jobId, 'outline'),
     },
   };
 }
@@ -93,7 +94,7 @@ export function buildStoryFillFlow(input: StoryFillFlowInput): FlowJob {
       ...DEFAULT_JOB_OPTIONS,
       priority,
       failParentOnFailure: false,
-      jobId: `${input.jobId}:${stepKeys.illustrationPrompt(pageNo)}`,
+      jobId: queueJobId(input.jobId, stepKeys.illustrationPrompt(pageNo)),
     },
   }));
 
@@ -105,7 +106,7 @@ export function buildStoryFillFlow(input: StoryFillFlowInput): FlowJob {
       stepKey: stepKeys.llmFill(),
       ref: { storyId: input.storyId, pageCount: input.pageNos.length },
     } satisfies JobPayload,
-    opts: { ...DEFAULT_JOB_OPTIONS, priority, jobId: `${input.jobId}:fill` },
+    opts: { ...DEFAULT_JOB_OPTIONS, priority, jobId: queueJobId(input.jobId, 'fill') },
     children: promptChildren,
   };
 }
@@ -115,7 +116,7 @@ export async function addStoryOutlineFlow(
   input: StoryOutlineFlowInput,
 ): Promise<string> {
   const node = await queues.flowProducer.add(buildStoryOutlineFlow(input));
-  return node.job.id ?? `${input.jobId}:outline`;
+  return node.job.id ?? queueJobId(input.jobId, 'outline');
 }
 
 export async function addStoryFillFlow(
@@ -124,7 +125,7 @@ export async function addStoryFillFlow(
 ): Promise<{ parentJobId: string; childCount: number }> {
   const node = await queues.flowProducer.add(buildStoryFillFlow(input));
   return {
-    parentJobId: node.job.id ?? `${input.jobId}:fill`,
+    parentJobId: node.job.id ?? queueJobId(input.jobId, 'fill'),
     childCount: node.children?.length ?? 0,
   };
 }

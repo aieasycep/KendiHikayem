@@ -25,6 +25,16 @@ import type { FlowJob } from 'bullmq';
 import { DEFAULT_JOB_OPTIONS, type JobPayload, type QueueRegistry } from '../queues';
 import { stepKeys } from '../jobs/hashing';
 
+/**
+ * BullMQ 6 refuses a custom job id containing `:` — it is the Redis key separator. The ids
+ * still have to be DETERMINISTIC (re-adding the same flow must be a no-op rather than a
+ * second book), so the step key is flattened rather than dropped.
+ */
+export function queueJobId(jobId: string, suffix: string): string {
+  return `${jobId}__${suffix}`.replace(/:/g, '-');
+}
+
+
 export interface BookIllustrationFlowInput {
   jobId: string;
   userId: string;
@@ -71,7 +81,7 @@ export function buildBookIllustrationFlow(input: BookIllustrationFlowInput): Flo
       priority,
       // A page that exhausts its retries goes to manual_review; the book still ships.
       failParentOnFailure: false,
-      jobId: `${input.jobId}:${stepKeys.imagePage(pageNo)}`,
+      jobId: queueJobId(input.jobId, stepKeys.imagePage(pageNo)),
     },
   }));
 
@@ -89,7 +99,7 @@ export function buildBookIllustrationFlow(input: BookIllustrationFlowInput): Flo
         ...DEFAULT_JOB_OPTIONS,
         priority,
         failParentOnFailure: false,
-        jobId: `${input.jobId}:${stepKeys.imageCover()}`,
+        jobId: queueJobId(input.jobId, stepKeys.imageCover()),
       },
     });
   }
@@ -106,7 +116,7 @@ export function buildBookIllustrationFlow(input: BookIllustrationFlowInput): Flo
       priority,
       // Deterministic id = level-2 idempotency at the queue: re-adding the same flow is
       // a no-op rather than a second book.
-      jobId: `${input.jobId}:assemble`,
+      jobId: queueJobId(input.jobId, 'assemble'),
     },
     children,
   };
@@ -119,7 +129,7 @@ export async function addBookIllustrationFlow(
   const flow = buildBookIllustrationFlow(input);
   const node = await queues.flowProducer.add(flow);
   return {
-    parentJobId: node.job.id ?? `${input.jobId}:assemble`,
+    parentJobId: node.job.id ?? queueJobId(input.jobId, 'assemble'),
     childCount: node.children?.length ?? 0,
   };
 }

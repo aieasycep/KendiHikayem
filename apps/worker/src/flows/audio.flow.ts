@@ -18,6 +18,7 @@ import type { FlowJob } from 'bullmq';
 
 import { DEFAULT_JOB_OPTIONS, type JobPayload, type QueueRegistry } from '../queues';
 import { stepKeys } from '../jobs/hashing';
+import { queueJobId } from './book.flow';
 
 export interface AudioChunk {
   index: number;
@@ -70,7 +71,7 @@ export function buildAudioRenderFlow(input: AudioRenderFlowInput): FlowJob {
       // Audio is different from illustration: a missing chunk is a hole in the middle of
       // the story, not a placeholder the parent can live with. Fail the parent.
       failParentOnFailure: true,
-      jobId: `${input.jobId}:${stepKeys.ttsChunk(chunk.index)}`,
+      jobId: queueJobId(input.jobId, stepKeys.ttsChunk(chunk.index)),
     },
   }));
 
@@ -86,7 +87,7 @@ export function buildAudioRenderFlow(input: AudioRenderFlowInput): FlowJob {
         chunkCount: children.length,
       },
     } satisfies JobPayload,
-    opts: { ...DEFAULT_JOB_OPTIONS, priority, jobId: `${input.jobId}:concat` },
+    opts: { ...DEFAULT_JOB_OPTIONS, priority, jobId: queueJobId(input.jobId, 'concat') },
     children,
   };
 }
@@ -97,7 +98,7 @@ export async function addAudioRenderFlow(
 ): Promise<{ parentJobId: string; childCount: number }> {
   const node = await queues.flowProducer.add(buildAudioRenderFlow(input));
   return {
-    parentJobId: node.job.id ?? `${input.jobId}:concat`,
+    parentJobId: node.job.id ?? queueJobId(input.jobId, 'concat'),
     childCount: node.children?.length ?? 0,
   };
 }
