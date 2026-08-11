@@ -2,7 +2,11 @@ import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Switch, View } from 'react-native';
 
-import type { PageCount } from '@kendihikayem/contract';
+import {
+  PAGE_COUNT_OPTIONS_BY_AGE_BAND,
+  clampPageCount,
+  type PageCount,
+} from '@kendihikayem/contract';
 import { Text, useTheme } from '@kendihikayem/ui';
 
 import { Body, Caption, Card, Heading, PrimaryButton, Screen, Title } from '../../../components/ui';

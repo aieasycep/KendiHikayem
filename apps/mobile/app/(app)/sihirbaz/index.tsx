@@ -4,7 +4,13 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import type { AgeBand, Child } from '@kendihikayem/contract';
+import {
+  AGE_BANDS,
+  AGE_BAND_HINTS_TR,
+  clampPageCount,
+  type AgeBand,
+  type Child,
+} from '@kendihikayem/contract';
 import { validateGivenName } from '@kendihikayem/shared';
 import { Input, Text, palette, useTheme } from '@kendihikayem/ui';
 
@@ -23,7 +29,10 @@ import { useWizardDraft } from '../../../features/onboarding/draft';
 import { useCreateChild } from '../../../features/wizard/hooks';
 import { useSession } from '../../../lib/session';
 
-const AGE_BANDS: AgeBand[] = ['3-5', '6-8', '9-12'];
+/*
+ * Bant listesi sözleşmeden gelir (`AGE_BANDS`), burada elle dizilmez: bantlar
+ * bir kez daha değiştiğinde bu ekranın sessizce eskimemesi için.
+ */
 
 /**
  * W01 — Çocuk seçici (Figma `StoryCreation` 1. adım "Bu hikâye kimin için?").
@@ -67,6 +76,12 @@ export default function Sihirbaz(): ReactNode {
       childName: child.givenName,
       ageBand: child.ageBand,
       heroName: draft.heroIsChild ? child.givenName : draft.heroName,
+      /*
+       * Uzunluk banda bağlıdır. Taslakta 12 sayfa dururken `0-2` bir çocuk
+       * seçilirse gövde sunucudan 422 döner ve kullanıcı bunu ancak son adımda
+       * görür; bandı seçtiğimiz anda uzunluğu da geçerli aralığa çekiyoruz.
+       */
+      pageCount: clampPageCount(child.ageBand, draft.pageCount),
       // Yeni çocuk = yeni karakter kararı; kahraman adımı yeniden soracak.
       reuseCharacterId: undefined,
     });
@@ -155,6 +170,8 @@ export default function Sihirbaz(): ReactNode {
               />
             ))}
           </ChipRow>
+          {/* Bant seçimi metnin türünü belirler; ne alacağını seçmeden önce göster. */}
+          <Caption>{AGE_BAND_HINTS_TR[newBand]}</Caption>
           {createChild.error != null && <ErrorBanner error={createChild.error} />}
           <PrimaryButton
             label={createChild.isPending ? 'Ekleniyor…' : 'Ekle ve devam et'}
