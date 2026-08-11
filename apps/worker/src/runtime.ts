@@ -21,7 +21,9 @@ import {
   createImageAdapterRoute,
   createLlmRoute,
   createModerationRoute,
+  createPrintAdapter,
   createVoiceRoute,
+  parsePrintSkuMap,
   ttsSettingsFromEnv,
 } from '@kendihikayem/providers';
 
@@ -201,7 +203,29 @@ export function buildRuntime(options: BuildRuntimeOptions): WorkerRuntime {
           : (createVoiceRoute({ env, priceBook }).align as [AdapterRegistry['align']]),
         routerOptions,
       ),
-      print: new ProviderRouter([adapters.print], routerOptions),
+      // ⭐ The printer. `manual_tr` (the MVP) is not built here: it needs the ops-backed
+      // job store, so `apps/worker/src/processors/print.ts` constructs it with the gateway.
+      // An API-driven partner needs nothing but config, so it IS built here — which is what
+      // makes SPEC §9's "cloudprinter geçişi tek satır config" literally true.
+      print: new ProviderRouter(
+        options.adapters || env.API_MODE !== 'live' || env.PRINT_ADAPTER === 'manual_tr'
+          ? [adapters.print]
+          : [
+              createPrintAdapter({
+                adapter: env.PRINT_ADAPTER,
+                apiMode: 'live',
+                http: {
+                  baseUrl: env.PRINT_PROVIDER_BASE_URL ?? '',
+                  ...(env.PRINT_PROVIDER_API_KEY ? { apiKey: env.PRINT_PROVIDER_API_KEY } : {}),
+                  skuByFormat: parsePrintSkuMap(env.PRINT_SKU_MAP),
+                  ...(env.PRINT_WEBHOOK_SECRET
+                    ? { webhookSecret: env.PRINT_WEBHOOK_SECRET }
+                    : {}),
+                },
+              }),
+            ],
+        routerOptions,
+      ),
     },
     ledger,
     priceBook,
