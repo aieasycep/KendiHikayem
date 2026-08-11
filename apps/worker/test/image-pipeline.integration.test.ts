@@ -35,6 +35,7 @@ import {
   freezeCharacterDna,
   type AdapterRegistry,
 } from '@kendihikayem/providers';
+import { ERROR_CODES } from '@kendihikayem/contract';
 import { FilesystemObjectStore } from '@kendihikayem/media';
 
 import { QueueRegistry, connectionFromUrl } from '../src/queues';
@@ -487,6 +488,14 @@ describe.skipIf(!hasRedis)('a whole book of illustrations', () => {
     expect(page9.image_status).toBe('manual_review');
     expect(page9.image_attempts).toBe(3);
     expect((page9.image_qa as { failedChecks?: string[] }).failedChecks).toContain('text_leak');
+
+    /* The step's recorded error code is one the frozen contract knows how to speak.
+     * An invented code reaches a parent as a blank message. */
+    const failedStep = await handle.db.execute<{ error: Record<string, unknown> }>(sql`
+      select error from job_steps where job_id = ${job.id} and step_key = 'image:page:09'
+    `);
+    expect(ERROR_CODES).toContain(failedStep[0]!.error['code']);
+    expect(failedStep[0]!.error['reason']).toBe('image_qa_exhausted');
 
     /* Everything else is readable. */
     const ready = pages.filter((p) => p.image_status === 'ready');

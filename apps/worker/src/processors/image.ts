@@ -761,7 +761,15 @@ function describeFailure(outcome: RenderOutcome | undefined): Record<string, unk
   switch (outcome.status) {
     case 'qa_exhausted':
       return {
-        code: 'IMAGE_QA_FAILED',
+        /**
+         * ⚠️ `code` must be a value from the FROZEN contract's `ERROR_CODES` — it is what
+         * the API turns into a Turkish message, and an unknown code has no message. There
+         * is no `IMAGE_QA_FAILED` in that set, and the contract cannot grow one here, so
+         * the catalogue's honest default is used and the precise cause lives beside it.
+         * (If this becomes worth surfacing to parents, it is a contract RFC.)
+         */
+        code: 'PROVIDER_UNAVAILABLE',
+        reason: 'image_qa_exhausted',
         retryable: false,
         attempts: outcome.attempts.length,
         failedChecks: outcome.qa.failedChecks,
