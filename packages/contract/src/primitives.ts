@@ -226,7 +226,7 @@ export const ERROR_CATALOG: Record<ErrorCode, ErrorCodeMeta> = {
     status: 403,
     retryable: false,
     group: 'transport',
-    messageTr: 'Bu içerik sizin hesabınıza ait değil. Doğru hesapla giriş yaptığınızdan emin olun.',
+    messageTr: 'Bu içerik sizin hesabınıza ait değil. Doğru hesapla giriş yapıp tekrar deneyin.',
   },
   NOT_FOUND: {
     status: 404,
@@ -330,7 +330,8 @@ export const ERROR_CATALOG: Record<ErrorCode, ErrorCodeMeta> = {
     status: 403,
     retryable: false,
     group: 'consent',
-    messageTr: 'Bu adım için telefon doğrulaması gerekiyor. Numaranızı girin, size 6 haneli bir kod gönderelim.',
+    messageTr:
+      'Bu adım için telefon doğrulaması gerekiyor. Numaranızı girip size göndereceğimiz 6 haneli kodu onaylayın.',
   },
 
   /* ── ses ────────────────────────────────────────────────────── */
