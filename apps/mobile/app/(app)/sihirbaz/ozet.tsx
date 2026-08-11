@@ -1,13 +1,13 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { ApiError } from '@kendihikayem/contract';
 import { possessive } from '@kendihikayem/shared';
+import { Text, useTheme } from '@kendihikayem/ui';
 
 import { Caption, Card, Heading, PrimaryButton, Screen, Title } from '../../../components/ui';
-import { colors, spacing, typography } from '../../../constants/theme';
 import {
   useEntitlements,
   useEstimate,
@@ -70,7 +70,7 @@ export default function WizardOzet(): ReactNode {
 
   return (
     <Screen>
-      <StepBar step={7} total={7} labelTr="Adım 7 / 7 — Özet" />
+      <StepBar step={7} total={7} labelTr="Yeni Masal · Özet" />
       <Title>
         {draft.childName === '' ? 'Masal özeti' : `${possessive(draft.childName)} yeni masalı`}
       </Title>
@@ -86,29 +86,25 @@ export default function WizardOzet(): ReactNode {
         <Row labelTr="Uzunluk" valueTr={`${String(draft.pageCount)} sayfa`} />
         {draft.lessonHintTr !== undefined && <Row labelTr="Değer" valueTr={draft.lessonHintTr} />}
         <Row labelTr="Ses" valueTr={draft.voiceChoice?.labelTr ?? 'Sonra seçilecek'} />
-        {draft.religiousOptIn && <Row labelTr="Dini içerik" valueTr="Açık (siz seçtiniz)" />}
+        {draft.religiousOptIn && <Row labelTr="Dini içerik" valueTr="Açık (siz seçtiniz)" last />}
       </Card>
 
       <Card>
         <Heading>Kredi maliyeti</Heading>
-        <View style={styles.costRow}>
-          <Text style={styles.costLabel}>Şimdi (taslak)</Text>
-          <Text style={styles.costValue}>
-            {outlineCredits !== undefined ? `${String(outlineCredits)} kredi` : '…'}
-          </Text>
-        </View>
-        <View style={styles.costRow}>
-          <Text style={styles.costLabel}>Onaylarsanız (kitap + görseller)</Text>
-          <Text style={styles.costValue}>
-            {fillCredits !== undefined ? `+${String(fillCredits)} kredi` : '…'}
-          </Text>
-        </View>
-        <View style={[styles.costRow, styles.balanceRow]}>
-          <Text style={styles.costLabel}>Bakiyeniz</Text>
-          <Text style={[styles.costValue, insufficient && styles.balanceLow]}>
-            {balance !== undefined ? `${String(balance)} kredi` : '…'}
-          </Text>
-        </View>
+        <CostRow
+          labelTr="Şimdi (taslak)"
+          valueTr={outlineCredits !== undefined ? `${String(outlineCredits)} kredi` : '…'}
+        />
+        <CostRow
+          labelTr="Onaylarsanız (kitap + görseller)"
+          valueTr={fillCredits !== undefined ? `+${String(fillCredits)} kredi` : '…'}
+        />
+        <CostRow
+          labelTr="Bakiyeniz"
+          valueTr={balance !== undefined ? `${String(balance)} kredi` : '…'}
+          danger={insufficient}
+          divider
+        />
         <Caption>
           Taslağı beğenmezseniz onay vermezsiniz; kitap üretimi hiç başlamaz ve yalnızca taslak
           ücreti düşer.
@@ -140,11 +136,58 @@ export default function WizardOzet(): ReactNode {
   );
 }
 
-function Row({ labelTr, valueTr }: { labelTr: string; valueTr: string }): ReactNode {
+function Row({
+  labelTr,
+  valueTr,
+  last = false,
+}: {
+  labelTr: string;
+  valueTr: string;
+  last?: boolean;
+}): ReactNode {
+  const { colors } = useTheme();
   return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{labelTr}</Text>
-      <Text style={styles.rowValue}>{valueTr}</Text>
+    <View
+      style={[
+        styles.row,
+        !last && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+      ]}
+    >
+      <Text variant="label" tone="muted">
+        {labelTr}
+      </Text>
+      <Text variant="bodyStrong" style={styles.rowValue}>
+        {valueTr}
+      </Text>
+    </View>
+  );
+}
+
+function CostRow({
+  labelTr,
+  valueTr,
+  danger = false,
+  divider = false,
+}: {
+  labelTr: string;
+  valueTr: string;
+  danger?: boolean;
+  divider?: boolean;
+}): ReactNode {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={[
+        styles.costRow,
+        divider && { borderTopWidth: 1, borderTopColor: colors.border, marginTop: 4, paddingTop: 8 },
+      ]}
+    >
+      <Text variant="caption" tone="muted" style={styles.costLabel}>
+        {labelTr}
+      </Text>
+      <Text variant="label" tone={danger ? 'danger' : 'default'}>
+        {valueTr}
+      </Text>
     </View>
   );
 }
@@ -155,26 +198,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 6,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-    gap: spacing.sm,
+    gap: 8,
   },
-  rowLabel: { ...typography.label, color: colors.inkMuted },
-  rowValue: { ...typography.body, color: colors.ink, fontWeight: '600', flexShrink: 1, textAlign: 'right' },
+  rowValue: { flexShrink: 1, textAlign: 'right' },
 
   costRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 4,
+    gap: 8,
   },
-  balanceRow: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    marginTop: 4,
-    paddingTop: 8,
-  },
-  costLabel: { ...typography.caption, fontSize: 14, color: colors.inkMuted },
-  costValue: { ...typography.label, fontSize: 16, color: colors.ink },
-  balanceLow: { color: '#B42318' },
+  costLabel: { fontSize: 14, lineHeight: 19, flexShrink: 1 },
 });

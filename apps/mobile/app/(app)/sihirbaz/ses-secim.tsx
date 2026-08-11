@@ -1,22 +1,20 @@
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { Body, Caption, Card, Heading, PrimaryButton, Screen, Title } from '../../../components/ui';
-import { colors, spacing, typography } from '../../../constants/theme';
+import { Text } from '@kendihikayem/ui';
+
+import { Body, Card, Caption, Heading, PrimaryButton, Screen, Title } from '../../../components/ui';
 import { useSystemVoices, useVoiceProfiles } from '../../../features/onboarding/catalogHooks';
-import {
-  AsyncGate,
-  SecondaryButton,
-  SelectCard,
-  StepBar,
-} from '../../../features/onboarding/components';
+import { AsyncGate, SecondaryButton, StepBar } from '../../../features/onboarding/components';
 import { useWizardDraft } from '../../../features/onboarding/draft';
+import { VoiceRow } from '../../../features/wizard/VoiceRow';
 
 /**
- * W06 — Ses seçimi. Cloned profiles (if any, status ready) + system voices.
- * Narration itself runs only AFTER story approval (⏸ KAPI 2); the choice is
- * stored in the draft and used when the parent hits "Dinle".
+ * W06 — Ses seçimi (Figma "Masalı kim anlatsın?"). Cloned profiles (if any,
+ * status ready) + system voices as full-width voice cards with inline sample
+ * preview. Narration itself runs only AFTER story approval (⏸ KAPI 2); the
+ * choice is stored in the draft and used when the parent hits "Dinle".
  */
 export default function WizardSes(): ReactNode {
   const router = useRouter();
@@ -28,24 +26,26 @@ export default function WizardSes(): ReactNode {
 
   return (
     <Screen>
-      <StepBar step={6} total={7} labelTr="Adım 6 / 7 — Ses" />
-      <Title>Masalı kim seslendirsin?</Title>
+      <StepBar step={6} total={7} labelTr="Yeni Masal · Ses" />
+      <Title>Masalı kim anlatsın?</Title>
       <Body>Seslendirme, hikayeyi onayladıktan sonra hazırlanır; seçiminizi hatırlarız.</Body>
 
       {readyProfiles.length > 0 && (
         <>
           <Heading>Sizin sesleriniz</Heading>
-          <View style={styles.grid}>
+          <View style={styles.list}>
             {readyProfiles.map((profile) => (
-              <SelectCard
+              <VoiceRow
                 key={profile.id as string}
-                icon={profile.relation === 'anne' ? '👩' : profile.relation === 'baba' ? '👨' : '🎙️'}
                 titleTr={profile.displayName}
                 subtitleTr="Klonlanmış ses — sizin sesiniz"
+                personal
+                emoji={profile.relation === 'anne' ? '👩' : profile.relation === 'baba' ? '👨' : '🎙️'}
                 selected={
                   draft.voiceChoice?.kind === 'cloned' &&
                   draft.voiceChoice.voiceProfileId === (profile.id as string)
                 }
+                sampleUrl={profile.preview?.url}
                 onPress={() => {
                   patch({
                     voiceChoice: {
@@ -70,17 +70,19 @@ export default function WizardSes(): ReactNode {
         onRetry={() => void systemVoices.refetch()}
       >
         {(voices) => (
-          <View style={styles.grid}>
+          <View style={styles.list}>
             {voices.map((voice) => (
-              <SelectCard
+              <VoiceRow
                 key={voice.code}
-                icon={voice.gender === 'kadin' ? '🎙️' : '🎤'}
                 titleTr={voice.displayName}
                 subtitleTr={voice.descriptionTr}
+                personal={false}
+                emoji={voice.gender === 'kadin' ? '🌙' : '🌊'}
                 selected={
                   draft.voiceChoice?.kind === 'system' &&
                   draft.voiceChoice.systemVoiceCode === voice.code
                 }
+                sampleUrl={voice.sample.url}
                 onPress={() => {
                   patch({
                     voiceChoice: {
@@ -99,9 +101,11 @@ export default function WizardSes(): ReactNode {
       {readyProfiles.length === 0 && (
         <Card>
           <View style={styles.upsellRow}>
-            <Text style={styles.upsellEmoji}>💛</Text>
+            <Text style={styles.upsellEmoji} accessibilityElementsHidden>
+              💛
+            </Text>
             <View style={styles.upsellBody}>
-              <Text style={styles.upsellTitle}>Kendi sesinizi de ekleyebilirsiniz</Text>
+              <Text variant="bodyStrong">Kendi sesinizi de ekleyebilirsiniz</Text>
               <Caption>3-4 dakika sürer; masalları çocuğunuza siz okumuş olursunuz.</Caption>
             </View>
           </View>
@@ -126,9 +130,8 @@ export default function WizardSes(): ReactNode {
 }
 
 const styles = StyleSheet.create({
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  upsellRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
+  list: { gap: 10 },
+  upsellRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   upsellEmoji: { fontSize: 26 },
   upsellBody: { flex: 1, gap: 2 },
-  upsellTitle: { ...typography.label, fontSize: 16, color: colors.ink },
 });

@@ -13,7 +13,7 @@ export default function WizardStil(): ReactNode {
 
   return (
     <Screen>
-      <StepBar step={4} total={7} labelTr="Adım 4 / 7 — Çizim stili" />
+      <StepBar step={4} total={7} labelTr="Yeni Masal · Çizim stili" />
       <Title>Hangi çizim stili?</Title>
 
       <StyleGrid

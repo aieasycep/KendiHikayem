@@ -15,7 +15,7 @@ export default function WizardTema(): ReactNode {
 
   return (
     <Screen>
-      <StepBar step={2} total={7} labelTr="Adım 2 / 7 — Tema" />
+      <StepBar step={2} total={7} labelTr="Yeni Masal · Tema" />
       <Title>
         {draft.childName === '' ? 'Nasıl bir masal olsun?' : `${possessive(draft.childName)} masalı ne anlatsın?`}
       </Title>

@@ -1,12 +1,12 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { possessive, validateGivenName } from '@kendihikayem/shared';
+import { Input, Text, palette, useTheme } from '@kendihikayem/ui';
 
 import { Caption, Card, PrimaryButton, Screen, Title } from '../../../components/ui';
-import { colors, radius, spacing, typography } from '../../../constants/theme';
 import { useChildren } from '../../../features/onboarding/catalogHooks';
 import { Chip, ChipRow, StepBar } from '../../../features/onboarding/components';
 import { useWizardDraft } from '../../../features/onboarding/draft';
@@ -23,6 +23,7 @@ import {
  */
 export default function WizardKahraman(): ReactNode {
   const router = useRouter();
+  const { colors, radius, spacing } = useTheme();
   const { draft, patch, setBuilderField } = useWizardDraft();
   const children = useChildren();
   const [customHero, setCustomHero] = useState(draft.heroIsChild ? '' : draft.heroName);
@@ -39,7 +40,7 @@ export default function WizardKahraman(): ReactNode {
 
   return (
     <Screen>
-      <StepBar step={3} total={7} labelTr="Adım 3 / 7 — Kahraman" />
+      <StepBar step={3} total={7} labelTr="Yeni Masal · Kahraman" />
       <Title>Kahraman kim olacak?</Title>
 
       <Card>
@@ -60,26 +61,24 @@ export default function WizardKahraman(): ReactNode {
           />
         </ChipRow>
         {!draft.heroIsChild && (
-          <>
-            <TextInput
-              accessibilityLabel="Kahramanın adı"
-              autoCapitalize="words"
-              autoCorrect={false}
-              maxLength={30}
-              onChangeText={(value) => {
-                setCustomHero(value);
-                const validation = validateGivenName(value);
-                if (validation.ok) patch({ heroName: validation.normalized });
-              }}
-              placeholder="Kahramanın adı"
-              placeholderTextColor={colors.inkMuted}
-              style={styles.input}
-              value={customHero}
-            />
-            {customHero.length > 0 && heroValidation !== undefined && !heroValidation.ok && (
-              <Caption>{heroValidation.messageTr ?? 'Bu isim kullanılamıyor.'}</Caption>
-            )}
-          </>
+          <Input
+            label="Kahramanın adı"
+            autoCapitalize="words"
+            autoCorrect={false}
+            maxLength={30}
+            onChangeText={(value) => {
+              setCustomHero(value);
+              const validation = validateGivenName(value);
+              if (validation.ok) patch({ heroName: validation.normalized });
+            }}
+            placeholder="Örn. Luna"
+            value={customHero}
+            errorTr={
+              customHero.length > 0 && heroValidation !== undefined && !heroValidation.ok
+                ? (heroValidation.messageTr ?? 'Bu isim kullanılamıyor.')
+                : undefined
+            }
+          />
         )}
       </Card>
 
@@ -92,18 +91,32 @@ export default function WizardKahraman(): ReactNode {
               reuseCharacterId: reusing ? undefined : reusableCharacterId,
             });
           }}
-          style={[styles.reuseCard, reusing && styles.reuseCardSelected]}
+          style={[
+            styles.reuseCard,
+            {
+              gap: spacing.sm,
+              borderRadius: radius.md,
+              padding: spacing.md,
+              backgroundColor: reusing ? colors.surfaceRaised : styles.reuseWarm.backgroundColor,
+              borderColor: reusing ? colors.primary : palette.peach,
+            },
+          ]}
         >
-          <Text style={styles.reuseStar}>⭐</Text>
+          <Text style={styles.reuseStar} accessibilityElementsHidden>
+            ⭐
+          </Text>
           <View style={styles.reuseBody}>
-            <Text style={styles.reuseTitle}>
+            <Text variant="heading" style={styles.reuseTitle}>
               {`${possessive(child?.givenName ?? 'Çocuğunuz')} kahramanını tekrar kullan`}
             </Text>
-            <Text style={styles.reuseText}>
+            <Text variant="caption" style={styles.reuseText}>
               Önceki kitapta onayladığınız çizim aynen kullanılır — kahraman her kitapta aynı
               yüzle çıkar, yeniden çizim beklemezsiniz.
             </Text>
-            <Text style={[styles.reuseState, reusing && styles.reuseStateSelected]}>
+            <Text
+              variant="label"
+              style={{ color: reusing ? colors.primary : colors.inkMuted }}
+            >
               {reusing ? '✓ Seçildi — karakter kurucu atlanacak' : 'Dokunarak seçin'}
             </Text>
           </View>
@@ -133,30 +146,11 @@ export default function WizardKahraman(): ReactNode {
 }
 
 const styles = StyleSheet.create({
-  input: {
-    ...typography.body,
-    color: colors.ink,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 12,
-  },
-  reuseCard: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    backgroundColor: '#FFF7E8',
-    borderColor: '#F2C879',
-    borderWidth: 2,
-    borderRadius: radius.md,
-    padding: spacing.md,
-  },
-  reuseCardSelected: { borderColor: colors.primary, backgroundColor: '#FFF1E6' },
+  reuseCard: { flexDirection: 'row', borderWidth: 2 },
+  /** Sıcak şeftali zemin — tek seferlik değer; tema rolü değil, vurgu. */
+  reuseWarm: { backgroundColor: 'rgba(245, 196, 168, 0.22)' },
   reuseStar: { fontSize: 26 },
   reuseBody: { flex: 1, gap: 4 },
-  reuseTitle: { ...typography.heading, fontSize: 18, lineHeight: 24, color: colors.ink },
-  reuseText: { ...typography.caption, fontSize: 13, lineHeight: 19, color: colors.ink },
-  reuseState: { ...typography.label, color: colors.inkMuted },
-  reuseStateSelected: { color: colors.primary },
+  reuseTitle: { fontSize: 18, lineHeight: 24 },
+  reuseText: { fontSize: 13, lineHeight: 19 },
 });

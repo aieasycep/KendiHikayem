@@ -1,11 +1,11 @@
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
-import { StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Switch, View } from 'react-native';
 
 import type { PageCount } from '@kendihikayem/contract';
+import { Input, Text, useTheme } from '@kendihikayem/ui';
 
 import { Caption, Card, Heading, PrimaryButton, Screen, Title } from '../../../components/ui';
-import { colors, radius, spacing, typography } from '../../../constants/theme';
 import { Chip, ChipRow, StepBar } from '../../../features/onboarding/components';
 import { useWizardDraft } from '../../../features/onboarding/draft';
 
@@ -34,6 +34,7 @@ const CULTURAL_TAGS: { code: string; labelTr: string }[] = [
  */
 export default function WizardAyar(): ReactNode {
   const router = useRouter();
+  const { colors, radius, spacing } = useTheme();
   const { draft, patch } = useWizardDraft();
 
   const toggleTag = (code: string): void => {
@@ -47,7 +48,7 @@ export default function WizardAyar(): ReactNode {
 
   return (
     <Screen>
-      <StepBar step={5} total={7} labelTr="Adım 5 / 7 — İnce ayar" />
+      <StepBar step={5} total={7} labelTr="Yeni Masal · İnce ayar" />
       <Title>Masalı size göre ayarlayalım</Title>
 
       <Card>
@@ -97,10 +98,20 @@ export default function WizardAyar(): ReactNode {
             />
           ))}
         </ChipRow>
-        <View style={styles.religiousRow}>
+        <View
+          style={[
+            styles.religiousRow,
+            {
+              gap: spacing.sm,
+              backgroundColor: colors.surfaceMuted,
+              borderRadius: radius.sm,
+              padding: spacing.sm,
+            },
+          ]}
+        >
           <View style={styles.religiousBody}>
-            <Text style={styles.religiousTitle}>Dini öğeler yer alabilsin</Text>
-            <Text style={styles.religiousText}>
+            <Text variant="label">Dini öğeler yer alabilsin</Text>
+            <Text variant="caption" tone="muted" style={styles.religiousText}>
               Varsayılan olarak kapalıdır; yalnızca siz açarsanız bayram, dua gibi öğeler
               geçebilir.
             </Text>
@@ -110,28 +121,25 @@ export default function WizardAyar(): ReactNode {
             onValueChange={(value) => {
               patch({ religiousOptIn: value });
             }}
-            thumbColor={draft.religiousOptIn ? colors.primary : colors.surface}
-            trackColor={{ false: colors.border, true: '#F2C879' }}
+            thumbColor={colors.surface}
+            trackColor={{ false: colors.border, true: colors.primary }}
             value={draft.religiousOptIn}
           />
         </View>
       </Card>
 
       <Card>
-        <Heading>Sizden bir fikir (isteğe bağlı)</Heading>
-        <TextInput
-          accessibilityLabel="Serbest fikir"
+        <Input
+          label="Sizden bir fikir (isteğe bağlı)"
           maxLength={200}
           multiline
           onChangeText={(value) => {
             patch({ freeIdeaTr: value });
           }}
           placeholder="Örn. Geçen hafta ilk kez bisiklete bindi, onu da katalım."
-          placeholderTextColor={colors.inkMuted}
-          style={styles.ideaInput}
           value={draft.freeIdeaTr ?? ''}
+          hintTr={`${String((draft.freeIdeaTr ?? '').length)} / 200`}
         />
-        <Caption>{`${String((draft.freeIdeaTr ?? '').length)} / 200`}</Caption>
       </Card>
 
       <PrimaryButton
@@ -145,27 +153,7 @@ export default function WizardAyar(): ReactNode {
 }
 
 const styles = StyleSheet.create({
-  religiousRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: radius.sm,
-    padding: spacing.sm,
-  },
+  religiousRow: { flexDirection: 'row', alignItems: 'center' },
   religiousBody: { flex: 1, gap: 2 },
-  religiousTitle: { ...typography.label, color: colors.ink },
-  religiousText: { ...typography.caption, fontSize: 12, lineHeight: 17, color: colors.inkMuted },
-  ideaInput: {
-    ...typography.body,
-    color: colors.ink,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 12,
-    minHeight: 88,
-    textAlignVertical: 'top',
-  },
+  religiousText: { fontSize: 12, lineHeight: 17 },
 });
