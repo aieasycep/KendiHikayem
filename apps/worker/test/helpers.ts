@@ -112,20 +112,30 @@ export async function waitFor(
   }
 }
 
+/**
+ * Reachability probe over a bare TCP socket + RESP `PING`.
+ *
+ * Deliberately dependency-free: `ioredis` is a transitive dependency of bullmq and is not
+ * linked into this package, and a probe that fails to load is indistinguishable from a
+ * Redis that is down — which is exactly the confusion this needs to avoid.
+ */
 export async function redisAvailable(url = TEST_REDIS_URL): Promise<boolean> {
-  const { default: IORedis } = await import('ioredis');
-  const client = new IORedis(url, {
-    lazyConnect: true,
-    maxRetriesPerRequest: 1,
-    retryStrategy: () => null,
+  const { createConnection } = await import('node:net');
+  const parsed = new URL(url);
+
+  return new Promise<boolean>((resolve) => {
+    const socket = createConnection({
+      host: parsed.hostname,
+      port: Number(parsed.port || 6379),
+    });
+    const done = (ok: boolean) => {
+      socket.destroy();
+      resolve(ok);
+    };
+    socket.setTimeout(1500);
+    socket.on('connect', () => socket.write('PING\r\n'));
+    socket.on('data', (chunk) => done(chunk.toString().startsWith('+PONG')));
+    socket.on('error', () => done(false));
+    socket.on('timeout', () => done(false));
   });
-  try {
-    await client.connect();
-    await client.ping();
-    return true;
-  } catch {
-    return false;
-  } finally {
-    client.disconnect();
-  }
 }
