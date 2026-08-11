@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -42,6 +42,22 @@ export default function Sihirbaz(): ReactNode {
   const [addOpen, setAddOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newBand, setNewBand] = useState<AgeBand>('3-5');
+
+  // Ana sayfa kısayolları (öneri/tema kartları, hero) çocuğu taslağa yazıp
+  // `atla` nonce'uyla gelir: çocuk zaten belli olduğundan bu adım sorulmaz,
+  // kahramana geçilir. Adım GİZLENMEZ — geri tuşu buraya döner ve çocuk
+  // seçili görünür; kullanıcı isterse değiştirir. Nonce her dokunuşta değişir
+  // ki ekran sekmede mount kalsa da atlama yeniden tetiklensin; ref aynı
+  // nonce'un (ör. geri dönüşte) ikinci kez atlatmasını engeller.
+  const { atla } = useLocalSearchParams<{ atla?: string }>();
+  const atlanan = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (atla === undefined || atla === atlanan.current) return;
+    atlanan.current = atla;
+    if (session.phase === 'user' && draft.childId !== undefined) {
+      router.push('/(app)/sihirbaz/kahraman');
+    }
+  }, [atla, session.phase, draft.childId, router]);
 
   const validation = validateGivenName(newName);
 

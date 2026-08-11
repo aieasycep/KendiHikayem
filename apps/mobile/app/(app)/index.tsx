@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { useMemo, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, View, type TextStyle } from 'react-native';
 
-import type { StorySummary } from '@kendihikayem/contract';
+import type { StorySummary, StoryTheme } from '@kendihikayem/contract';
 import {
   ChevronRightIcon,
   Chip,
@@ -17,6 +17,7 @@ import {
 } from '@kendihikayem/ui';
 
 import { useThemes } from '../../features/onboarding/catalogHooks';
+import { useWizardDraft } from '../../features/onboarding/draft';
 import { useChildren, useStories } from '../../features/library/hooks';
 import { useSession } from '../../lib/session';
 
@@ -56,6 +57,7 @@ export default function AnaSayfa(): ReactNode {
   const router = useRouter();
   const session = useSession();
   const { colors, radius, type, fontsReady } = useTheme();
+  const { draft, patch } = useWizardDraft();
 
   const childrenQuery = useChildren();
   const storiesQuery = useStories();
@@ -87,10 +89,41 @@ export default function AnaSayfa(): ReactNode {
     Math.round(((continueStory?.lastReadPageNo ?? 0) / STORY_PAGE_COUNT) * 100),
   );
 
-  /** Hikâye oluşturma girişi: misafir → ilk-masal akışı, kullanıcı → sihirbaz. */
-  const startCreate = (): void => {
-    if (session.phase === 'user') router.push('/(app)/sihirbaz');
-    else router.push('/(onboarding)/kim-icin');
+  /**
+   * Hikâye oluşturma girişi: misafir → ilk-masal akışı, kullanıcı → sihirbaz.
+   *
+   * Ana sayfadaki tüm kısayollar BAĞLAM TAŞIR (UX düzeltmesi: "Elif için
+   * öneriler"e dokunan kullanıcıya sihirbaz tekrar "kimin için?" sormamalı):
+   *   - Kartlar zaten `child` için gösterildiğinden çocuk taslağa yazılır ve
+   *     sihirbaz `atla` nonce'uyla açılır — W01 çocuk adımı ATLANIR ama geri
+   *     tuşuyla erişilebilir kalır (adım gizlenmez, sadece atlanır).
+   *   - Tema/kategori kartından geliniyorsa tema da taslağa yazılır; W03'te
+   *     seçili gelir. Misafir akışında da aynı taslak okunur (S03).
+   */
+  const startCreate = (theme?: StoryTheme): void => {
+    if (theme !== undefined) {
+      patch({ themeCode: theme.code, religiousOptIn: theme.isReligious });
+    }
+    if (session.phase !== 'user') {
+      router.push('/(onboarding)/kim-icin');
+      return;
+    }
+    if (child !== undefined) {
+      // W01 `selectChild` ile birebir aynı yazım — çocuk değişmiş olabilir,
+      // kahraman adı ve karakter kararı çocuğa göre tazelenir.
+      patch({
+        childId: child.id as string,
+        childName: child.givenName,
+        ageBand: child.ageBand,
+        heroName: draft.heroIsChild ? child.givenName : draft.heroName,
+        reuseCharacterId: undefined,
+      });
+      // Nonce her dokunuşta değişir: W01 aynı oturumda ikinci kez açıldığında
+      // da atlama efekti yeniden tetiklenir (sihirbaz/index.tsx).
+      router.navigate({ pathname: '/(app)/sihirbaz', params: { atla: String(Date.now()) } });
+      return;
+    }
+    router.push('/(app)/sihirbaz');
   };
 
   const openStory = (story: StorySummary): void => {
@@ -147,7 +180,9 @@ export default function AnaSayfa(): ReactNode {
               ? `${childName} için yeni bir hikâye oluştur`
               : 'Yeni bir hikâye oluştur'
           }
-          onPress={startCreate}
+          onPress={() => {
+            startCreate();
+          }}
           style={({ pressed }) => [pressed && styles.pressedDim]}
         >
           <LinearGradient
@@ -200,7 +235,13 @@ export default function AnaSayfa(): ReactNode {
           <Text variant="heading" accessibilityRole="header" style={styles.sectionTitle}>
             {childName !== undefined ? `${childName} için öneriler` : 'Sana özel öneriler'}
           </Text>
-          <Pressable accessibilityRole="button" onPress={startCreate} hitSlop={8}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              startCreate();
+            }}
+            hitSlop={8}
+          >
             <Text variant="caption" style={[styles.linkAll, { color: colors.primary }]}>
               Tümü
             </Text>
@@ -218,7 +259,9 @@ export default function AnaSayfa(): ReactNode {
                 key={theme.code}
                 accessibilityRole="button"
                 accessibilityLabel={`${theme.titleTr} temalı bir masal oluştur`}
-                onPress={startCreate}
+                onPress={() => {
+                  startCreate(theme);
+                }}
                 style={({ pressed }) => [
                   styles.suggestion,
                   styles.cardShadowSm,
@@ -349,7 +392,12 @@ export default function AnaSayfa(): ReactNode {
             <Text variant="caption" tone="muted">
               İlk masalın burada yaşayacak.
             </Text>
-            <Chip label="✨ İlk masalını oluştur" onPress={startCreate} />
+            <Chip
+              label="✨ İlk masalını oluştur"
+              onPress={() => {
+                startCreate();
+              }}
+            />
           </View>
         ) : (
           <ScrollView
@@ -411,7 +459,9 @@ export default function AnaSayfa(): ReactNode {
               key={theme.code}
               accessibilityRole="button"
               accessibilityLabel={`${theme.titleTr} temalı bir masal oluştur`}
-              onPress={startCreate}
+              onPress={() => {
+                startCreate(theme);
+              }}
               style={({ pressed }) => [
                 styles.categoryCard,
                 styles.cardShadowXs,
