@@ -1,44 +1,25 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 
-import type { VoiceProfile } from '@kendihikayem/contract';
-import {
-  Badge,
-  Card,
-  ChevronRightIcon,
-  Text,
-  palette,
-  useTheme,
-} from '@kendihikayem/ui';
+import { Card, Text, useTheme } from '@kendihikayem/ui';
 
 import { useVoiceProfiles } from '../../../features/onboarding/catalogHooks';
-import { AsyncGate, SecondaryButton, TrustStrip } from '../../../features/onboarding/components';
+import { AsyncGate, BackCircle } from '../../../features/onboarding/components';
+import { VoiceCard } from '../../../features/voice/VoiceCard';
 import { useVoiceFlow } from '../../../features/voice/flow';
 import { Screen } from '../../../components/ui';
 
-const STATUS_TR: Record<VoiceProfile['status'], string> = {
-  draft: 'Taslak — kayıt bekliyor',
-  recording: 'Kayıt sürüyor',
-  processing: 'İşleniyor',
-  preview_ready: 'Önizleme hazır — onayınızı bekliyor',
-  ready: 'Kullanıma hazır',
-  failed: 'Başarısız oldu',
-  revoked: 'Silindi',
-};
-
-const BADGE_TR = { mukemmel: 'Mükemmel', iyi: 'İyi', kabul_edilebilir: 'Kabul edilebilir' } as const;
-
 /**
- * Ses Stüdyom — Figma `VoiceStudio` liste görünümü. Lists existing profiles
- * (contract data) and starts the V01–V09 onboarding. Voice is OPTIONAL
- * everywhere — the product is complete with system voices, and this screen
- * says so explicitly.
+ * Ses Stüdyom — Figma `VoiceStudio` liste görünümü BİREBİR: geri dairesi +
+ * başlık, lavanta alıntı kartı, "AİLE SESLERİ" kartları (dinleme + üç-nokta
+ * menüsü) ve "YENİ SES EKLE" kesikli daveti. Veriler sözleşmeden gelir; ses
+ * özelliği her yerde İSTEĞE BAĞLIDIR.
  */
 export default function SesHub(): ReactNode {
   const router = useRouter();
-  const { colors, radius, spacing } = useTheme();
+  const { colors } = useTheme();
   const profiles = useVoiceProfiles();
   const flow = useVoiceFlow();
 
@@ -47,27 +28,34 @@ export default function SesHub(): ReactNode {
 
   return (
     <Screen>
-      <Text variant="title" accessibilityRole="header">
-        Ses Stüdyom
-      </Text>
+      {/* ── Figma başlık: geri dairesi + Fraunces başlık ────── */}
+      <View style={styles.headerRow}>
+        <BackCircle
+          onPress={() => {
+            if (router.canGoBack()) router.back();
+            else router.replace('/(app)/ayarlar');
+          }}
+        />
+        <Text variant="title" accessibilityRole="header">
+          Ses Stüdyom
+        </Text>
+      </View>
 
-      {/* Marka vaadi kartı — "Sen yanında olamasan bile sesin onunla" */}
+      {/* ── Figma alıntı kartı: lavanta degrade zemin ───────── */}
       <View
         style={[
           styles.quoteCard,
           {
             backgroundColor: colors.surfaceRaised,
-            borderColor: 'rgba(124,92,191,0.25)',
-            borderRadius: radius.md,
-            padding: spacing.md,
+            borderColor: 'rgba(124,92,191,0.2)',
           },
         ]}
       >
         <Text variant="heading" style={styles.quoteText}>
-          “Ailenizden bir ses,{'\n'}her masalda yanında.”
+          {'"Ailenden bir ses,\nher masalda yanında."'}
         </Text>
-        <Text variant="caption" tone="muted">
-          Sesinizi bir kez tanıtırsınız; sonrasında her hikayede yeniden kullanılır.
+        <Text variant="caption" tone="muted" style={styles.quoteSub}>
+          Kayıtlı sesler tüm hikâyelerinde kullanılabilir.
         </Text>
       </View>
 
@@ -92,61 +80,29 @@ export default function SesHub(): ReactNode {
                 </Text>
               </Card>
             )}
-            {data.items.map((profile) => (
-              <Card key={profile.id as string}>
-                <View style={[styles.profileRow, { gap: spacing.md }]}>
-                  <LinearGradient
-                    colors={[palette.peach, palette.coral]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.avatar}
-                  >
-                    <Text style={styles.avatarEmoji} accessibilityElementsHidden>
-                      {profile.relation === 'anne' ? '👩' : profile.relation === 'baba' ? '👨' : '🎙️'}
-                    </Text>
-                  </LinearGradient>
-                  <View style={styles.profileBody}>
-                    <View style={[styles.nameRow, { gap: spacing.sm }]}>
-                      <Text variant="bodyStrong">{profile.displayName}</Text>
-                      {profile.status === 'ready' && <Badge labelTr="Hazır" tone="success" />}
-                    </View>
-                    <Text variant="caption" tone="muted">
-                      {STATUS_TR[profile.status]}
-                    </Text>
-                    {profile.qualityBadge !== undefined && (
-                      <Text variant="caption" tone="muted">
-                        {`Kalite: ${BADGE_TR[profile.qualityBadge]}`}
-                      </Text>
-                    )}
-                    {profile.storiesUsingCount > 0 && (
-                      <Text variant="caption" tone="muted">
-                        {`${String(profile.storiesUsingCount)} hikayede kullanılıyor`}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-                {profile.status === 'preview_ready' && (
-                  <SecondaryButton
-                    label="Önizlemeyi dinle ve onayla"
-                    onPress={() => {
-                      flow.setProfile(profile.id as string, profile.displayName, profile.relation);
-                      router.push('/(app)/ses/onizleme');
-                    }}
-                  />
-                )}
-              </Card>
-            ))}
+            <View style={styles.cardList}>
+              {data.items.map((profile) => (
+                <VoiceCard
+                  key={profile.id as string}
+                  profile={profile}
+                  onApprovePreview={() => {
+                    flow.setProfile(profile.id as string, profile.displayName, profile.relation);
+                    router.push('/(app)/ses/onizleme');
+                  }}
+                />
+              ))}
+            </View>
           </>
         )}
       </AsyncGate>
 
-      {/* Yeni ses ekle — Figma'daki kesikli çerçeveli davet kartı */}
+      {/* ── Figma "YENİ SES EKLE" — kesikli davet kartı ─────── */}
       <Text variant="caption" tone="muted" style={styles.sectionKicker}>
         YENİ SES EKLE
       </Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Kendi sesinizi kaydedin — yaklaşık 60 saniyelik okuma, bir kez yeter"
+        accessibilityLabel="Ses kaydı oluştur — yaklaşık 4 dakika, bir kez yeter"
         accessibilityState={{ disabled: limitReached }}
         disabled={limitReached}
         onPress={() => {
@@ -156,9 +112,6 @@ export default function SesHub(): ReactNode {
           styles.addCard,
           {
             borderColor: colors.border,
-            borderRadius: radius.lg,
-            padding: spacing.md,
-            gap: spacing.md,
             backgroundColor: pressed ? colors.surfaceMuted : colors.surface,
             opacity: limitReached ? 0.5 : 1,
           },
@@ -170,55 +123,58 @@ export default function SesHub(): ReactNode {
           </Text>
         </View>
         <View style={styles.addBody}>
-          <Text variant="bodyStrong" style={{ color: colors.primary }}>
-            Kendi sesimi ekle
+          <Text variant="bodyStrong" style={[styles.addTitle, { color: colors.primary }]}>
+            Ses Kaydı Oluştur
           </Text>
-          <Text variant="caption" tone="muted">
+          <Text variant="caption" tone="muted" style={styles.addSub}>
             Yaklaşık 4 dakika · Bir kez yeter
           </Text>
         </View>
-        <ChevronRightIcon size={18} color={colors.primary} />
+        <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M9 18l6-6-6-6"
+            stroke={colors.primary}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </Svg>
       </Pressable>
       {limitReached && (
         <Text variant="caption" tone="muted">
-          Ses profili hakkınız dolu. Yeni ses eklemek için Ayarlar → Sesim ekranından mevcut bir
-          sesi silebilirsiniz.
+          Ses profili hakkınız dolu. Yeni ses eklemek için mevcut bir sesi silebilirsiniz
+          (kartın üç-nokta menüsü).
         </Text>
       )}
-
-      <TrustStrip
-        items={[
-          'Sesiniz AB’deki sunucumuzda şifreli saklanır.',
-          'Tek dokunuşla silersiniz; sağlayıcıdan da silinir.',
-          'Asla başka bir hesapta kullanılmaz.',
-          'Çocuk sesi asla kaydedilmez.',
-        ]}
-      />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  quoteCard: { borderWidth: 1, gap: 6 },
-  quoteText: { fontSize: 19, lineHeight: 26 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+
+  /* Figma: 16/20 dolgu · 16 yarıçap · 1 px mor kenarlık. */
+  quoteCard: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    gap: 4,
+  },
+  /* Figma: Fraunces 17/600. */
+  quoteText: { fontSize: 17, lineHeight: 22 },
+  quoteSub: { fontSize: 13, lineHeight: 18 },
 
   sectionKicker: { fontSize: 12, letterSpacing: 0.8, fontWeight: '700' },
+  cardList: { gap: 10 },
 
-  profileRow: { flexDirection: 'row', alignItems: 'center' },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarEmoji: { fontSize: 24 },
-  profileBody: { flex: 1, gap: 2 },
-  nameRow: { flexDirection: 'row', alignItems: 'center' },
-
+  /* Figma: 18 dolgu · 18 yarıçap · 2 px kesikli kenarlık. */
   addCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 14,
+    padding: 18,
+    borderRadius: 18,
     borderWidth: 2,
     borderStyle: 'dashed',
   },
@@ -231,4 +187,6 @@ const styles = StyleSheet.create({
   },
   addIconEmoji: { fontSize: 22 },
   addBody: { flex: 1, gap: 2 },
+  addTitle: { fontSize: 15, lineHeight: 20 },
+  addSub: { fontSize: 13, lineHeight: 18 },
 });
