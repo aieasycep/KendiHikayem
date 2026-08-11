@@ -1,11 +1,12 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+
+import { Text, useTheme } from '@kendihikayem/ui';
 
 import { Caption, PrimaryButton, Screen, Title } from '../../../components/ui';
-import { colors, radius, spacing, typography } from '../../../constants/theme';
-import { AsyncGate } from '../../../features/onboarding/components';
+import { AsyncGate, StepBar } from '../../../features/onboarding/components';
 import { legalBlocks, recordConsent, useLegalDocument } from '../../../features/voice/consent';
 
 /**
@@ -16,6 +17,7 @@ import { legalBlocks, recordConsent, useLegalDocument } from '../../../features/
  */
 export default function Aydinlatma(): ReactNode {
   const router = useRouter();
+  const { colors, radius, spacing } = useTheme();
   const doc = useLegalDocument('aydinlatma_ses');
   const viewLogged = useRef(false);
 
@@ -35,6 +37,7 @@ export default function Aydinlatma(): ReactNode {
 
   return (
     <Screen>
+      <StepBar step={2} total={4} labelTr="Sesinizi tanıtın · Bilgilendirme" />
       <Title>Aydınlatma Metni</Title>
       <Caption>
         Bu ekran yalnızca bilgilendirme içindir; herhangi bir onay istemez. Onay kutuları bir
@@ -49,20 +52,33 @@ export default function Aydinlatma(): ReactNode {
         loadingTr="Metin yükleniyor…"
       >
         {(document) => (
-          <View style={styles.docBox}>
+          <View
+            style={{
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              borderWidth: 1,
+              borderRadius: radius.md,
+              padding: spacing.md,
+              gap: spacing.sm,
+            }}
+          >
             <Caption>{`Sürüm ${document.version}`}</Caption>
             {legalBlocks(document.bodyMd).map((block, index) =>
               block.kind === 'heading' ? (
-                <Text key={index} style={styles.docHeading}>
+                <Text key={index} variant="heading" style={styles.docHeading}>
                   {block.text}
                 </Text>
               ) : block.kind === 'item' ? (
                 <View key={index} style={styles.itemRow}>
-                  <Text style={styles.itemBullet}>•</Text>
-                  <Text style={styles.docText}>{block.text}</Text>
+                  <Text variant="caption" tone="muted">
+                    •
+                  </Text>
+                  <Text variant="caption" style={styles.docText}>
+                    {block.text}
+                  </Text>
                 </View>
               ) : (
-                <Text key={index} style={styles.docText}>
+                <Text key={index} variant="caption" style={styles.docText}>
                   {block.text}
                 </Text>
               ),
@@ -83,22 +99,7 @@ export default function Aydinlatma(): ReactNode {
 }
 
 const styles = StyleSheet.create({
-  docBox: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 1,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  docHeading: { ...typography.heading, fontSize: 18, lineHeight: 24, color: colors.ink },
-  docText: {
-    ...typography.caption,
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.ink,
-    flexShrink: 1,
-  },
+  docHeading: { fontSize: 18, lineHeight: 24 },
+  docText: { fontSize: 14, lineHeight: 21, flexShrink: 1 },
   itemRow: { flexDirection: 'row', gap: 8, paddingLeft: 4 },
-  itemBullet: { ...typography.caption, fontSize: 14, color: colors.inkMuted },
 });

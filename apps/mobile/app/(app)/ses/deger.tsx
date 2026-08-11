@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 
 import { Body, Caption, Card, Heading, PrimaryButton, Screen, Title } from '../../../components/ui';
 import { useSystemVoices } from '../../../features/onboarding/catalogHooks';
-import { SecondaryButton, TrustStrip } from '../../../features/onboarding/components';
+import { SecondaryButton, StepBar, TrustStrip } from '../../../features/onboarding/components';
 import { SamplePlayer } from '../../../features/voice/SamplePlayer';
 
 /**
@@ -20,6 +20,7 @@ export default function Deger(): ReactNode {
 
   return (
     <Screen>
+      <StepBar step={1} total={4} labelTr="Sesinizi tanıtın · Neden değer" />
       <Title>Masalı siz okuyormuşsunuz gibi</Title>
       <Body>
         Aynı paragrafı iki kez dinleyin: önce hazır anlatıcı, sonra kendi sesiyle kaydettiren

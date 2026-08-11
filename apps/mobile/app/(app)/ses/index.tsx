@@ -1,14 +1,22 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { VoiceProfile } from '@kendihikayem/contract';
+import {
+  Badge,
+  Card,
+  ChevronRightIcon,
+  Text,
+  palette,
+  useTheme,
+} from '@kendihikayem/ui';
 
-import { Body, Caption, Card, Heading, PrimaryButton, Screen, Title } from '../../../components/ui';
-import { colors, radius, spacing, typography } from '../../../constants/theme';
 import { useVoiceProfiles } from '../../../features/onboarding/catalogHooks';
 import { AsyncGate, SecondaryButton, TrustStrip } from '../../../features/onboarding/components';
 import { useVoiceFlow } from '../../../features/voice/flow';
+import { Screen } from '../../../components/ui';
 
 const STATUS_TR: Record<VoiceProfile['status'], string> = {
   draft: 'Taslak — kayıt bekliyor',
@@ -23,12 +31,14 @@ const STATUS_TR: Record<VoiceProfile['status'], string> = {
 const BADGE_TR = { mukemmel: 'Mükemmel', iyi: 'İyi', kabul_edilebilir: 'Kabul edilebilir' } as const;
 
 /**
- * Voice hub. Lists existing profiles (contract data) and starts the V01–V09
- * onboarding. Voice is OPTIONAL everywhere — the product is complete with
- * system voices, and this screen says so explicitly.
+ * Ses Stüdyom — Figma `VoiceStudio` liste görünümü. Lists existing profiles
+ * (contract data) and starts the V01–V09 onboarding. Voice is OPTIONAL
+ * everywhere — the product is complete with system voices, and this screen
+ * says so explicitly.
  */
 export default function SesHub(): ReactNode {
   const router = useRouter();
+  const { colors, radius, spacing } = useTheme();
   const profiles = useVoiceProfiles();
   const flow = useVoiceFlow();
 
@@ -37,11 +47,29 @@ export default function SesHub(): ReactNode {
 
   return (
     <Screen>
-      <Title>Sesler</Title>
-      <Body>
-        Masalları hazır anlatıcılarla dinletebilirsiniz; isterseniz 3-4 dakikada kendi sesinizi
-        tanıtırsınız ve çocuğunuz her masalı sizin sesinizden dinler.
-      </Body>
+      <Text variant="title" accessibilityRole="header">
+        Ses Stüdyom
+      </Text>
+
+      {/* Marka vaadi kartı — "Sen yanında olamasan bile sesin onunla" */}
+      <View
+        style={[
+          styles.quoteCard,
+          {
+            backgroundColor: colors.surfaceRaised,
+            borderColor: 'rgba(124,92,191,0.25)',
+            borderRadius: radius.md,
+            padding: spacing.md,
+          },
+        ]}
+      >
+        <Text variant="heading" style={styles.quoteText}>
+          “Ailenizden bir ses,{'\n'}her masalda yanında.”
+        </Text>
+        <Text variant="caption" tone="muted">
+          Sesinizi bir kez tanıtırsınız; sonrasında her hikayede yeniden kullanılır.
+        </Text>
+      </View>
 
       <AsyncGate
         isLoading={profiles.isLoading}
@@ -52,30 +80,50 @@ export default function SesHub(): ReactNode {
       >
         {(data) => (
           <>
+            <Text variant="caption" tone="muted" style={styles.sectionKicker}>
+              AİLE SESLERİ
+            </Text>
             {data.items.length === 0 && (
               <Card>
-                <Heading>Henüz kayıtlı sesiniz yok</Heading>
-                <Caption>
-                  Sistem sesleri her zaman hazır. Kendi sesinizi eklemek tamamen isteğe bağlı.
-                </Caption>
+                <Text variant="heading">Masallar henüz sesinizi tanımıyor</Text>
+                <Text variant="caption" tone="muted">
+                  Sistem sesleri her zaman hazır. Kendi sesinizi eklemek tamamen isteğe bağlı —
+                  yaklaşık 4 dakika sürer.
+                </Text>
               </Card>
             )}
             {data.items.map((profile) => (
               <Card key={profile.id as string}>
-                <View style={styles.profileRow}>
+                <View style={[styles.profileRow, { gap: spacing.md }]}>
+                  <LinearGradient
+                    colors={[palette.peach, palette.coral]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.avatar}
+                  >
+                    <Text style={styles.avatarEmoji} accessibilityElementsHidden>
+                      {profile.relation === 'anne' ? '👩' : profile.relation === 'baba' ? '👨' : '🎙️'}
+                    </Text>
+                  </LinearGradient>
                   <View style={styles.profileBody}>
-                    <Heading>{profile.displayName}</Heading>
-                    <Caption>{STATUS_TR[profile.status]}</Caption>
+                    <View style={[styles.nameRow, { gap: spacing.sm }]}>
+                      <Text variant="bodyStrong">{profile.displayName}</Text>
+                      {profile.status === 'ready' && <Badge labelTr="Hazır" tone="success" />}
+                    </View>
+                    <Text variant="caption" tone="muted">
+                      {STATUS_TR[profile.status]}
+                    </Text>
                     {profile.qualityBadge !== undefined && (
-                      <Caption>{`Kalite: ${BADGE_TR[profile.qualityBadge]}`}</Caption>
+                      <Text variant="caption" tone="muted">
+                        {`Kalite: ${BADGE_TR[profile.qualityBadge]}`}
+                      </Text>
                     )}
                     {profile.storiesUsingCount > 0 && (
-                      <Caption>{`${String(profile.storiesUsingCount)} hikayede kullanılıyor`}</Caption>
+                      <Text variant="caption" tone="muted">
+                        {`${String(profile.storiesUsingCount)} hikayede kullanılıyor`}
+                      </Text>
                     )}
                   </View>
-                  <Text style={styles.profileEmoji}>
-                    {profile.relation === 'anne' ? '👩' : profile.relation === 'baba' ? '👨' : '🎙️'}
-                  </Text>
                 </View>
                 {profile.status === 'preview_ready' && (
                   <SecondaryButton
@@ -92,18 +140,50 @@ export default function SesHub(): ReactNode {
         )}
       </AsyncGate>
 
-      <PrimaryButton
-        label="Kendi sesimi ekle"
+      {/* Yeni ses ekle — Figma'daki kesikli çerçeveli davet kartı */}
+      <Text variant="caption" tone="muted" style={styles.sectionKicker}>
+        YENİ SES EKLE
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Kendi sesinizi kaydedin — yaklaşık 60 saniyelik okuma, bir kez yeter"
+        accessibilityState={{ disabled: limitReached }}
         disabled={limitReached}
         onPress={() => {
           router.push('/(app)/ses/deger');
         }}
-      />
+        style={({ pressed }) => [
+          styles.addCard,
+          {
+            borderColor: colors.border,
+            borderRadius: radius.lg,
+            padding: spacing.md,
+            gap: spacing.md,
+            backgroundColor: pressed ? colors.surfaceMuted : colors.surface,
+            opacity: limitReached ? 0.5 : 1,
+          },
+        ]}
+      >
+        <View style={[styles.addIcon, { backgroundColor: colors.surfaceMuted }]}>
+          <Text style={styles.addIconEmoji} accessibilityElementsHidden>
+            🎙
+          </Text>
+        </View>
+        <View style={styles.addBody}>
+          <Text variant="bodyStrong" style={{ color: colors.primary }}>
+            Kendi sesimi ekle
+          </Text>
+          <Text variant="caption" tone="muted">
+            Yaklaşık 4 dakika · Bir kez yeter
+          </Text>
+        </View>
+        <ChevronRightIcon size={18} color={colors.primary} />
+      </Pressable>
       {limitReached && (
-        <Caption>
+        <Text variant="caption" tone="muted">
           Ses profili hakkınız dolu. Yeni ses eklemek için Ayarlar → Sesim ekranından mevcut bir
           sesi silebilirsiniz.
-        </Caption>
+        </Text>
       )}
 
       <TrustStrip
@@ -119,14 +199,36 @@ export default function SesHub(): ReactNode {
 }
 
 const styles = StyleSheet.create({
-  profileRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  profileBody: { flex: 1, gap: 2 },
-  profileEmoji: {
-    ...typography.title,
-    fontSize: 30,
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: radius.lg,
-    padding: spacing.sm,
-    overflow: 'hidden',
+  quoteCard: { borderWidth: 1, gap: 6 },
+  quoteText: { fontSize: 19, lineHeight: 26 },
+
+  sectionKicker: { fontSize: 12, letterSpacing: 0.8, fontWeight: '700' },
+
+  profileRow: { flexDirection: 'row', alignItems: 'center' },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  avatarEmoji: { fontSize: 24 },
+  profileBody: { flex: 1, gap: 2 },
+  nameRow: { flexDirection: 'row', alignItems: 'center' },
+
+  addCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderStyle: 'dashed',
+  },
+  addIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addIconEmoji: { fontSize: 22 },
+  addBody: { flex: 1, gap: 2 },
 });

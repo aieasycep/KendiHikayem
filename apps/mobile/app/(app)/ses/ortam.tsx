@@ -1,11 +1,12 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
-import { Body, Caption, Card, Heading, PrimaryButton, Screen, Title } from '../../../components/ui';
-import { colors, radius, spacing, typography } from '../../../constants/theme';
-import { SecondaryButton } from '../../../features/onboarding/components';
+import { Text, useTheme } from '@kendihikayem/ui';
+
+import { Body, Card, Caption, Heading, PrimaryButton, Screen, Title } from '../../../components/ui';
+import { SecondaryButton, StepBar } from '../../../features/onboarding/components';
 import { DbMeter } from '../../../features/voice/DbMeter';
 import { useVoiceFlow } from '../../../features/voice/flow';
 import { ambientVerdict, type MeterStats, type MeterVerdict } from '../../../features/voice/meter';
@@ -29,6 +30,7 @@ const TEST_MS = 5_000;
  */
 export default function Ortam(): ReactNode {
   const router = useRouter();
+  const { colors, radius, spacing } = useTheme();
   const flow = useVoiceFlow();
   const recorder = useVoiceRecorder(TEST_MS + 500);
 
@@ -74,14 +76,19 @@ export default function Ortam(): ReactNode {
 
   return (
     <Screen>
+      <StepBar step={4} total={4} labelTr="Sesinizi tanıtın · Ortam" />
       <Title>Kayıt ortamını hazırlayalım</Title>
       <Body>Dört kısa kayıt yapacağız. Önce ortamınızın kayda uygun olduğundan emin olalım.</Body>
 
       <Card>
         {CHECKLIST.map(([icon, text]) => (
-          <View key={text} style={styles.checkRow}>
-            <Text style={styles.checkIcon}>{icon}</Text>
-            <Text style={styles.checkText}>{text}</Text>
+          <View key={text} style={[styles.checkRow, { gap: spacing.sm }]}>
+            <Text style={styles.checkIcon} accessibilityElementsHidden>
+              {icon}
+            </Text>
+            <Text variant="caption" style={styles.checkText}>
+              {text}
+            </Text>
           </View>
         ))}
       </Card>
@@ -93,20 +100,29 @@ export default function Ortam(): ReactNode {
         </Caption>
 
         {recorder.permission === 'denied' ? (
-          <View style={styles.permissionBox}>
-            <Text style={styles.permissionText}>
+          <View
+            accessibilityRole="alert"
+            style={{
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              borderLeftColor: colors.danger,
+              borderWidth: 1,
+              borderLeftWidth: 6,
+              borderRadius: radius.sm,
+              padding: spacing.md,
+            }}
+          >
+            <Text variant="caption" style={styles.permissionText}>
               Mikrofon izni verilmedi. Ses kaydı için Ayarlar → Uygulamalar → KendiHikayem →
               İzinler yolundan mikrofonu açın, sonra buraya dönün.
             </Text>
           </View>
         ) : testState === 'olculuyor' ? (
-          <>
-            <DbMeter
-              stats={recorder.stats}
-              verdict={{ level: 'iyi', titleTr: `Dinleniyor… ${String(secondsLeft ?? 0)} sn` }}
-              recentDb={recorder.recentDb}
-            />
-          </>
+          <DbMeter
+            stats={recorder.stats}
+            verdict={{ level: 'iyi', titleTr: `Dinleniyor… ${String(secondsLeft ?? 0)} sn` }}
+            recentDb={recorder.recentDb}
+          />
         ) : result !== undefined ? (
           <>
             <DbMeter stats={result.stats} verdict={result.verdict} recentDb={recorder.recentDb} />
@@ -118,7 +134,8 @@ export default function Ortam(): ReactNode {
             />
           </>
         ) : (
-          <PrimaryButton
+          /* Tek birincil eylem kuralı: ekranın birincili "Kayda geç"tir. */
+          <SecondaryButton
             label="Testi başlat"
             onPress={() => {
               void runTest();
@@ -145,15 +162,8 @@ export default function Ortam(): ReactNode {
 }
 
 const styles = StyleSheet.create({
-  checkRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
+  checkRow: { flexDirection: 'row', alignItems: 'flex-start' },
   checkIcon: { fontSize: 20 },
-  checkText: { ...typography.caption, fontSize: 14, lineHeight: 21, color: colors.ink, flex: 1 },
-  permissionBox: {
-    backgroundColor: '#FDF3F2',
-    borderColor: '#E7B8B1',
-    borderWidth: 1,
-    borderRadius: radius.sm,
-    padding: spacing.md,
-  },
-  permissionText: { ...typography.caption, fontSize: 14, lineHeight: 20, color: '#8C2B1D' },
+  checkText: { fontSize: 14, lineHeight: 21, flex: 1 },
+  permissionText: { fontSize: 14, lineHeight: 20 },
 });

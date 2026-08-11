@@ -1,13 +1,14 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 
 import type { ApiError, VoiceRelation } from '@kendihikayem/contract';
+import { Input, Text, useTheme } from '@kendihikayem/ui';
 
-import { Body, Caption, Card, Heading, PrimaryButton, Screen, Title } from '../../../components/ui';
-import { colors, radius, spacing, typography } from '../../../constants/theme';
-import { Chip, ChipRow, ErrorBanner } from '../../../features/onboarding/components';
+import { Body, Card, Heading, PrimaryButton, Screen, Title, Caption } from '../../../components/ui';
+import { Chip, ChipRow, ErrorBanner, StepBar } from '../../../features/onboarding/components';
 import { recordConsent, useLegalDocument } from '../../../features/voice/consent';
 import { useVoiceFlow } from '../../../features/voice/flow';
 import { api, asApiError, newIdempotencyKey, toApiError } from '../../../lib/api';
@@ -85,6 +86,7 @@ export default function Riza(): ReactNode {
 
   return (
     <Screen>
+      <StepBar step={3} total={4} labelTr="Sesinizi tanıtın · Açık rıza" />
       <Title>Açık Rıza</Title>
       <Body>
         İki ayrı konu için ayrı ayrı onayınızı istiyoruz. Kutular boş gelir; ikisini de siz
@@ -131,13 +133,11 @@ export default function Riza(): ReactNode {
             />
           ))}
         </ChipRow>
-        <TextInput
-          accessibilityLabel="Ses profili adı"
+        <Input
+          label="Profil adı"
           maxLength={40}
           onChangeText={setDisplayName}
-          placeholder="Profil adı (örn. Anne)"
-          placeholderTextColor={colors.inkMuted}
-          style={styles.input}
+          placeholder="Örn. Anne"
           value={displayName}
         />
       </Card>
@@ -159,6 +159,11 @@ export default function Riza(): ReactNode {
   );
 }
 
+/**
+ * Ön-işaretsiz onay kutusu — başlangıç durumu HER ZAMAN dışarıdan (false)
+ * gelir; bileşenin varsayılanı yoktur. Tasarım dili: 2 px kenarlık, işaretli
+ * durumda lavanta zemin + mor kutu.
+ */
 function ConsentBox({
   checked,
   loading,
@@ -172,61 +177,76 @@ function ConsentBox({
   versionTr?: string;
   onToggle: () => void;
 }): ReactNode {
+  const { colors, radius, spacing } = useTheme();
   return (
     <Pressable
       accessibilityRole="checkbox"
       accessibilityState={{ checked }}
+      accessibilityLabel={labelTr}
       disabled={loading}
       onPress={onToggle}
-      style={[styles.consentBox, checked && styles.consentBoxChecked]}
+      style={[
+        styles.consentBox,
+        {
+          gap: spacing.sm,
+          backgroundColor: checked ? colors.surfaceRaised : colors.surface,
+          borderColor: checked ? colors.primary : colors.border,
+          borderRadius: radius.md,
+          padding: spacing.md,
+        },
+      ]}
     >
-      <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
-        {checked && <Text style={styles.checkboxMark}>✓</Text>}
+      <View
+        style={[
+          styles.checkbox,
+          {
+            borderColor: checked ? colors.primary : colors.inkMuted,
+            backgroundColor: checked ? colors.primary : colors.surface,
+          },
+        ]}
+      >
+        {checked && (
+          <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="M20 6L9 17l-5-5"
+              stroke={colors.inkOnPrimary}
+              strokeWidth={3.4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+        )}
       </View>
       <View style={styles.consentBody}>
-        <Text style={styles.consentText}>{labelTr}</Text>
-        {versionTr !== undefined && <Text style={styles.consentVersion}>{versionTr}</Text>}
-        {loading && <Text style={styles.consentVersion}>Metin yükleniyor…</Text>}
+        <Text variant="caption" style={styles.consentText}>
+          {labelTr}
+        </Text>
+        {versionTr !== undefined && (
+          <Text variant="caption" tone="muted" style={styles.consentVersion}>
+            {versionTr}
+          </Text>
+        )}
+        {loading && (
+          <Text variant="caption" tone="muted" style={styles.consentVersion}>
+            Metin yükleniyor…
+          </Text>
+        )}
       </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  consentBox: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderWidth: 2,
-    borderRadius: radius.md,
-    padding: spacing.md,
-  },
-  consentBoxChecked: { borderColor: colors.accent, backgroundColor: '#F0F8F5' },
+  consentBox: { flexDirection: 'row', borderWidth: 2 },
   checkbox: {
     width: 28,
     height: 28,
-    borderRadius: 6,
+    borderRadius: 8,
     borderWidth: 2,
-    borderColor: colors.inkMuted,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surface,
   },
-  checkboxChecked: { backgroundColor: colors.accent, borderColor: colors.accent },
-  checkboxMark: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
   consentBody: { flex: 1, gap: 4 },
-  consentText: { ...typography.caption, fontSize: 14, lineHeight: 21, color: colors.ink },
-  consentVersion: { ...typography.caption, fontSize: 12, color: colors.inkMuted },
-
-  input: {
-    ...typography.body,
-    color: colors.ink,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 12,
-  },
+  consentText: { fontSize: 14, lineHeight: 21 },
+  consentVersion: { fontSize: 12, lineHeight: 16 },
 });
