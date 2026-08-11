@@ -81,13 +81,16 @@ export interface ReserveInput {
   caps: CostCaps;
 }
 
-/** Type alias, not an interface: `db.execute<T>` constrains T to `Record<string, unknown>`. */
+/**
+ * Type alias, not an interface: `db.execute<T>` constrains T to `Record<string, unknown>`.
+ * Note `period_expired` is computed in SQL — raw `execute` returns timestamps as strings,
+ * and comparing "now" in two places (Postgres and Node) is how clock-skew bugs are born.
+ */
 type EntitlementRow = {
   period_cost_usd: string;
   reserved_cost_usd: string;
   monthly_cost_cap_usd: string;
-  period_start: Date;
-  period_end: Date;
+  period_expired: boolean;
 };
 
 /**
@@ -144,7 +147,8 @@ export async function reserveCost(
      * `FOR UPDATE OF e` locks only the entitlements row — joining plans must not take a
      * lock on a shared catalog row that every concurrent reservation also needs. */
     const rows = await tx.execute<EntitlementRow>(sql`
-      select e.period_cost_usd, e.reserved_cost_usd, e.period_start, e.period_end,
+      select e.period_cost_usd, e.reserved_cost_usd,
+             (e.period_end <= now()) as period_expired,
              p.monthly_cost_cap_usd
         from entitlements e
         join plans p on p.code = e.plan_code
@@ -166,7 +170,7 @@ export async function reserveCost(
     const cap = Number(row.monthly_cost_cap_usd);
 
     // Period roll-forward, inside the lock so two concurrent requests cannot both roll.
-    const rollPeriod = (caps.rollExpiredPeriod ?? true) && row.period_end.getTime() <= Date.now();
+    const rollPeriod = (caps.rollExpiredPeriod ?? true) && row.period_expired === true;
     if (rollPeriod) {
       await tx.execute(sql`
         update entitlements
