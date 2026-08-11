@@ -18,6 +18,10 @@ const config: ExpoConfig = {
   version: '0.1.0',
   orientation: 'portrait',
   userInterfaceStyle: 'light',
+  // Source artwork for every generated launcher/splash resource. These files must exist:
+  // the native resource files reference them by name, so a missing PNG fails the Android
+  // build at the aapt2 resource-linking step rather than at prebuild time.
+  icon: './assets/icon.png',
   // The New Architecture is the only architecture in SDK 57 — no flag to set.
   extra: {
     apiMode,
@@ -31,6 +35,13 @@ const config: ExpoConfig = {
     [
       'expo-splash-screen',
       {
+        // `image` is mandatory in practice: the plugin always writes
+        // `<item name="windowSplashScreenAnimatedIcon">@drawable/splashscreen_logo</item>`
+        // into res/values/styles.xml, but only emits the drawable when an image is given.
+        // Omitting it leaves a dangling reference and aapt2 fails with
+        // "resource drawable/splashscreen_logo not found".
+        image: './assets/splash-icon.png',
+        imageWidth: 220,
         backgroundColor: '#FFF8F0',
         resizeMode: 'contain',
       },
@@ -49,6 +60,8 @@ const config: ExpoConfig = {
     versionCode: 1,
     // Edge-to-edge is the default from SDK 54 onwards and is no longer a config key.
     adaptiveIcon: {
+      // Artwork sits inside the central 66% safe zone; launchers mask the rest away.
+      foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#FFF8F0',
     },
     permissions: [

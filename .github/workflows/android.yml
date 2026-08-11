@@ -1,19 +1,19 @@
 name: Android APK
 
-# APK'yi elle tetikleyin (Actions sekmesi > "Android APK" > "Run workflow")
-# veya bu dala push edin. Cikti: Actions calismasinin altindaki "Artifacts" bolumu.
+# APK'yi YALNIZCA elle tetikleyin: Actions sekmesi > "Android APK" > "Run workflow".
+# Cikti: Actions calismasinin altindaki "Artifacts" bolumu (kendihikayem-debug-apk).
+#
+# Neden push tetikleyicisi yok: APK derlemesi ~10 dakika suruyor. Sik push ettigimizde
+# asagidaki concurrency kurali devredeki derlemeyi iptal ediyor ve hicbir calisma
+# tamamlanamiyordu. Hizli geri bildirim zaten ci.yml'de (typecheck/lint/test, her push'ta).
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - claude/child-story-creator-app-gsinlk
-    paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
 
 concurrency:
   group: android-${{ github.ref }}
-  cancel-in-progress: true
+  # Elle tetiklendigi icin ayni anda birden fazla calisma nadir; yine de yeni bir istek
+  # eskisini iptal etmesin -- baslatilan her derleme sonuna kadar gitsin.
+  cancel-in-progress: false
 
 jobs:
   apk:
