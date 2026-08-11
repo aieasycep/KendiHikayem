@@ -15,7 +15,7 @@
 export type Id = string;          // uuid
 export type IsoDate = string;     // '2026-08-10T12:00:00Z'
 export type Cursor = string;
-export type AgeBand = '3-5' | '6-8' | '9-12';
+export type AgeBand = '0-2' | '3-5' | '6-8';
 export type Tier = 'draft' | 'quality';
 
 export interface Paginated<T> { items: T[]; nextCursor: Cursor | null; total?: number }
@@ -233,7 +233,7 @@ export interface CreateStoryReq {
   themeCode?: string;
   freeIdeaTr?: string;                          // ≤200 kar, spotlighting ile SALT VERİ
   artStyleCode: string;
-  pageCount: 12 | 14 | 16;
+  pageCount: 6 | 8 | 12 | 14 | 16;              // BANDA BAĞLI — aşağıdaki tabloya bakın
   characterBuilder: Record<string, string>;     // { ten_tonu:'acik_bugday', ... } — FOTOĞRAF YOK
   lessonHintTr?: string;
   culturalTags?: string[];
@@ -351,6 +351,21 @@ export interface PublicPageAudio {
   voiceLabel: string; audio: SignedMedia; tokens: PlayerToken[]; brandingUrl: string;
 }
 ```
+
+**Yaş bandı → uzunluk (normatif).** `pageCount` serbest değildir; bandın dışına düşen bir
+değer `422 VALIDATION_FAILED` döner. `0-2` kısaltılmış bir masal değil, başka bir türdür:
+sayfa tek cümledir, nakarat döner, çatışma yoktur.
+
+| Bant | İzin verilen `pageCount` | Varsayılan | Sayfa başına TR kelime | Karaoke vurgusu |
+|---|---|---|---|---|
+| `0-2` | 6, 8 | 8 | 6–14 | kapalı |
+| `3-5` | 12, 14, 16 | 12 | 25–45 | kapalı |
+| `6-8` | 12, 14, 16 | 12 | 40–70 | açık |
+
+Kaynak: `PAGE_COUNT_OPTIONS_BY_AGE_BAND`, `DEFAULT_PAGE_COUNT_BY_AGE_BAND` ve
+`WORDS_PER_PAGE_BY_AGE_BAND` (packages/contract/src/story.ts). Sözleşme gövdesine
+`.refine()` KONULMAZ — `ZodEffects` ts-rest gövde çıkarımını ve OpenAPI üretimini bozar;
+kural veri olarak taşınır ve sunucu ile istemcide ayrı ayrı uygulanır.
 
 ### 5.4 Endpoint tablosu
 

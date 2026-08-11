@@ -122,7 +122,7 @@ export function OkumaSection(): ReactElement {
       <Card>
         <ListRow
           titleTr="Kelime vurgusu"
-          subtitleTr="Okunan kelime renklenir. 3-5 yaş için kapalı başlatılır."
+          subtitleTr="Okunan kelime renklenir. 0-2 ve 3-5 yaş için kapalı başlatılır."
           switchValue={prefs.wordHighlight}
           onSwitchChange={(value) => {
             update.mutate({ wordHighlight: value });

@@ -12,9 +12,9 @@ import { Chip, ChipRow, StepBar } from '../../features/onboarding/components';
 import { useWizardDraft } from '../../features/onboarding/draft';
 
 const AGE_BANDS: { band: AgeBand; hintTr: string }[] = [
+  { band: '0-2', hintTr: 'Tek cümlelik sayfalar, bol tekrar, ninni ritmi' },
   { band: '3-5', hintTr: 'Kısa cümleler, bol tekrar' },
   { band: '6-8', hintTr: 'Macera ve mizah dengesi' },
-  { band: '9-12', hintTr: 'Katmanlı olaylar, bölümlü' },
 ];
 
 /**

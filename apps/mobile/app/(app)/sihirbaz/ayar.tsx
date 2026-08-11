@@ -23,11 +23,26 @@ import { useWizardDraft } from '../../../features/onboarding/draft';
  * NOT (tasarım/ürün çelişkisi): tasarım bu adımda yaş grubu da seçtirir; üründe
  * yaş bandı W01'de çocuk profilinden gelir (sözleşme). Rapora not düşüldü.
  */
-const DURATIONS: { pageCount: PageCount; emoji: string; labelTr: string; subTr: string }[] = [
-  { pageCount: 12, emoji: '⚡', labelTr: 'Kısa', subTr: '12 sayfa · uyku öncesi için ideal' },
-  { pageCount: 14, emoji: '📖', labelTr: 'Orta', subTr: '14 sayfa' },
-  { pageCount: 16, emoji: '🌙', labelTr: 'Uzun', subTr: '16 sayfa · daha uzun bir macera' },
-];
+interface Duration {
+  pageCount: PageCount;
+  emoji: string;
+  labelTr: string;
+  subTr: string;
+}
+
+/**
+ * Uzunluk kartları YAŞ BANDINA GÖRE daralır — sözleşmedeki
+ * `PAGE_COUNT_OPTIONS_BY_AGE_BAND` neye izin veriyorsa o gösterilir. `0-2` için
+ * 12/14/16 hiç görünmez: bebeğe 12 sayfalık okuma metni satmak ürünü yalanlar,
+ * ayrıca sunucu bu gövdeyi 422 ile geri çevirir.
+ */
+const DURATION_CARDS: Record<PageCount, Duration> = {
+  6: { pageCount: 6, emoji: '🍼', labelTr: 'Minik', subTr: '6 sayfa · tek oturuşta, kucakta' },
+  8: { pageCount: 8, emoji: '🌛', labelTr: 'Ninni', subTr: '8 sayfa · tekrarlı, uyku öncesi' },
+  12: { pageCount: 12, emoji: '⚡', labelTr: 'Kısa', subTr: '12 sayfa · uyku öncesi için ideal' },
+  14: { pageCount: 14, emoji: '📖', labelTr: 'Orta', subTr: '14 sayfa' },
+  16: { pageCount: 16, emoji: '🌙', labelTr: 'Uzun', subTr: '16 sayfa · daha uzun bir macera' },
+};
 
 const LESSON_SUGGESTIONS = [
   'Cesaret',
@@ -50,6 +65,15 @@ export default function WizardAyar(): ReactNode {
   const { colors, radius, spacing } = useTheme();
   const { draft, patch } = useWizardDraft();
 
+  const durations = PAGE_COUNT_OPTIONS_BY_AGE_BAND[draft.ageBand].map(
+    (count) => DURATION_CARDS[count],
+  );
+  /*
+   * W01 taslağı zaten kırpıyor, ama sihirbaza derin bağlantıyla ya da eski bir
+   * taslakla girilebilir: hiçbir kart seçili görünmesin diye burada da kırpıyoruz.
+   */
+  const selectedPageCount = clampPageCount(draft.ageBand, draft.pageCount);
+
   const toggleTag = (code: string): void => {
     const has = draft.culturalTags.includes(code);
     patch({
@@ -69,8 +93,8 @@ export default function WizardAyar(): ReactNode {
         HİKÂYE UZUNLUĞU
       </Text>
       <View style={{ gap: spacing.sm }}>
-        {DURATIONS.map((duration) => {
-          const selected = draft.pageCount === duration.pageCount;
+        {durations.map((duration) => {
+          const selected = selectedPageCount === duration.pageCount;
           return (
             <Pressable
               key={duration.pageCount}
@@ -177,7 +201,11 @@ export default function WizardAyar(): ReactNode {
           router.push('/(app)/sihirbaz/ses-secim');
         }}
       />
-      <Caption>12 sayfa uyku öncesi için ideal; 16 sayfa daha uzun bir macera.</Caption>
+      <Caption>
+        {draft.ageBand === '0-2'
+          ? '0-2 yaş için sayfalar tek cümledir; kitap 6-8 sayfada, tek oturuşta biter.'
+          : '12 sayfa uyku öncesi için ideal; 16 sayfa daha uzun bir macera.'}
+      </Caption>
     </Screen>
   );
 }

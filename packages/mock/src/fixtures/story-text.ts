@@ -188,7 +188,7 @@ export const BABY_STORY_PAGES: StoryPageText[] = [
   },
   {
     pageNo: 4,
-    textTr: 'Kaşık tabağın yanına uzandı. İyi geceler kaşık.',
+    textTr: 'Kaşık tabağa yattı. Çıt yok. İyi geceler kaşık.',
     summaryTr: 'Mutfak susar, kaşık yerine konur.',
     emotion: 'huzur',
     safeZone: 'bottom',
@@ -202,14 +202,14 @@ export const BABY_STORY_PAGES: StoryPageText[] = [
   },
   {
     pageNo: 6,
-    textTr: 'Ayıcık yastığa yattı. İyi geceler ayıcık.',
+    textTr: 'Ayı yastığa yattı. Mışıl mışıl. İyi geceler ayı.',
     summaryTr: 'Peluş ayı yatağa alınır.',
     emotion: 'huzur',
     safeZone: 'bottom',
   },
   {
     pageNo: 7,
-    textTr: 'Deniz esnedi. Gözler ağırlaştı, eller yavaşladı.',
+    textTr: 'Deniz esnedi. Küçük eller yavaşladı. Uyku geldi.',
     summaryTr: 'Deniz uykusu gelir.',
     emotion: 'huzur',
     safeZone: 'bottom',

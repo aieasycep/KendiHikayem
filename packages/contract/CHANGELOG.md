@@ -10,6 +10,34 @@ byte düzeyinde karşılaştırır; fark varsa CI kırılır.
 
 ---
 
+## 0.2.0 — 2026-08-11 · YAŞ BANTLARI YENİDEN TANIMLANDI
+
+### Kırıcı
+
+- **`AgeBand` = `'0-2' | '3-5' | '6-8'`** (önceki: `'3-5' | '6-8' | '9-12'`).
+  Ürün doğumdan başlıyor, üst uç kalkıyor. `9-12` üretimden çıktı; taşıyan
+  kayıtlar `6-8`'e taşındı (`packages/db/migrations/0002_age_band_0_2_backfill.sql`).
+  Etkilenen şemalar: `childSchema`, `storySchema`, `storySummarySchema`,
+  `createStoryReqSchema`, `storyThemeSchema.ageBands`, `systemVoiceSchema.ageBands`,
+  `catalog.themes` ve `catalog.characterOptions` sorgu parametreleri.
+- **`pageCountSchema` genişledi:** `6 | 8 | 12 | 14 | 16`. 6 ve 8 YALNIZCA `0-2`
+  içindir; `0-2` için 12/14/16 gönderen istek `422 VALIDATION_FAILED` alır.
+
+### Eklendi
+
+- `AGE_BANDS` (sıralı liste) ve `AGE_BAND_HINTS_TR` — arayüz bantları elle dizmesin.
+- `PAGE_COUNT_OPTIONS_BY_AGE_BAND`, `DEFAULT_PAGE_COUNT_BY_AGE_BAND`,
+  `WORDS_PER_PAGE_BY_AGE_BAND`, `isPageCountAllowed()`, `clampPageCount()`.
+
+### Sapma (bilinçli)
+
+Uzunluk kuralı `createStoryReqSchema` üzerine `.refine()` olarak KONULMADI: `ZodEffects`
+ts-rest'in gövde tipi çıkarımını ve `@ts-rest/open-api` üretimini bozuyor. Kural veri
+olarak taşınır; sunucu ve istemci ayrı ayrı uygular. `0-2` için 12 sayfa reddi
+`packages/mock` testleriyle korunuyor.
+
+---
+
 ## 0.1.0 — 2026-08-11 · İLK DONDURMA (Faz 0)
 
 82 kullanıcı ucu (`apiContract`) + 12 ops ucu (`opsContract`). Kaynak: `docs/SPEC-API.md` §5.

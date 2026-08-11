@@ -24,7 +24,7 @@
 | **Platform** | Web PWA (Next.js 15), responsive | — | Expo mobil (aynı contract paketini tüketir) |
 | **Kimlik** | Misafir oturum → SMS/e-posta OTP, misafir birleştirme | Apple/Google Sign-In | — |
 | **Çocuk profili** | Ad, yaş bandı, Karakter Kurucu formu (**fotoğraf YOK**) | Çoklu çocuk, seri hikaye | Fotoğraf → yalnızca vision-to-text çıkarımı (hukuk onayıyla) |
-| **Hikaye üretimi** | 2 aşamalı (iskelet onayı → dolgu), 11 tema × 4 sanat stili, 3 yaş bandı, 12 spread | Bölümlü hikaye (9-12 yaş), devam hikayesi | Çoklu dil |
+| **Hikaye üretimi** | 2 aşamalı (iskelet onayı → dolgu), 11 tema × 4 sanat stili, 3 yaş bandı (`0-2` / `3-5` / `6-8`), 6-16 spread (banda göre) | Bölümlü hikaye (9-12 yaş), devam hikayesi | Çoklu dil |
 | **Görsel** | style plate + character sheet (3 varyant seçimi) + face_ref + 12 sayfa, otomatik QA + retry | Karakter yeniden kullanımı | Karakter LoRA (premium) |
 | **Ses** | 3–4 sistem sesi (TR) + **1 klonlanmış profil** (opsiyonel), draft/quality katmanı | 2 profil, ses karşılaştırma | Self-host TTS (Chatterbox MIT) maliyet düşürme |
 | **Okuyucu** | Sayfa senkronu + kelime vurgusu (kademeli düşüş), uyku modu, offline | Hız kontrolü, çoklu ses | — |
@@ -308,7 +308,7 @@ CREATE TABLE children (
   given_name          text NOT NULL,                   -- allowlist regex ile doğrulanır
   nickname            text,
   birth_year          int CHECK (birth_year BETWEEN 2005 AND 2035),  -- tam tarih TOPLANMAZ
-  age_band            text NOT NULL CHECK (age_band IN ('3-5','6-8','9-12')),
+  age_band            text NOT NULL CHECK (age_band IN ('0-2','3-5','6-8')),
   gender_presentation text CHECK (gender_presentation IN ('kiz','erkek','belirtilmemis')),
   interests           text[] NOT NULL DEFAULT '{}',    -- katalogdan, serbest metin değil
   default_character_id uuid,                           -- FK aşağıda
@@ -383,7 +383,7 @@ CREATE TABLE system_voices (
   provider          text NOT NULL,
   provider_voice_id text NOT NULL,
   sample_asset_id   uuid REFERENCES assets(id),
-  age_bands         text[] NOT NULL DEFAULT '{3-5,6-8,9-12}',
+  age_bands         text[] NOT NULL DEFAULT '{0-2,3-5,6-8}',
   sort_order        int NOT NULL DEFAULT 0,
   is_active         boolean NOT NULL DEFAULT true
 );
@@ -478,7 +478,7 @@ CREATE TABLE stories (
   user_id          uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   child_id         uuid REFERENCES children(id) ON DELETE SET NULL,
   title            text,
-  age_band         text NOT NULL CHECK (age_band IN ('3-5','6-8','9-12')),
+  age_band         text NOT NULL CHECK (age_band IN ('0-2','3-5','6-8')),
   theme_code       text REFERENCES story_themes(code),
   art_style_code   text NOT NULL REFERENCES art_styles(code),
   hero_name        text NOT NULL,
@@ -1029,7 +1029,7 @@ CREATE TABLE webhook_inbox (
 export type Id = string;          // uuid
 export type IsoDate = string;     // '2026-08-10T12:00:00Z'
 export type Cursor = string;
-export type AgeBand = '3-5' | '6-8' | '9-12';
+export type AgeBand = '0-2' | '3-5' | '6-8';
 export type Tier = 'draft' | 'quality';
 
 export interface Paginated<T> { items: T[]; nextCursor: Cursor | null; total?: number }
@@ -1247,7 +1247,7 @@ export interface CreateStoryReq {
   themeCode?: string;
   freeIdeaTr?: string;                          // ≤200 kar, spotlighting ile SALT VERİ
   artStyleCode: string;
-  pageCount: 12 | 14 | 16;
+  pageCount: 6 | 8 | 12 | 14 | 16;              // BANDA BAĞLI — aşağıdaki tabloya bakın
   characterBuilder: Record<string, string>;     // { ten_tonu:'acik_bugday', ... } — FOTOĞRAF YOK
   lessonHintTr?: string;
   culturalTags?: string[];
@@ -1365,6 +1365,21 @@ export interface PublicPageAudio {
   voiceLabel: string; audio: SignedMedia; tokens: PlayerToken[]; brandingUrl: string;
 }
 ```
+
+**Yaş bandı → uzunluk (normatif).** `pageCount` serbest değildir; bandın dışına düşen bir
+değer `422 VALIDATION_FAILED` döner. `0-2` kısaltılmış bir masal değil, başka bir türdür:
+sayfa tek cümledir, nakarat döner, çatışma yoktur.
+
+| Bant | İzin verilen `pageCount` | Varsayılan | Sayfa başına TR kelime | Karaoke vurgusu |
+|---|---|---|---|---|
+| `0-2` | 6, 8 | 8 | 6–14 | kapalı |
+| `3-5` | 12, 14, 16 | 12 | 25–45 | kapalı |
+| `6-8` | 12, 14, 16 | 12 | 40–70 | açık |
+
+Kaynak: `PAGE_COUNT_OPTIONS_BY_AGE_BAND`, `DEFAULT_PAGE_COUNT_BY_AGE_BAND` ve
+`WORDS_PER_PAGE_BY_AGE_BAND` (packages/contract/src/story.ts). Sözleşme gövdesine
+`.refine()` KONULMAZ — `ZodEffects` ts-rest gövde çıkarımını ve OpenAPI üretimini bozar;
+kural veri olarak taşınır ve sunucu ile istemcide ayrı ayrı uygulanır.
 
 ### 5.4 Endpoint tablosu
 
@@ -1654,7 +1669,7 @@ Gerekçe: 24 = Lulu hardcover casewrap minimumu ve 12 spread ile tam örtüşüy
 3. HTML/CSS dizgi şablonu (packages/pdf/layout):
    · @page { size: 216mm 216mm; margin: 0 }  ← trim + 2×bleed
    · her spread ayrı @page, absolute-positioned katmanlar
-   · metin: 18–24 pt (3-5 yaş) / 16–20 pt (6-8), leading = punto + 4–6 pt
+   · metin: 28–34 pt (0-2 yaş, sayfada tek cümle) / 18–24 pt (3-5) / 16–20 pt (6-8), leading = punto + 4–6 pt
    · font: Andika (SIL, latin-ext ✓) varsayılan; Nunito / Lexend / OpenDyslexic alternatif
      ⚠️ tümü OFL, embed edilebilir; OpenDyslexic'in ğĞşŞİı glifleri TEST EDİLMELİ
    · Türkçe isim çekimleme packages/shared ile ("Elif'in", "Ahmet'in")
@@ -1834,7 +1849,7 @@ V01 Değer + A/B demo + güven şeridi · **V02 AYDINLATMA** (rıza kutusu yok) 
 Çocuk seçici → Tema → Kahraman & Karakter (**mevcut karakteri tekrar kullan** ⭐) → Sanat stili → İnce ayar (sayfa sayısı, değer, kültürel etiket, dini içerik opt-in **kapalı**) → Ses seçimi → Özet + kredi maliyeti
 
 **Oynatıcı & kitaplık (P01–P05, L01–L03) — F2**
-**P01 Oynatıcı** (tam ekran görsel, metin alt %25'te, **karaoke kelime vurgusu** — 3-5 yaş **kapalı** varsayılan / 6+ açık; `PlayerManifest.tokens` üzerinde ikili arama + rAF, ML yok, ağ yok, offline; otomatik sayfa çevirme; **uyku modu** — kademeli kararma, son 2 sayfada ses/tempo yumuşar, bitince otomatik durur) · P02 Metni düzenle · P03 Görseli yenile (talimatlı) · P04 Sesler · P05 Paylaş (MP4/PDF/QR)
+**P01 Oynatıcı** (tam ekran görsel, metin alt %25'te, **karaoke kelime vurgusu** — `0-2` ve `3-5` **kapalı** varsayılan / `6-8` açık; `PlayerManifest.tokens` üzerinde ikili arama + rAF, ML yok, ağ yok, offline; otomatik sayfa çevirme; **uyku modu** — kademeli kararma, son 2 sayfada ses/tempo yumuşar, bitince otomatik durur) · P02 Metni düzenle · P03 Görseli yenile (talimatlı) · P04 Sesler · P05 Paylaş (MP4/PDF/QR)
 L01 Kitaplık (kapak ızgarası, filtre çipleri, "3. sayfada kaldınız" devam kartı) · L02 Çocuk profili + seri · L03 Boş durum
 
 **Baskı (B01–B08) — F2**
@@ -2097,7 +2112,7 @@ Bu projeye özgü ve genelde göz ardı edilen risk. Kırılma biçimleri: FE aj
 ---
 
 ### İzlenen diğer riskler (top 6'ya girmedi ama takvimi bağlar)
-- **Karaoke hizalaması** — sağlayıcıların TR kelime timestamp'i doğrulanmadı. Üç kademeli düşüş sözleşmede tanımlı (`word → sentence → page → none`), WhisperX self-host fallback var, 3-5 yaşta vurgu zaten kapalı. Hafta 1'de 2 saatlik doğrulama görevi.
+- **Karaoke hizalaması** — sağlayıcıların TR kelime timestamp'i doğrulanmadı. Üç kademeli düşüş sözleşmede tanımlı (`word → sentence → page → none`), WhisperX self-host fallback var, `0-2` ve `3-5` bantlarında vurgu zaten kapalı. Hafta 1'de 2 saatlik doğrulama görevi.
 - **Model kuşakları 4–6 ayda değişiyor** → adapter + config'te model adı; kodda hardcode = lint hatası.
 - **Rakip KinderStory** aynı konsepti Türkiye'de iddia ediyor; **KidApp** aynı konseptle kapandı → ikisinin post-mortem'i ürün kararlarını etkiler.
 - **Keloğlan marka riski** — arketipi kullan, adı kullanma; TÜRKPATENT taraması.

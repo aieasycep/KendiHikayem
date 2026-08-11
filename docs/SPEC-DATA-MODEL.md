@@ -162,7 +162,7 @@ CREATE TABLE children (
   given_name          text NOT NULL,                   -- allowlist regex ile doğrulanır
   nickname            text,
   birth_year          int CHECK (birth_year BETWEEN 2005 AND 2035),  -- tam tarih TOPLANMAZ
-  age_band            text NOT NULL CHECK (age_band IN ('3-5','6-8','9-12')),
+  age_band            text NOT NULL CHECK (age_band IN ('0-2','3-5','6-8')),
   gender_presentation text CHECK (gender_presentation IN ('kiz','erkek','belirtilmemis')),
   interests           text[] NOT NULL DEFAULT '{}',    -- katalogdan, serbest metin değil
   default_character_id uuid,                           -- FK aşağıda
@@ -237,7 +237,7 @@ CREATE TABLE system_voices (
   provider          text NOT NULL,
   provider_voice_id text NOT NULL,
   sample_asset_id   uuid REFERENCES assets(id),
-  age_bands         text[] NOT NULL DEFAULT '{3-5,6-8,9-12}',
+  age_bands         text[] NOT NULL DEFAULT '{0-2,3-5,6-8}',
   sort_order        int NOT NULL DEFAULT 0,
   is_active         boolean NOT NULL DEFAULT true
 );
@@ -332,7 +332,7 @@ CREATE TABLE stories (
   user_id          uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   child_id         uuid REFERENCES children(id) ON DELETE SET NULL,
   title            text,
-  age_band         text NOT NULL CHECK (age_band IN ('3-5','6-8','9-12')),
+  age_band         text NOT NULL CHECK (age_band IN ('0-2','3-5','6-8')),
   theme_code       text REFERENCES story_themes(code),
   art_style_code   text NOT NULL REFERENCES art_styles(code),
   hero_name        text NOT NULL,

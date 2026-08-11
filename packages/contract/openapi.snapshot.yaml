@@ -1072,9 +1072,9 @@ paths:
                 ageBand:
                   type: string
                   enum:
+                    - "0-2"
                     - "3-5"
                     - "6-8"
-                    - "9-12"
                 birthYear:
                   type: integer
                   minimum: 2005
@@ -1212,9 +1212,9 @@ paths:
                 ageBand:
                   type: string
                   enum:
+                    - "0-2"
                     - "3-5"
                     - "6-8"
-                    - "9-12"
                 birthYear:
                   type: integer
                   minimum: 2005
@@ -1443,9 +1443,9 @@ paths:
           schema:
             type: string
             enum:
+              - "0-2"
               - "3-5"
               - "6-8"
-              - "9-12"
         - name: includeReligious
           in: query
           schema:
@@ -1481,9 +1481,9 @@ paths:
                           items:
                             type: string
                             enum:
+                              - "0-2"
                               - "3-5"
                               - "6-8"
-                              - "9-12"
                           minItems: 1
                         isReligious:
                           type: boolean
@@ -1691,9 +1691,9 @@ paths:
           schema:
             type: string
             enum:
+              - "0-2"
               - "3-5"
               - "6-8"
-              - "9-12"
       operationId: catalog.characterOptions
       responses:
         "200":
@@ -1859,9 +1859,9 @@ paths:
                           items:
                             type: string
                             enum:
+                              - "0-2"
                               - "3-5"
                               - "6-8"
-                              - "9-12"
                           minItems: 1
                       required:
                         - code
@@ -3461,9 +3461,9 @@ paths:
                 ageBand:
                   type: string
                   enum:
+                    - "0-2"
                     - "3-5"
                     - "6-8"
-                    - "9-12"
                 themeCode:
                   type: string
                   minLength: 1
@@ -3476,6 +3476,8 @@ paths:
                 pageCount:
                   type: number
                   enum:
+                    - 6
+                    - 8
                     - 12
                     - 14
                     - 16
@@ -3671,9 +3673,9 @@ paths:
                         ageBand:
                           type: string
                           enum:
+                            - "0-2"
                             - "3-5"
                             - "6-8"
-                            - "9-12"
                         status:
                           type: string
                           enum:
@@ -10475,9 +10477,9 @@ components:
         ageBand:
           type: string
           enum:
+            - "0-2"
             - "3-5"
             - "6-8"
-            - "9-12"
         birthYear:
           type: integer
           minimum: 2005
@@ -11125,9 +11127,9 @@ components:
         ageBand:
           type: string
           enum:
+            - "0-2"
             - "3-5"
             - "6-8"
-            - "9-12"
         themeCode:
           type: string
         artStyleCode:

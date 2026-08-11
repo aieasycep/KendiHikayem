@@ -9,15 +9,20 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import {
+  AGE_BANDS,
+  WORDS_PER_PAGE_BY_AGE_BAND,
   endpoints,
   jobSchema,
   meSchema,
   playerManifestSchema,
   storySchema,
   storySummarySchema,
+  storyThemeSchema,
   voiceScriptBundleSchema,
   type EndpointKey,
 } from '@kendihikayem/contract';
+
+import { READABILITY_TARGET_BY_AGE_BAND, readability } from '@kendihikayem/shared';
 
 import { handlers } from './handlers';
 import { IDS } from './fixtures';
@@ -63,12 +68,13 @@ describe('okuma uçları sözleşmeye uyar', () => {
     expect(() => meSchema.parse(body)).not.toThrow();
   });
 
-  it('GET /v1/stories → üç hikaye, üç farklı durum', async () => {
+  it('GET /v1/stories → dört hikaye, üç farklı durum', async () => {
     const res = await fetch(`${BASE}/v1/stories`, { headers: HEADERS });
     const body = (await res.json()) as { items: unknown[] };
-    expect(body.items).toHaveLength(3);
+    expect(body.items).toHaveLength(4);
     const summaries = body.items.map((item) => storySummarySchema.parse(item));
     expect(summaries.map((summary) => summary.status).sort()).toEqual([
+      'approved',
       'approved',
       'images_generating',
       'outline_ready',
@@ -310,6 +316,67 @@ describe('durum değişiklikleri', () => {
     expect(((await res.json()) as { field?: string }).field).toBe('givenName');
   });
 
+  /*
+   * ── `0-2` bandı ────────────────────────────────────────────────────────
+   *
+   * Bant enum'a eklenip içerik eklenmediğinde HİÇBİR ŞEY PATLAMAZ: tema
+   * filtresi boş dizi döner, ana sayfa öneri satırı sessizce boşalır ve kimse
+   * fark etmez. Aşağıdaki testler bu sessiz başarısızlığı gürültülü hale
+   * getirir.
+   */
+  it('her yaş bandı en az 3 tema görür — ana sayfa öneri satırı boşalmaz', async () => {
+    for (const band of AGE_BANDS) {
+      const res = await fetch(`${BASE}/v1/catalog/themes?ageBand=${band}`, { headers: HEADERS });
+      const body = (await res.json()) as { items: unknown[] };
+      const items = body.items.map((item) => storyThemeSchema.parse(item));
+      expect(items.length, `${band} bandında tema yok`).toBeGreaterThanOrEqual(3);
+      for (const theme of items) {
+        expect(theme.ageBands, `${theme.code} bandı taşımıyor`).toContain(band);
+      }
+    }
+  });
+
+  it('0-2 örnek kitabı 8 sayfa ve sayfaları tek cümlelik', async () => {
+    const res = await fetch(`${BASE}/v1/stories/${IDS.storyDenizNinni}`, { headers: HEADERS });
+    const story = storySchema.parse(await res.json());
+    expect(story.ageBand).toBe('0-2');
+    expect(story.pageCount).toBe(8);
+    expect(story.pages).toHaveLength(8);
+
+    const [min, max] = WORDS_PER_PAGE_BY_AGE_BAND['0-2'];
+    for (const page of story.pages) {
+      const words = (page.textTr ?? '').trim().split(/\s+/).length;
+      expect(words, `sayfa ${page.pageNo} kelime sayısı`).toBeGreaterThanOrEqual(min);
+      expect(words, `sayfa ${page.pageNo} kelime sayısı`).toBeLessThanOrEqual(max);
+    }
+  });
+
+  it('0-2 örnek kitabı bandın okunabilirlik hedefini tutturur', async () => {
+    const res = await fetch(`${BASE}/v1/stories/${IDS.storyDenizNinni}`, { headers: HEADERS });
+    const story = storySchema.parse(await res.json());
+    const target = READABILITY_TARGET_BY_AGE_BAND['0-2'];
+    for (const page of story.pages) {
+      const score = readability(page.textTr ?? '').score;
+      expect(score, `sayfa ${page.pageNo} Ateşman puanı`).toBeGreaterThanOrEqual(target);
+    }
+  });
+
+  it('0-2 için 12 sayfalık hikaye 422 ile reddedilir', async () => {
+    const res = await fetch(`${BASE}/v1/stories`, {
+      method: 'POST',
+      headers: writeHeaders('bebek-uzunluk'),
+      body: JSON.stringify({
+        hero: { name: 'Deniz', isChild: true },
+        ageBand: '0-2',
+        artStyleCode: 'pastel',
+        pageCount: 12,
+        characterBuilder: {},
+      }),
+    });
+    expect(res.status).toBe(422);
+    expect(((await res.json()) as { field?: string }).field).toBe('pageCount');
+  });
+
   it('geçerli çocuk profili eklenir ve listede görünür', async () => {
     const res = await fetch(`${BASE}/v1/children`, {
       method: 'POST',
@@ -320,7 +387,7 @@ describe('durum değişiklikleri', () => {
     const list = (await (await fetch(`${BASE}/v1/children`, { headers: HEADERS })).json()) as {
       items: unknown[];
     };
-    expect(list.items).toHaveLength(4);
+    expect(list.items).toHaveLength(5);
   });
 });
 
