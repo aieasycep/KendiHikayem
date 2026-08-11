@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   apk:
-    name: APK derle (release, debug keystore ile imzali)
+    name: APK derle (debug, JS paketi gomulu)
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -83,31 +83,32 @@ jobs:
           restore-keys: |
             gradle-${{ runner.os }}-
 
-      - name: 11) APK derle (assembleRelease)
-        # NEDEN assembleRelease, assembleDebug DEGIL:
+      - name: 11) APK derle (assembleDebug, JS paketi gomulu)
+        # NEDEN debug (ama JS paketi gomulu):
         #
-        # Debug APK, JS paketini ICINE GOMMEZ -- calisma aninda Metro gelistirme
-        # sunucusundan (localhost:8081) indirmeye calisir. Telefonda Metro olmadigi
-        # icin paket hic yuklenmiyor, React hic mount olmuyor ve uygulama splash
-        # ekraninda sonsuza kadar takili kaliyordu. Bu tam olarak yasanan hataydi.
-        # (Gommek icin `bundleInDebug` gerekir; Expo sablonu bunu ayarlamaz.)
+        # Varsayilan debug APK, JS paketini icine GOMMEZ -- calisma aninda Metro
+        # sunucusundan (localhost:8081) indirmeye calisir. Test edenin telefonunda
+        # Metro olmadigi icin paket hic yuklenmiyor, React hic mount olmuyor ve
+        # uygulama splash ekraninda sonsuza kadar takili kaliyordu.
+        # Cozum: apps/mobile/plugins/withBundleInDebug.js paketi APK'ya gomduruyor.
         #
-        # Release derlemesi paketi APK'ya gomer ve Expo sablonunda
-        # `release { signingConfig signingConfigs.debug }` tanimli oldugu icin
-        # android/app/debug.keystore ile IMZALANIR -- yani telefona dogrudan kurulur.
-        # Ek fayda: minify + kaynak kucultme ile APK belirgin sekilde kuculur.
+        # Release derlemesi de paketi gomer ve debug keystore ile imzalanir, ama
+        # bir JS hatasi olustugunda sureci sessizce oldurur ("uygulama surekli
+        # olarak duruyor") -- elimizde teshis edecek hicbir sey kalmaz. Debug
+        # derlemesi ayni hatayi EKRANDA, yigin izisiyle gosterir. Uygulama kararli
+        # sekilde acilana kadar teshis edilebilirlik boyuttan daha degerli.
         #
         # reactNativeArchitectures: yalnizca gercek telefonlarin mimarileri derlenir
         # (arm64-v8a = 2017 sonrasi her telefon, armeabi-v7a = eski 32-bit cihazlar).
         # x86/x86_64 (emulator) atlanir; derleme suresini yaklasik yariya indirir.
         # Emulatorde test etmek isterseniz listeye x86_64 ekleyin.
         working-directory: apps/mobile/android
-        run: ./gradlew assembleRelease --no-daemon --stacktrace -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+        run: ./gradlew assembleDebug --no-daemon --stacktrace -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
 
       - name: 12) APK'yi dogrula
         run: |
           set -euo pipefail
-          APK="apps/mobile/android/app/build/outputs/apk/release/app-release.apk"
+          APK="apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk"
           if [ ! -f "$APK" ]; then
             echo "::error::APK bulunamadi: $APK"
             exit 1
@@ -118,7 +119,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: kendihikayem-debug-apk
-          path: apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+          path: apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
           if-no-files-found: error
 
@@ -130,7 +131,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          APK="apps/mobile/android/app/build/outputs/apk/release/app-release.apk"
+          APK="apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk"
           cp "$APK" kendihikayem.apk
 
           TAG="apk-son"

@@ -32,6 +32,9 @@ const config: ExpoConfig = {
   },
   plugins: [
     'expo-router',
+    // Packs the JS bundle into debug APKs — without it a debug build looks for a
+    // Metro dev server that a tester's phone does not have. See the plugin file.
+    './plugins/withBundleInDebug.js',
     [
       'expo-splash-screen',
       {
