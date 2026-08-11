@@ -3,8 +3,11 @@
  *
  * Tasarım: 220×220, köşe 32, 160° koyu mor degrade (#2D1B69 → #7C5CBF), ortada
  * 88 punto emoji, mor parlak gölge. Sayfa görseli yüklenebilirse degradenin
- * üzerine oturur; yüklenemezse (mock CDN 404, imzalı URL süresi doldu) karo
- * zaten ekrandadır — kırık görsel ya da monogram YOK.
+ * üzerine oturur; yüklenemezse (imzalı URL süresi doldu, `medya_404` senaryosu)
+ * karo zaten ekrandadır — kırık görsel ya da monogram YOK.
+ *
+ * Demo derlemesinde sayfa görseli APK'ya gömülüdür: kullanıcı sayfaları
+ * çevirdikçe karoda o sayfanın kendi kompozisyonu belirir.
  */
 
 import { LinearGradient } from 'expo-linear-gradient';
@@ -13,6 +16,7 @@ import { useState, type ReactElement } from 'react';
 
 import { palette } from '@kendihikayem/ui';
 
+import { demoImageModule } from '../../lib/demoMedia';
 import { coverVisual } from '../library/cover';
 
 export interface NightCoverProps {
@@ -29,6 +33,8 @@ export interface NightCoverProps {
 export function NightCover({ seed, uri, localUri, altTr }: NightCoverProps): ReactElement {
   const [failedUris, setFailedUris] = useState<ReadonlySet<string>>(new Set());
   const [loadedUris, setLoadedUris] = useState<ReadonlySet<string>>(new Set());
+
+  const bundled = localUri === undefined ? demoImageModule(uri) : undefined;
 
   const candidates = [localUri, uri].filter(
     (value): value is string => value !== undefined && value.length > 0,
@@ -49,7 +55,9 @@ export function NightCover({ seed, uri, localUri, altTr }: NightCoverProps): Rea
         <RNText style={styles.emoji}>{emoji}</RNText>
       </LinearGradient>
 
-      {source !== undefined ? (
+      {bundled !== undefined ? (
+        <Image source={bundled} resizeMode="cover" style={StyleSheet.absoluteFill} />
+      ) : source !== undefined ? (
         <Image
           source={{ uri: source }}
           resizeMode="cover"

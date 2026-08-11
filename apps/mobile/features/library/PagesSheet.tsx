@@ -9,10 +9,33 @@
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import type { ReactElement } from 'react';
 
-import type { Story } from '@kendihikayem/contract';
+import type { ImageStatus, Story } from '@kendihikayem/contract';
 import { Badge, MediaImage, Row, Sheet, Text, useTheme } from '@kendihikayem/ui';
 
 import type { OfflineStoryMeta } from './offline';
+
+/**
+ * Görsel üretiminin AŞAMALI TESLİMİ burada görünür: aynı alt sayfayı açık
+ * tutarken sayfalar sırayla "Sırada" → "Çiziliyor" → görsel hâline geçer
+ * (istemci üretim sürerken hikayeyi 2.5 sn'de bir yeniler). `manual_review`
+ * ise bir kareyi insan kuyruğuna alır ve hikaye buna rağmen tamamlanır.
+ */
+function imageNoteTr(status: ImageStatus): string | undefined {
+  switch (status) {
+    case 'ready':
+      return undefined;
+    case 'generating':
+      return 'Çiziliyor…';
+    case 'qa_failed':
+      return 'Yeniden deneniyor';
+    case 'manual_review':
+      return 'Kontrolde';
+    case 'failed':
+      return 'Çizilemedi';
+    default:
+      return 'Sırada';
+  }
+}
 
 export interface PagesSheetProps {
   story: Story;
@@ -62,13 +85,7 @@ export function PagesSheet({
                     uri={page.image?.url}
                     localUri={offlineMeta?.files[`page-${page.pageNo}`]}
                     placeholderLabelTr={`${page.pageNo}`}
-                    placeholderNoteTr={
-                      page.imageStatus === 'manual_review'
-                        ? 'Kontrolde'
-                        : pageReady
-                          ? 'Hazırlanıyor'
-                          : 'Sırada'
-                    }
+                    placeholderNoteTr={imageNoteTr(page.imageStatus)}
                     aspectRatio={1}
                     altTr={`${page.pageNo}. sayfa`}
                   />

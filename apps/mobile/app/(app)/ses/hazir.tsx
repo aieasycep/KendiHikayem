@@ -1,4 +1,6 @@
 import { useAudioPlayer } from 'expo-audio';
+
+import { demoAudioSource } from '../../../lib/demoMedia';
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
@@ -36,7 +38,7 @@ export default function Hazir(): ReactNode {
   );
   const previewUrl = profile?.preview?.url;
 
-  const source = useMemo(() => (previewUrl !== undefined ? { uri: previewUrl } : null), [previewUrl]);
+  const source = useMemo(() => demoAudioSource(previewUrl), [previewUrl]);
   const player = useAudioPlayer(source);
 
   return (

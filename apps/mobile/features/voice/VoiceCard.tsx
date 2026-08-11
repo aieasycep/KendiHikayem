@@ -10,6 +10,8 @@
 
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAudioPlayer } from 'expo-audio';
+
+import { demoAudioSource } from '../../lib/demoMedia';
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -68,7 +70,7 @@ export function VoiceCard({
   const deleteProfile = useDeleteVoiceProfile();
 
   const source = useMemo(
-    () => (profile.preview !== undefined ? { uri: profile.preview.url } : null),
+    () => demoAudioSource(profile.preview?.url),
     [profile.preview],
   );
   const player = useAudioPlayer(source);

@@ -10,6 +10,10 @@
  */
 
 import './polyfills';
+/* Gömülü demo görselleri/sesi mock adreslerine bağlar ve tasarım sistemine
+ * çözücüyü kaydeder. Bu import'un yan etkisi ilk render'dan önce çalışmalıdır;
+ * _layout.tsx bu modülü zaten bekliyor. */
+import './demoMedia';
 
 import { isMockMode } from './api';
 

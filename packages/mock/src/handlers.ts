@@ -29,6 +29,7 @@ import {
   type EndpointKey,
   type ErrorCode,
   type IsoDate,
+  type Story,
 } from '@kendihikayem/contract';
 
 import {
@@ -56,9 +57,11 @@ import {
   VOICE_SCRIPT,
   buildPlayerManifest,
   legalDocument,
+  advanceGeneratingImages,
   mockAudio,
   mockUuid,
   nextMockUuid,
+  rewriteMediaForScenario,
 } from './fixtures';
 import { mockConfig, nextLatencyMs, shouldInjectNetworkError } from './scenarios';
 import { jobEventStream, sessionEventStream, sseDisabledResponse } from './sse';
@@ -76,8 +79,16 @@ async function readBody<T>(request: Request): Promise<T> {
   }
 }
 
+/**
+ * Tek JSON çıkış noktası. `rewriteMediaForScenario` BURADA uygulanır: `medya_404`
+ * senaryosu açıkken hangi ucun hangi alanında medya olduğunu bilmeye gerek
+ * kalmadan bütün gövde taranır ve demo adresleri ölü CDN'e çevrilir. Senaryo
+ * kapalıyken gövdeye dokunulmaz.
+ */
 function ok<T>(data: T, status = 200): Response {
-  return HttpResponse.json(data as DefaultBodyType, { status }) as unknown as Response;
+  return HttpResponse.json(rewriteMediaForScenario(data) as DefaultBodyType, {
+    status,
+  }) as unknown as Response;
 }
 
 function fail(code: ErrorCode, extra: Partial<ApiError> = {}): Response {
@@ -479,6 +490,7 @@ export const resolvers = {
     const onlyFavorites = url.searchParams.get('onlyFavorites') === 'true';
     const items = [...store().summaries.values()].filter((summary) => {
       const story = findStory(summary.id as string);
+      if (story) tickImageDelivery(story);
       if (childId && (story?.childId as string | undefined) !== childId) return false;
       if (status && summary.status !== status) return false;
       if (onlyFavorites && !summary.isFavorite) return false;
@@ -489,7 +501,9 @@ export const resolvers = {
 
   'stories.get': ({ params }) => {
     const story = findStory(param(params, 'storyId'));
-    return story ? ok(story) : fail('NOT_FOUND');
+    if (!story) return fail('NOT_FOUND');
+    tickImageDelivery(story);
+    return ok(story);
   },
 
   'stories.selectCharacterVariant': async ({ request, params }) => {
@@ -1057,6 +1071,19 @@ export const resolvers = {
       201,
     ),
 } satisfies Record<EndpointKey, Resolver>;
+
+/**
+ * Aşamalı teslim saati. Mock'un doğduğu andan bu yana geçen süreye göre
+ * `images_generating` hikayelerinin sayfa görsellerini ilerletir; hikaye
+ * gerçekten "hazırlanıyor → hazır" geçişini yaşar. `resetStore()` saati de
+ * sıfırlar, yani senaryo baştan izlenebilir.
+ */
+function tickImageDelivery(story: Story): void {
+  const state = store();
+  if (advanceGeneratingImages(story, Date.now() - state.startedAtMs, mockConfig().jobSpeed)) {
+    upsertStory(story);
+  }
+}
 
 /* ── İş tamamlandığında durum geçişleri ──────────────────────── */
 

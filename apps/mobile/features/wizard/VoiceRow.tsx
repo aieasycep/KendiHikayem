@@ -15,6 +15,8 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 
+import { demoAudioModule } from '../../lib/demoMedia';
+
 import { PlayIcon, Text, palette, useTheme } from '@kendihikayem/ui';
 
 /** Figma "Kişisel" rozeti: mercan metin, %12 mercan zemin, 6 yarıçap. */
@@ -37,7 +39,9 @@ function PreviewButton({
   selected: boolean;
 }): ReactNode {
   const { colors } = useTheme();
-  const player = useAudioPlayer(url);
+  /* Demo derlemesinde örnek APK'ya gömülüdür; yoksa uzak adres denenir. */
+  const demoModule = demoAudioModule(url);
+  const player = useAudioPlayer(demoModule ?? url);
   const status = useAudioPlayerStatus(player);
   const [dead, setDead] = useState(false);
   const failTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);

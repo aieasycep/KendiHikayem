@@ -8,6 +8,8 @@
 
 import { useRouter } from 'expo-router';
 import { useAudioPlayer } from 'expo-audio';
+
+import { demoAudioSource } from '../../lib/demoMedia';
 import { useMemo, useState, type ReactElement } from 'react';
 import { View } from 'react-native';
 
@@ -60,10 +62,7 @@ const REPORT_REASONS: Array<{ code: ReportReason; labelTr: string }> = [
 ];
 
 function PreviewButton({ profile }: { profile: VoiceProfile }): ReactElement | null {
-  const source = useMemo(
-    () => (profile.preview !== undefined ? { uri: profile.preview.url } : null),
-    [profile.preview],
-  );
+  const source = useMemo(() => demoAudioSource(profile.preview?.url), [profile.preview]);
   const player = useAudioPlayer(source);
   if (profile.preview === undefined) return null;
   return (

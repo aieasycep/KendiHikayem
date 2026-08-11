@@ -1,12 +1,14 @@
 /**
  * MediaImage — ağdan/diskteki görseli GÜVENLE gösteren bileşen.
  *
- * ⚠️ Mock fixture görselleri KASITLI olarak 404 döner (packages/mock/media.ts):
- * ekran, görsel yokken de güzel kalmak ZORUNDADIR. Gerçek üretimde de bir
- * sayfanın görseli `manual_review` kuyruğuna düşebilir ya da imzalı URL süresi
- * dolabilir.
+ * Ekran, görsel yokken de güzel kalmak ZORUNDADIR: üretimde bir sayfanın
+ * görseli `manual_review` kuyruğuna düşebilir, imzalı URL'in süresi dolabilir,
+ * cihaz çevrimdışı olabilir. Mock'ta bu yol `medya_404` senaryosuyla prova
+ * edilir (packages/mock/src/fixtures/media.ts).
  *
  * Davranış:
+ *   0. Adres uygulamanın GÖMÜLÜ varlıklarından birine karşılık geliyorsa
+ *      (bkz. mediaResolver.ts) doğrudan o basılır — ağ yok, hata yolu yok.
  *   1. `localUri` verilmişse önce o denenir (çevrimdışı öncelik), hata verirse
  *      uzak URL'e düşülür.
  *   2. Yüklenene kadar yumuşak nabızlı yer tutucu.
@@ -23,6 +25,7 @@ import { useState, type ReactElement } from 'react';
 import { useTheme } from '../theme';
 import { Skeleton } from '../primitives/Skeleton';
 import { Text } from '../primitives/Text';
+import { resolveLocalMedia } from './mediaResolver';
 
 export interface MediaImageProps {
   /** İmzalı uzak URL. */
@@ -54,6 +57,8 @@ export function MediaImage({
   const [failedUris, setFailedUris] = useState<ReadonlySet<string>>(new Set());
   const [loadedUris, setLoadedUris] = useState<ReadonlySet<string>>(new Set());
 
+  const bundled = localUri === undefined ? resolveLocalMedia(uri) : undefined;
+
   const candidates = [localUri, uri].filter(
     (value): value is string => value !== undefined && value.length > 0,
   );
@@ -63,6 +68,19 @@ export function MediaImage({
 
   const finalRadius = borderRadius ?? radius.cover;
   const monogram = (placeholderLabelTr ?? '·').trim().charAt(0).toLocaleUpperCase('tr-TR');
+
+  /* Gömülü varlık: ağ yok, yükleme titremesi yok, hata yolu yok. */
+  if (bundled !== undefined) {
+    return (
+      <View
+        accessibilityRole="image"
+        accessibilityLabel={altTr ?? placeholderLabelTr}
+        style={[{ aspectRatio, borderRadius: finalRadius, overflow: 'hidden' }, style]}
+      >
+        <Image source={bundled} resizeMode="cover" style={StyleSheet.absoluteFill} />
+      </View>
+    );
+  }
 
   return (
     <View

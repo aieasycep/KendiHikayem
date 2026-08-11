@@ -1,9 +1,14 @@
 /**
  * SamplePlayer — one-tap audio demo button (V01 A/B demo, V08 preview).
  *
- * Mock media URLs are dead by design (packages/mock ships no binaries), so the
- * failure path is first-class: after a timeout without loaded audio the button
- * flips into an honest "demo ortamında çalınamıyor" note instead of spinning.
+ * Demo derlemesinde örnek ses APK'ya GÖMÜLÜDÜR (lib/demoMedia.ts): düğmeye
+ * basınca gerçekten çalar. Çalan şey konuşma değil, kısa bir ninni parçasıdır
+ * ve alt satır bunu açıkça söyler — kullanıcı "bu benim sesim mi olacak?" diye
+ * tereddüt etmesin.
+ *
+ * Gömülü karşılığı olmayan adresler (canlı API, `medya_404` senaryosu) için
+ * hata yolu birinci sınıf kalır: ses belirli sürede yüklenmezse düğme dürüst
+ * bir nota dönüşür, sonsuza kadar dönmez.
  *
  * Tasarım dili: kart yüzeyi + daire içinde oynat düğmesi (Figma ses kartları).
  * Tema duyarlı — gece ekranlarında koyu yüzeyle çalışır.
@@ -16,6 +21,8 @@ import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 
 import { PlayIcon, Text, useTheme } from '@kendihikayem/ui';
 
+import { demoAudioModule } from '../../lib/demoMedia';
+
 export function SamplePlayer({
   labelTr,
   sublabelTr,
@@ -26,7 +33,8 @@ export function SamplePlayer({
   url: string;
 }): ReactNode {
   const { colors, radius, spacing } = useTheme();
-  const player = useAudioPlayer(url);
+  const demoModule = demoAudioModule(url);
+  const player = useAudioPlayer(demoModule ?? url);
   const status = useAudioPlayerStatus(player);
   const [failed, setFailed] = useState(false);
   const [attempted, setAttempted] = useState(false);
@@ -117,6 +125,11 @@ export function SamplePlayer({
         {sublabelTr !== undefined && (
           <Text variant="caption" tone="muted">
             {sublabelTr}
+          </Text>
+        )}
+        {demoModule !== undefined && (
+          <Text variant="caption" tone="muted">
+            🎵 Demo müzik — gerçek ses örneği Faz 2’de
           </Text>
         )}
         {attempted && !status.isLoaded && !status.playing && (

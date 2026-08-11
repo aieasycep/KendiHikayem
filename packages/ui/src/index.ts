@@ -83,6 +83,11 @@ export {
 
 // patterns
 export { MediaImage, type MediaImageProps } from './patterns/MediaImage';
+export {
+  registerLocalMediaResolver,
+  resolveLocalMedia,
+  type LocalMediaResolver,
+} from './patterns/mediaResolver';
 export { JobProgressCard, type JobProgressCardProps } from './patterns/JobProgressCard';
 export { NoticeBox, type NoticeBoxProps, type NoticeTone } from './patterns/NoticeBox';
 export { CheckRow, type CheckRowProps } from './patterns/CheckRow';

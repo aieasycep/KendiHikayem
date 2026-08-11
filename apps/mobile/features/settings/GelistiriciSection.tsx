@@ -19,6 +19,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Card, Chip, NoticeBox, Row, Text } from '@kendihikayem/ui';
 
 import { API_MODE, apiModeLabelTr } from '../../lib/api';
+import { DEMO_AUDIO_NOTE_TR, DEMO_IMAGE_NOTE_TR } from '../../lib/demoMedia';
 
 type ScenarioCode =
   | 'mutlu_yol'
@@ -27,7 +28,8 @@ type ScenarioCode =
   | 'saglayici_arizasi'
   | 'gurultulu_kayit'
   | 'maliyet_tavani'
-  | 'kararsiz_ag';
+  | 'kararsiz_ag'
+  | 'medya_404';
 
 const SCENARIOS: Array<{ code: ScenarioCode; labelTr: string }> = [
   { code: 'mutlu_yol', labelTr: 'Mutlu yol' },
@@ -37,6 +39,7 @@ const SCENARIOS: Array<{ code: ScenarioCode; labelTr: string }> = [
   { code: 'gurultulu_kayit', labelTr: 'Gürültülü kayıt' },
   { code: 'maliyet_tavani', labelTr: 'Maliyet tavanı' },
   { code: 'kararsiz_ag', labelTr: 'Kararsız ağ (503)' },
+  { code: 'medya_404', labelTr: 'Medya açılmıyor (404)' },
 ];
 
 const LATENCIES: Array<{ labelTr: string; value: number | [number, number] }> = [
@@ -88,6 +91,22 @@ export function GelistiriciSection(): ReactElement {
       />
 
       <Card>
+        <Text variant="bodyStrong">Demo medyası</Text>
+        <Text variant="caption" tone="muted">
+          {DEMO_IMAGE_NOTE_TR}
+        </Text>
+        <Text variant="caption" tone="muted">
+          {DEMO_AUDIO_NOTE_TR}
+        </Text>
+        <Text variant="caption" tone="muted">
+          Görseller ve ses uygulamanın içine gömülüdür; demo hiçbir şey indirmez.
+          Kırık medya durumunu görmek için aşağıdan “Medya açılmıyor (404)”
+          senaryosunu seçin: kapaklar yer tutucuya döner, oynatıcı sessiz okumaya
+          düşer.
+        </Text>
+      </Card>
+
+      <Card>
         <Text variant="bodyStrong">Senaryo</Text>
         <Row gap="sm" wrap>
           {SCENARIOS.map((item) => (
@@ -125,6 +144,8 @@ export function GelistiriciSection(): ReactElement {
         <Text variant="bodyStrong">Uzun iş hızı</Text>
         <Text variant="caption" tone="muted">
           Gerçek hızda iskelet ~18 sn, dolgu ~90 sn sürer; 12× demo için idealdir.
+          Aynı katsayı sayfa görsellerinin tek tek gelme hızını da belirler
+          (“Ahmet ve Kaybolan Deniz Feneri” hikayesinde izlenebilir).
         </Text>
         <Row gap="sm" wrap>
           {JOB_SPEEDS.map((item, index) => (

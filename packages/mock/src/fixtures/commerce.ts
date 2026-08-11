@@ -112,10 +112,13 @@ export const BOOK_BUILD: BookBuild = bookBuildSchema.parse({
   formatCode: 'kare21_24_sert',
   revision: 2,
   status: 'ready',
+  /* Yaprak görselleri sayfa görselleriyle AYNIDIR: baskı önizlemesi kitabın
+   * gerçekten basılacak karelerini gösterir, ayrı bir yer tutucu üretmez.
+   * (Demo derlemesinde bu adresler APK'ya gömülü dosyalara çözülür.) */
   spreads: Array.from({ length: 6 }, (_, index) => ({
     index,
-    left: mockImage(`build/spread-${index}-sol`, 1240, 1240),
-    right: mockImage(`build/spread-${index}-sag`, 1240, 1240),
+    left: mockImage(`story/elif/sayfa-${index * 2 + 1}`, 1240, 1240),
+    right: mockImage(`story/elif/sayfa-${index * 2 + 2}`, 1240, 1240),
   })),
   previewPdf: mockPdf('build/onizleme', 6_400_000),
   digitalPdf: mockPdf('build/dijital', 12_800_000),

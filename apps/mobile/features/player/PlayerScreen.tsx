@@ -67,6 +67,7 @@ import { useSaveProgress } from './hooks';
 import { ArrowLeftIcon } from '../library/icons';
 import { useStory, useToggleFavorite } from '../library/hooks';
 import { offlineAudio, offlinePageImage, type OfflineStoryMeta } from '../library/offline';
+import { DEMO_AUDIO_NOTE_TR, demoAudioModule } from '../../lib/demoMedia';
 
 /** "3:24" biçimli süre — tasarımdaki geçen/kalan süre satırı. */
 function fmtClock(ms: number): string {
@@ -170,10 +171,16 @@ function PlayerInner({
   const highlightPossible =
     canWordHighlight(manifest) || manifest.pages.some((p) => p.sentences.length > 0);
 
-  const audioUri = offlineAudio(offlineMeta) ?? (silentFallback ? undefined : manifest.audio.url);
+  /* Öncelik: cihaza indirilmiş kopya → pakete gömülü demo ninnisi → uzak adres. */
+  const offlineUri = offlineAudio(offlineMeta);
+  const remoteUri = silentFallback ? undefined : manifest.audio.url;
+  const demoModule = offlineUri === undefined ? demoAudioModule(remoteUri) : undefined;
+  const audioSource = offlineUri ?? demoModule ?? remoteUri;
+  /** Çalan şey konuşma değil, demo müziği — kullanıcı bunu bilmeli. */
+  const playingDemoMusic = demoModule !== undefined;
 
   const engine = usePlayerEngine({
-    audioUri,
+    audioSource,
     totalDurationMs: manifest.totalDurationMs,
     onEnded: () => {
       setFinished(true);
@@ -453,6 +460,11 @@ function PlayerInner({
             <View style={styles.silentBadge}>
               <Badge labelTr="Ses şu an açılamadı — sessiz okuma" tone="warning" icon="🔇" />
             </View>
+          ) : playingDemoMusic ? (
+            /* DÜRÜSTLÜK: çalan ses ebeveynin sesi değil, demo ninnisi. */
+            <View style={styles.silentBadge}>
+              <Badge labelTr="Demo müzik — gerçek seslendirme Faz 2’de" tone="accent" icon="🎵" />
+            </View>
           ) : null}
         </View>
 
@@ -681,6 +693,11 @@ function PlayerInner({
         }}
         titleTr="Oynatıcı menüsü"
       >
+        {playingDemoMusic ? (
+          <Text variant="caption" tone="muted">
+            {DEMO_AUDIO_NOTE_TR}
+          </Text>
+        ) : null}
         <Button
           label={highlightOn ? 'Kelime vurgusunu kapat' : 'Kelime vurgusunu aç'}
           variant="secondary"

@@ -328,6 +328,79 @@ export const DENIZ_STORY: Story = storySchema.parse({
   readyAt: '2026-08-09T20:27:00Z',
 });
 
+/* ── Aşamalı teslim: görseller ZAMANLA gelir ─────────────────── */
+
+/**
+ * Bir sayfanın görselinin hazırlanması mock'ta bu kadar sürer (gerçekte sayfa
+ * başına ~20-30 sn). `jobSpeed` ile bölünür: geliştirici bölümündeki "50×" çipi
+ * akışı anlık hâle getirir, "Gerçek hız" ise gerçek bekleme hissini verir.
+ */
+export const DEMO_IMAGE_STEP_MS = 18_000;
+
+/**
+ * Otomatik QA'yı iki kez geçemeyip `manual_review` kuyruğuna düşen sayfa.
+ *
+ * SPEC §8: böyle bir sayfa hikayeyi DURDURMAZ — kitap yine tamamlanır, o tek
+ * kare insana gider. Demo'nun görevi ekranın bunu gösterebildiğini kanıtlamak.
+ */
+const MANUAL_REVIEW_PAGE_NO = 9;
+
+/** Ahmet fixture'ının başlangıçta hazır olan sayfa sayısı. */
+const INITIAL_READY_PAGES = 4;
+
+/** Bütün sayfalar bittiğinde yazılan `readyAt` (mock'un donmuş zamanı). */
+const DEMO_READY_AT = '2026-08-10T19:34:00Z';
+
+/**
+ * `images_generating` durumundaki bir hikayenin sayfa görsellerini geçen süreye
+ * göre ilerletir: pending → generating → ready. Hepsi bitince hikaye `ready`
+ * olur ve aktif iş listesi boşalır.
+ *
+ * Mock'ta arka plan işçisi yoktur; hikayeyi OKUYAN istek onu ilerletir
+ * (store.ts'deki `applyJobSideEffects` ile aynı disiplin). İstemci üretim
+ * sürerken zaten 2.5 sn'de bir `GET /v1/stories/:id` yapıyor, yani aşamalı
+ * teslim ekranda kendiliğinden akar: "4 / 12 sayfa hazır" → "5 / 12" → ...
+ *
+ * Saf DEĞİLDİR: `story`yi yerinde günceller, değişiklik olduysa `true` döner.
+ */
+export function advanceGeneratingImages(story: Story, elapsedMs: number, speed: number): boolean {
+  if (story.status !== 'images_generating') return false;
+
+  const steps = Math.floor((elapsedMs * Math.max(1, speed)) / DEMO_IMAGE_STEP_MS);
+  const readyUpTo = Math.min(story.pageCount, INITIAL_READY_PAGES + steps);
+  const slug = story.heroName.toLocaleLowerCase('tr-TR');
+
+  let changed = false;
+  story.pages = story.pages.map((page) => {
+    const next = advancePage(page, readyUpTo, slug);
+    if (next.imageStatus !== page.imageStatus) changed = true;
+    return next;
+  });
+
+  if (readyUpTo >= story.pageCount) {
+    story.status = 'ready';
+    story.activeJobs = [];
+    story.readyAt = (story.readyAt ?? DEMO_READY_AT) as Story['readyAt'];
+    changed = true;
+  }
+  return changed;
+}
+
+function advancePage(page: StoryPage, readyUpTo: number, slug: string): StoryPage {
+  if (page.pageNo === MANUAL_REVIEW_PAGE_NO && page.pageNo <= readyUpTo) {
+    /* QA iki kez düştü: görsel YOK, kare insan kuyruğunda — hikaye durmuyor. */
+    return { ...page, image: undefined, imageStatus: 'manual_review' };
+  }
+  if (page.pageNo <= readyUpTo) {
+    return {
+      ...page,
+      image: page.image ?? mockImage(`story/${slug}/sayfa-${page.pageNo}`, 2048, 2048),
+      imageStatus: 'ready',
+    };
+  }
+  return { ...page, imageStatus: page.pageNo === readyUpTo + 1 ? 'generating' : 'pending' };
+}
+
 export const STORIES: Story[] = [ELIF_STORY, AHMET_STORY, ZEYNEP_STORY, DENIZ_STORY];
 
 export const STORY_SUMMARIES: StorySummary[] = [

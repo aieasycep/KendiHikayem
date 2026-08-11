@@ -79,6 +79,12 @@ export interface MockState {
   takeAttempts: Map<string, number>;
   idempotency: Map<string, IdempotencyRecord>;
   eventSeq: number;
+  /**
+   * Mock'un doğduğu an. Aşamalı görsel teslimi buna göre ilerler
+   * (fixtures/story.ts → `advanceGeneratingImages`). `resetStore()` bunu da
+   * sıfırlar; senaryo baştan izlenebilsin.
+   */
+  startedAtMs: number;
 }
 
 const DEFAULT_READING_PREFERENCES: ReadingPreferences = {
@@ -108,6 +114,7 @@ function seed(): MockState {
     takeAttempts: new Map(),
     idempotency: new Map(),
     eventSeq: 0,
+    startedAtMs: Date.now(),
   };
 }
 

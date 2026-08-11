@@ -5,10 +5,13 @@
  *  - 'audio'  → expo-audio çalar; saat, oynatıcının 250 ms'lik durum güncellemeleri
  *               arasında performance.now() ile ENTERPOLE edilir (karaoke kelime
  *               sınırları 250 ms'ten incedir).
- *  - 'silent' → ses dosyası yüklenemedi (mock CDN 404 verir, gerçekte de imzalı
- *               URL süresi dolabilir) YA DA hikayenin sesi hiç yok. Saat sanal
- *               akar: vurgu, otomatik sayfa çevirme ve uyku modu SESSİZ de çalışır.
- *               "Ses opsiyonel" (SPEC §11.0) burada gerçekleşir.
+ *  - 'silent' → ses dosyası yüklenemedi (imzalı URL'in süresi doldu, cihaz
+ *               çevrimdışı, `medya_404` senaryosu) YA DA hikayenin sesi hiç yok.
+ *               Saat sanal akar: vurgu, otomatik sayfa çevirme ve uyku modu
+ *               SESSİZ de çalışır. "Ses opsiyonel" (SPEC §11.0) burada gerçekleşir.
+ *
+ * Kaynak `string` (uzak/yerel adres) ya da `number` (pakete gömülü dosyanın
+ * `require()` numarası) olabilir; demo derlemesinde ninni müziği ikinciden gelir.
  *
  * Ekran hiçbir zaman "ses yüklenemedi" diye bloklanmaz; en kötü durumda sessiz
  * okuma moduna düşer ve bunu küçük bir rozetle söyler.
@@ -50,21 +53,27 @@ interface ClockRef {
 const AUDIO_LOAD_TIMEOUT_MS = 6_000;
 
 export function usePlayerEngine(options: {
-  /** Yerel (indirilmiş) ya da uzak ses adresi. undefined → doğrudan sessiz mod. */
-  audioUri: string | undefined;
+  /**
+   * Ses kaynağı: yerel/uzak adres (string) ya da pakete gömülü dosyanın
+   * `require()` numarası. undefined → doğrudan sessiz mod.
+   */
+  audioSource: string | number | undefined;
   totalDurationMs: number;
   /** Bittiğinde çağrılır (uyku modu: otomatik durur). */
   onEnded?: () => void;
 }): PlayerEngine {
-  const { audioUri, totalDurationMs, onEnded } = options;
+  const { audioSource, totalDurationMs, onEnded } = options;
 
   const player = useAudioPlayer(
-    useMemo(() => (audioUri !== undefined ? { uri: audioUri } : null), [audioUri]),
+    useMemo(() => {
+      if (audioSource === undefined) return null;
+      return typeof audioSource === 'number' ? audioSource : { uri: audioSource };
+    }, [audioSource]),
     { updateInterval: 250 },
   );
   const status = useAudioPlayerStatus(player);
 
-  const [mode, setMode] = useState<EngineMode>(audioUri === undefined ? 'silent' : 'audio');
+  const [mode, setMode] = useState<EngineMode>(audioSource === undefined ? 'silent' : 'audio');
   const [playing, setPlaying] = useState(false);
   const [ended, setEnded] = useState(false);
 
@@ -82,7 +91,7 @@ export function usePlayerEngine(options: {
 
   // Ses belirli sürede yüklenmezse sessiz moda geç.
   useEffect(() => {
-    if (audioUri === undefined) {
+    if (audioSource === undefined) {
       setMode('silent');
       return;
     }
@@ -94,7 +103,7 @@ export function usePlayerEngine(options: {
       clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [audioUri]);
+  }, [audioSource]);
 
   const audioReady = mode === 'audio' && status.isLoaded;
 

@@ -25,7 +25,13 @@ import {
 import { READABILITY_TARGET_BY_AGE_BAND, readability } from '@kendihikayem/shared';
 
 import { handlers } from './handlers';
-import { IDS } from './fixtures';
+import {
+  DEAD_CDN,
+  DEMO_IMAGE_STEP_MS,
+  DEMO_MEDIA_BASE,
+  IDS,
+  SAMPLE_STORY_DURATION_MS,
+} from './fixtures';
 import { configureMock, resetMockConfig } from './scenarios';
 import { resetStore, store } from './store';
 import { setupMockServer } from './node';
@@ -418,5 +424,91 @@ describe('kapsam denetimi', () => {
       const res = await fetch(`${BASE}${path}`, { headers: HEADERS });
       expect(res.status, `${key} → ${path}`).toBeLessThan(500);
     }
+  });
+});
+
+describe('demo medyası', () => {
+  /**
+   * ⚠️ KASITLI KİLİT. `apps/mobile/assets/demo/ninni-masal.mp3` TAM bu süreye
+   * göre üretildi; karaoke vurgusu, ilerleme çubuğu ve uyku modu buna dayanıyor.
+   * Örnek masalın metni değişirse bu test kırılır — o zaman
+   * `python3 apps/mobile/assets/demo/generate_audio.py` ile ses yeniden
+   * üretilmeli (STORY_MS sabiti güncellenerek).
+   */
+  it('örnek masalın süresi gömülü ses dosyasıyla aynı', () => {
+    expect(SAMPLE_STORY_DURATION_MS).toBe(330_470);
+  });
+
+  it('varsayılan: görsel ve ses adresleri gömülü demo tabanını gösterir', async () => {
+    const story = storySchema.parse(
+      await (await fetch(`${BASE}/v1/stories/${IDS.storyElifIsik}`, { headers: HEADERS })).json(),
+    );
+    expect(story.cover?.url.startsWith(DEMO_MEDIA_BASE)).toBe(true);
+    expect(story.pages[0]?.image?.url).toBe(`${DEMO_MEDIA_BASE}/img/story/elif/sayfa-1.webp`);
+
+    const manifest = playerManifestSchema.parse(
+      await (
+        await fetch(`${BASE}/v1/stories/${IDS.storyElifIsik}/player?renditionId=${IDS.renditionAnne}`, {
+          headers: HEADERS,
+        })
+      ).json(),
+    );
+    expect(manifest.audio.url).toBe(`${DEMO_MEDIA_BASE}/audio/story/elif/anne.mp3`);
+    expect(manifest.audio.mimeType).toBe('audio/mpeg');
+    /* Karaoke senkronu: gömülü dosya TAM bu süreye göre üretildi. */
+    expect(manifest.totalDurationMs).toBe(SAMPLE_STORY_DURATION_MS);
+    expect(manifest.audio.durationMs).toBe(SAMPLE_STORY_DURATION_MS);
+  });
+
+  it('`medya_404` senaryosu bütün medya adreslerini ölü CDN’e çevirir', async () => {
+    configureMock({ scenario: 'medya_404' });
+    const story = storySchema.parse(
+      await (await fetch(`${BASE}/v1/stories/${IDS.storyElifIsik}`, { headers: HEADERS })).json(),
+    );
+    expect(story.cover?.url.startsWith(DEAD_CDN)).toBe(true);
+    expect(story.pages.every((page) => page.image === undefined || page.image.url.startsWith(DEAD_CDN))).toBe(
+      true,
+    );
+
+    const manifest = playerManifestSchema.parse(
+      await (
+        await fetch(`${BASE}/v1/stories/${IDS.storyElifIsik}/player?renditionId=${IDS.renditionAnne}`, {
+          headers: HEADERS,
+        })
+      ).json(),
+    );
+    expect(manifest.audio.url.startsWith(DEAD_CDN)).toBe(true);
+    /* Adresler ölse de zaman çizelgesi DEĞİŞMEZ: sessiz okuma aynı ritimde akar. */
+    expect(manifest.totalDurationMs).toBe(SAMPLE_STORY_DURATION_MS);
+  });
+});
+
+describe('aşamalı görsel teslimi', () => {
+  it('sayfalar sırayla hazırlanıyor → hazır geçer, biten hikaye `ready` olur', async () => {
+    const url = `${BASE}/v1/stories/${IDS.storyAhmetDeniz}`;
+
+    const start = storySchema.parse(await (await fetch(url, { headers: HEADERS })).json());
+    expect(start.status).toBe('images_generating');
+    expect(start.pages.filter((page) => page.imageStatus === 'ready')).toHaveLength(4);
+    expect(start.pages.find((page) => page.pageNo === 5)?.imageStatus).toBe('generating');
+
+    /* Saati geriye alarak "iki sayfalık süre geçmiş" durumunu kur. */
+    store().startedAtMs = Date.now() - (2 * DEMO_IMAGE_STEP_MS) / 12;
+    configureMock({ jobSpeed: 12 });
+    const mid = storySchema.parse(await (await fetch(url, { headers: HEADERS })).json());
+    expect(mid.pages.filter((page) => page.imageStatus === 'ready')).toHaveLength(6);
+    expect(mid.pages.find((page) => page.pageNo === 7)?.imageStatus).toBe('generating');
+    expect(mid.status).toBe('images_generating');
+
+    /* Hepsi bitsin. */
+    store().startedAtMs = Date.now() - (20 * DEMO_IMAGE_STEP_MS) / 12;
+    const done = storySchema.parse(await (await fetch(url, { headers: HEADERS })).json());
+    expect(done.status).toBe('ready');
+    expect(done.activeJobs).toHaveLength(0);
+    /* QA'yı geçemeyen tek kare insan kuyruğunda; hikaye buna rağmen tamamlandı. */
+    const review = done.pages.find((page) => page.imageStatus === 'manual_review');
+    expect(review?.pageNo).toBe(9);
+    expect(review?.image).toBeUndefined();
+    expect(done.pages.filter((page) => page.imageStatus === 'ready')).toHaveLength(11);
   });
 });

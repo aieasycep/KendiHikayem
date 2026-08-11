@@ -1,11 +1,14 @@
 /**
  * cover.tsx — kapak görselleri için ortak dil (kitaplık + hikaye detayı).
  *
- * Fixture kapak URL'leri KASITLI 404 döner; gerçek üründe de imzalı URL süresi
- * dolabilir. Ana sayfanın kurduğu kalıp burada da sürer: kapak, dekoratif bir
- * pastel zemin + emoji ile TEMSİL edilir (Figma `cover: "#D4C8F0"` + `emoji: "⭐"`
- * yaklaşımı). Gerçek görsel yüklenebilirse pastelin ÜZERİNE oturur — çevrimdışı
- * indirilen kapaklar böylece görünmeye devam eder.
+ * Kapak her zaman dekoratif bir pastel zemin + emoji ile TEMSİL edilir (Figma
+ * `cover: "#D4C8F0"` + `emoji: "⭐"` yaklaşımı); gerçek görsel yüklenebilirse
+ * pastelin ÜZERİNE oturur. Böylece kapak yüklenemediğinde (imzalı URL'in süresi
+ * doldu, cihaz çevrimdışı, `medya_404` senaryosu) ekran kırık görsel değil,
+ * zaten oradaki pasteli gösterir.
+ *
+ * Demo derlemesinde kapak adresi APK'ya gömülü bir dosyaya çözülür
+ * (lib/demoMedia.ts) — o durumda ağ hiç denenmez.
  *
  * Renk/emoji seçimi hikaye kimliğinden türetilir (küçük karma): aynı masal,
  * filtre değişince ya da listede yer değiştirince kapağını DEĞİŞTİRMEZ.
@@ -23,6 +26,8 @@ import {
 import { useState, type ReactElement } from 'react';
 
 import { palette } from '@kendihikayem/ui';
+
+import { demoImageModule } from '../../lib/demoMedia';
 
 /** Ana sayfayla aynı pastel seti (base ajanın kalıbı). */
 const COVER_TINTS = [
@@ -90,6 +95,9 @@ export function CoverArt({
   const [failedUris, setFailedUris] = useState<ReadonlySet<string>>(new Set());
   const [loadedUris, setLoadedUris] = useState<ReadonlySet<string>>(new Set());
 
+  /* Gömülü demo kapağı varsa ağ hiç denenmez (indirilmiş kopya yine öncelikli). */
+  const bundled = localUri === undefined ? demoImageModule(uri) : undefined;
+
   const candidates = [localUri, uri].filter(
     (value): value is string => value !== undefined && value.length > 0,
   );
@@ -110,7 +118,9 @@ export function CoverArt({
       ]}
     >
       <RNText style={emojiStyle}>{emoji ?? visual.emoji}</RNText>
-      {source !== undefined ? (
+      {bundled !== undefined ? (
+        <Image source={bundled} resizeMode="cover" style={StyleSheet.absoluteFill} />
+      ) : source !== undefined ? (
         <Image
           source={{ uri: source }}
           resizeMode="cover"
