@@ -21,6 +21,28 @@ jobs:
     env:
       API_MODE: mock
       CI: '1'
+      # apps/api and packages/db integration tests run against a real database on
+      # purpose: the cost-reservation lock and the CHECK constraints are the whole
+      # point, and neither one can be exercised against a mock. The URL matches
+      # .env.example and infra/docker/compose.yml byte for byte.
+      DATABASE_URL: postgresql://kendihikayem:kendihikayem@localhost:5432/kendihikayem
+
+    # A service container gives those tests a real PostgreSQL 16. Without it the
+    # suite fails on ECONNREFUSED, which is what turned CI red.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: kendihikayem
+          POSTGRES_PASSWORD: kendihikayem
+          POSTGRES_DB: kendihikayem
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kendihikayem"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - name: 1) Depoyu indir
@@ -47,5 +69,8 @@ jobs:
       - name: 6) Lint (mimari sinir kurallari dahil)
         run: pnpm -w lint
 
-      - name: 7) Testler
+      - name: 7) Veritabani semasini kur (migration'lar)
+        run: pnpm --filter @kendihikayem/db db:migrate
+
+      - name: 8) Testler
         run: pnpm -w test
