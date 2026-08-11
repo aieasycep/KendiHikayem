@@ -1,0 +1,10 @@
+{
+  "status": "failure",
+  "errorCode": "10051",
+  "errorMessage": "Kartın limiti yeterli değil",
+  "locale": "tr",
+  "conversationId": "pay_2f6b1d0f4c8a4b1e9d3c7a5b8e0f1234",
+  "paymentStatus": "FAILURE",
+  "basketId": "5f2b4d4c-9d1a-4a3e-8b7c-1d2e3f4a5b6c",
+  "price": "968.00"
+}

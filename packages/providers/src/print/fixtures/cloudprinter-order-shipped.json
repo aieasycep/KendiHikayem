@@ -1,0 +1,11 @@
+{
+  "order": {
+    "reference": "KH-2026-000001",
+    "status": "shipped",
+    "tracking": {
+      "carrier": "Yurtiçi Kargo",
+      "number": "1234567890123",
+      "url": "https://www.yurticikargo.com/tr/online-servisler/gonderi-sorgula?code=1234567890123"
+    }
+  }
+}

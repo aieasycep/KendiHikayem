@@ -1,0 +1,10 @@
+{
+  "status": "success",
+  "locale": "tr",
+  "systemTime": 1786512000000,
+  "conversationId": "pay_2f6b1d0f4c8a4b1e9d3c7a5b8e0f1234",
+  "token": "d9f1c0a2-6c1e-4b6e-9c1a-2f7c9e8b1a34",
+  "checkoutFormContent": "<script type=\"text/javascript\">…</script>",
+  "paymentPageUrl": "https://sandbox-cpp.iyzipay.com/?token=d9f1c0a2-6c1e-4b6e-9c1a-2f7c9e8b1a34",
+  "tokenExpireTime": 1800
+}

@@ -30,6 +30,7 @@ export * from './layout/engine';
 export * from './qr/token';
 export * from './qr/matrix';
 export * from './images/source';
+export * from './images/media';
 export * from './render/color';
 export * from './render/pdf';
 export * from './preflight/index';

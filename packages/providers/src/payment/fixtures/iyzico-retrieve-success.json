@@ -1,0 +1,20 @@
+{
+  "status": "success",
+  "locale": "tr",
+  "conversationId": "pay_2f6b1d0f4c8a4b1e9d3c7a5b8e0f1234",
+  "paymentId": "21504678",
+  "paymentStatus": "SUCCESS",
+  "price": "968.00",
+  "paidPrice": "968.00",
+  "currency": "TRY",
+  "installment": 3,
+  "basketId": "5f2b4d4c-9d1a-4a3e-8b7c-1d2e3f4a5b6c",
+  "binNumber": "552879",
+  "lastFourDigits": "0008",
+  "cardType": "CREDIT_CARD",
+  "cardAssociation": "MASTER_CARD",
+  "itemTransactions": [
+    { "itemId": "kitap", "paidPrice": "899.00", "paymentTransactionId": "24009321" },
+    { "itemId": "kargo", "paidPrice": "69.00", "paymentTransactionId": "24009322" }
+  ]
+}
