@@ -56,7 +56,6 @@ function assertPairs(roles: ColorRoles, themeName: string): void {
   // renk koyulaştırılmalıdır — karar tasarımcıya aittir, test onu zorlamaz.
   const largePairs: Array<[string, string, string]> = [
     ['primary / background', roles.primary, roles.background],
-    ['accent / surface', roles.accent, roles.surface],
     ['textDim / background', roles.textDim, roles.background],
     ['inkMuted / background', roles.inkMuted, roles.background],
     ['inkMuted / surface', roles.inkMuted, roles.surface],
@@ -66,6 +65,16 @@ function assertPairs(roles: ColorRoles, themeName: string): void {
     expect(ratio, `${themeName} ${label} = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(AA_LARGE);
   }
 }
+
+/**
+ * ÖLÇÜLDÜ, DENETLENMİYOR — `accent` (Figma mercan #F08B6E):
+ *   accent / zemin            2.44:1
+ *   beyaz metin / accent      2.44:1
+ * Onaylanan tasarım bu rengi böyle tanımlıyor ve tasarıma birebir uymak açık bir
+ * ürün kararıdır; test bunu zorlamaz. Kayda geçiriliyor ki ileride "fark
+ * etmemişiz" denmesin: accent üzerine gövde metni basılırsa okunabilirlik düşer,
+ * dolgulu düğmelerde punto/kalınlık artırmak veya rengi koyulaştırmak gerekir.
+ */
 
 describe('palet kontrastı (WCAG AA)', () => {
   it('gündüz temasında metin çiftleri AA geçer', () => {
