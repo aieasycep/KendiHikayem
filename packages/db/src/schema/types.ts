@@ -92,7 +92,14 @@ export const CONSENT_SUBJECT = [
 ] as const;
 export const CONSENT_METHOD = ['checkbox', 'voice', 'payment', 'implicit_view'] as const;
 
-export const AGE_BAND = ['3-5', '6-8', '9-12'] as const;
+/**
+ * Bands run from birth to the end of early reading. `0-2` is a different product
+ * shape rather than one more band — a 12-page reading text is meaningless for a
+ * toddler — so page counts and readability targets narrow for it (see
+ * `PAGE_COUNT_OPTIONS_BY_AGE_BAND` in @kendihikayem/contract). Kept in lockstep
+ * with `ageBandSchema`; the CHECK constraints below are generated from this list.
+ */
+export const AGE_BAND = ['0-2', '3-5', '6-8'] as const;
 export const GENDER_PRESENTATION = ['kiz', 'erkek', 'belirtilmemis'] as const;
 
 export const CHARACTER_BUILDER_FIELD = [

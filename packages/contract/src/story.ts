@@ -22,6 +22,7 @@ import {
   ageBandSchema,
   c,
   childIdSchema,
+  type AgeBand,
   commonErrorResponses,
   costPreviewSchema,
   freeIdeaSchema,
@@ -58,8 +59,59 @@ export const storyStatusSchema = z.enum([
 ]);
 export type StoryStatus = z.infer<typeof storyStatusSchema>;
 
-export const pageCountSchema = z.union([z.literal(12), z.literal(14), z.literal(16)]);
+/**
+ * Sayfa (spread) sayısı. 6 ve 8, `0-2` bandı için eklenmiştir: bebek/yürüme
+ * çağında 12 sayfalık okuma metni anlamsızdır — kitap tek oturuşta, tekrarlı ve
+ * çok kısa olmalıdır. 12/14/16 okuyan bantların (3-5, 6-8) seçenekleridir.
+ */
+export const pageCountSchema = z.union([
+  z.literal(6),
+  z.literal(8),
+  z.literal(12),
+  z.literal(14),
+  z.literal(16),
+]);
 export type PageCount = z.infer<typeof pageCountSchema>;
+
+/**
+ * Yaş bandına göre İZİN VERİLEN uzunluklar. Sunucu `stories.create` gövdesini
+ * bu tabloya göre reddeder (`422 VALIDATION_FAILED`); istemci de uzunluk
+ * adımında yalnızca bu seçenekleri gösterir. Sözleşme gövdesine `.refine()`
+ * eklenmedi — `ZodEffects` ts-rest'in gövde çıkarımını ve OpenAPI üretimini
+ * bozar; kural bu yüzden veri olarak taşınır ve iki tarafta da uygulanır.
+ */
+export const PAGE_COUNT_OPTIONS_BY_AGE_BAND: Record<AgeBand, readonly PageCount[]> = {
+  '0-2': [6, 8],
+  '3-5': [12, 14, 16],
+  '6-8': [12, 14, 16],
+};
+
+/** Sihirbaz bir banda geçtiğinde taslağa yazılan uzunluk. */
+export const DEFAULT_PAGE_COUNT_BY_AGE_BAND: Record<AgeBand, PageCount> = {
+  '0-2': 8,
+  '3-5': 12,
+  '6-8': 12,
+};
+
+/**
+ * Sayfa başına hedef TR kelime aralığı — üretim prompt'unun ve editoryal QA'nın
+ * girdisi. `0-2` için tek cümlelik sayfa: 6-14 kelime.
+ */
+export const WORDS_PER_PAGE_BY_AGE_BAND: Record<AgeBand, readonly [number, number]> = {
+  '0-2': [6, 14],
+  '3-5': [25, 45],
+  '6-8': [40, 70],
+};
+
+export function isPageCountAllowed(ageBand: AgeBand, pageCount: number): boolean {
+  return (PAGE_COUNT_OPTIONS_BY_AGE_BAND[ageBand] as readonly number[]).includes(pageCount);
+}
+
+/** Bant değiştiğinde geçersiz kalan uzunluğu en yakın geçerli seçeneğe çeker. */
+export function clampPageCount(ageBand: AgeBand, pageCount: number): PageCount {
+  if (isPageCountAllowed(ageBand, pageCount)) return pageCount as PageCount;
+  return DEFAULT_PAGE_COUNT_BY_AGE_BAND[ageBand];
+}
 
 export const safeZoneSchema = z.enum(['bottom', 'top', 'left', 'right']);
 
@@ -188,6 +240,10 @@ export const createStoryReqSchema = z.object({
   /** ≤200 karakter. Model tarafında SALT VERİ olarak işaretlenir (spotlighting). */
   freeIdeaTr: freeIdeaSchema.optional(),
   artStyleCode: z.string().min(1),
+  /**
+   * ⚠️ Bandına göre kısıtlıdır: `PAGE_COUNT_OPTIONS_BY_AGE_BAND[ageBand]` dışında
+   * bir değer `422 VALIDATION_FAILED` döner (ör. `0-2` için 12 sayfa reddedilir).
+   */
   pageCount: pageCountSchema,
   /** { ten_tonu: 'acik_bugday', sac: 'dalgali_koyu_kahve', ... } — FOTOĞRAF YOK. */
   characterBuilder: z.record(z.string().min(1)),

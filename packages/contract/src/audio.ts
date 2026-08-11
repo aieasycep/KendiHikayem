@@ -134,7 +134,7 @@ export const playerManifestSchema = z.object({
   }),
   typography: typographySchema,
   bedtimeMode: bedtimeModeSchema,
-  /** 3-5 yaş için varsayılan KAPALI, 6+ için açık. */
+  /** `0-2` ve `3-5` bantlarında varsayılan KAPALI, `6-8` için açık. */
   wordHighlightDefault: z.boolean(),
   /** Kullanıcının kaldığı yer (L01 devam kartı ve P01 açılışı). */
   resume: z

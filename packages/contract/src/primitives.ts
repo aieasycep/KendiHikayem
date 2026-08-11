@@ -77,8 +77,28 @@ export type IsoDate = z.infer<typeof isoDateSchema>;
 export const cursorSchema = z.string().min(1).brand<'Cursor'>();
 export type Cursor = z.infer<typeof cursorSchema>;
 
-export const ageBandSchema = z.enum(['3-5', '6-8', '9-12']);
+/**
+ * Yaş bantları. Bantlar 0'dan başlar ve 8'de biter — ürün okul öncesi + ilk
+ * okuma çağına odaklanır; 9+ için üretilen metin başka bir editoryal rejim
+ * (bölümlü, uzun, düşük okunabilirlik hedefi) gerektirir ve kapsam dışıdır.
+ *
+ * ⚠️ `0-2` DİĞERLERİNDEN FARKLI BİR ÜRÜN GERÇEĞİDİR: bebek/yürüme çağı için
+ * 12 sayfalık okuma metni anlamsızdır. Sayfa sayısı seçenekleri, okunabilirlik
+ * hedefi ve tema kümesi bu banda göre daralır — bkz. `PAGE_COUNT_OPTIONS_BY_AGE_BAND`
+ * (story.ts) ve `READABILITY_TARGET_BY_AGE_BAND` (@kendihikayem/shared).
+ */
+export const ageBandSchema = z.enum(['0-2', '3-5', '6-8']);
 export type AgeBand = z.infer<typeof ageBandSchema>;
+
+/** Sıralı bant listesi — arayüz asla bandı elle dizmez, buradan okur. */
+export const AGE_BANDS = ageBandSchema.options;
+
+/** Bant kartlarının altındaki tek satırlık editoryal vaat (S02 / W01). */
+export const AGE_BAND_HINTS_TR: Record<AgeBand, string> = {
+  '0-2': 'Tek cümlelik sayfalar, bol tekrar, ninni ritmi',
+  '3-5': 'Kısa cümleler, bol tekrar',
+  '6-8': 'Macera ve mizah dengesi',
+};
 
 /** `draft` = ucuz/hızlı önizleme, `quality` = teslim kalitesi. */
 export const tierSchema = z.enum(['draft', 'quality']);

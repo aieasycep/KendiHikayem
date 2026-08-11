@@ -15,6 +15,20 @@
       "when": 1786415620635,
       "tag": "0001_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786477476681,
+      "tag": "0002_age_band_0_2_backfill",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786477498225,
+      "tag": "0003_age_band_0_2_constraints",
+      "breakpoints": true
     }
   ]
 }
