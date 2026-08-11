@@ -25,7 +25,7 @@ import { ThemeGrid } from '../../../features/onboarding/steps';
  */
 export default function WizardTema(): ReactNode {
   const router = useRouter();
-  const { colors, radius, spacing } = useTheme();
+  const { colors, spacing } = useTheme();
   const { draft, patch } = useWizardDraft();
   const children = useChildren();
 
@@ -76,10 +76,7 @@ export default function WizardTema(): ReactNode {
                   }}
                   style={[
                     styles.suggestChip,
-                    {
-                      borderRadius: radius.sm / 2,
-                      backgroundColor: active ? colors.primary : colors.surface,
-                    },
+                    { backgroundColor: active ? colors.primary : colors.surface },
                   ]}
                 >
                   <Text
@@ -138,6 +135,7 @@ const styles = StyleSheet.create({
   suggestKicker: { fontSize: 13, lineHeight: 17 },
   suggestText: { fontSize: 13, lineHeight: 20 },
   suggestChips: { flexDirection: 'row', flexWrap: 'wrap' },
-  suggestChip: { paddingHorizontal: 10, paddingVertical: 4 },
+  /* Figma çip: 8 yarıçap · 4/10 dolgu · 12/600. */
+  suggestChip: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   suggestChipText: { fontSize: 12, lineHeight: 16, fontWeight: '600' },
 });
