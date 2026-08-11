@@ -6,7 +6,7 @@
  *
  *   score = 198.825 − 40.175 × (syllables / words) − 2.610 × (words / sentences)
  *
- * We use it as an age-band gate: a "3-5" story whose pages score below ~70 is too dense
+ * We use it as an age-band gate: a "3-5" story whose pages score below ~85 is too dense
  * for the target reader and gets rewritten (docs/SPEC.md §11 — TR quality is the product's
  * only differentiator).
  */
@@ -44,11 +44,19 @@ export function readabilityLevel(score: number): ReadabilityLevel {
   return 'cok_zor';
 }
 
-/** Minimum Ateşman score a story page should reach for each age band. */
-export const READABILITY_TARGET_BY_AGE_BAND: Record<'3-5' | '6-8' | '9-12', number> = {
+/**
+ * Minimum Ateşman score a story page should reach for each age band. Kept as a literal
+ * union rather than importing `AgeBand`: @kendihikayem/shared is a leaf package and must
+ * not depend on the contract. The keys mirror `ageBandSchema` — change both together.
+ *
+ * `0-2` sits near the ceiling of the scale on purpose. At that age a page is one short
+ * sentence, so anything scoring below ~92 (roughly: more than one clause, or words past
+ * three syllables) is already the wrong kind of text and should be rewritten, not shipped.
+ */
+export const READABILITY_TARGET_BY_AGE_BAND: Record<'0-2' | '3-5' | '6-8', number> = {
+  '0-2': 92,
   '3-5': 85,
   '6-8': 70,
-  '9-12': 55,
 };
 
 export function readability(text: string): ReadabilityResult {
@@ -87,6 +95,6 @@ export function readability(text: string): ReadabilityResult {
   };
 }
 
-export function meetsAgeBandTarget(text: string, ageBand: '3-5' | '6-8' | '9-12'): boolean {
+export function meetsAgeBandTarget(text: string, ageBand: '0-2' | '3-5' | '6-8'): boolean {
   return readability(text).score >= READABILITY_TARGET_BY_AGE_BAND[ageBand];
 }

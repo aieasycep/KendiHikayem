@@ -16,10 +16,14 @@ import { delay, http, HttpResponse, type DefaultBodyType, type HttpResponseResol
 import type { z } from 'zod';
 
 import {
+  DEFAULT_PAGE_COUNT_BY_AGE_BAND,
+  PAGE_COUNT_OPTIONS_BY_AGE_BAND,
+  ageBandSchema,
   apiErrorFrom,
   childSchema,
   endpoints,
   httpStatusFor,
+  isPageCountAllowed,
   orderSchema,
   type ApiError,
   type EndpointKey,
@@ -410,6 +414,21 @@ export const resolvers = {
     const heroName = payload.hero?.name ?? 'Elif';
     spendCredits(6, `${heroName} için iskelet üretimi`, storyId);
 
+    /*
+     * Uzunluk banda bağlıdır: sunucu `0-2` için 12 sayfayı 422 ile reddeder.
+     * Mock aynı kuralı uygular — aksi halde istemci hatasız görünür ve gerçek
+     * API'ye geçtiğinde patlar. Bant geçersizse sözleşmenin izin verdiği tek
+     * güvenli varsayılana düşeriz.
+     */
+    const parsedBand = ageBandSchema.safeParse(payload.ageBand);
+    const ageBand = parsedBand.success ? parsedBand.data : '6-8';
+    if (payload.pageCount !== undefined && !isPageCountAllowed(ageBand, payload.pageCount)) {
+      return fail('VALIDATION_FAILED', {
+        field: 'pageCount',
+        messageTr: `${ageBand} yaş için ${PAGE_COUNT_OPTIONS_BY_AGE_BAND[ageBand].join(' veya ')} sayfa seçebilirsiniz.`,
+      });
+    }
+
     const story = {
       ...structuredClone(ELIF_STORY),
       id: storyId as typeof ELIF_STORY.id,
@@ -417,10 +436,10 @@ export const resolvers = {
       status: 'outline_generating' as const,
       heroName,
       childId: (payload.childId ?? undefined) as typeof ELIF_STORY.childId,
-      ageBand: (payload.ageBand ?? '6-8') as typeof ELIF_STORY.ageBand,
+      ageBand: ageBand as typeof ELIF_STORY.ageBand,
       themeCode: payload.themeCode ?? 'cesaret',
       artStyleCode: payload.artStyleCode ?? 'suluboya',
-      pageCount: payload.pageCount ?? 12,
+      pageCount: payload.pageCount ?? DEFAULT_PAGE_COUNT_BY_AGE_BAND[ageBand],
       pages: [],
       audio: [],
       outline: undefined,

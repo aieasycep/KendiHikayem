@@ -100,7 +100,7 @@ export async function seedStoryThemes(db: Database): Promise<number> {
       titleTr: 'Uyku Öncesi',
       subtitleTr: 'Yavaşlayan, yumuşayan, uykuya bırakan bir masal',
       archetype: 'Yolculuk → dinlenme',
-      ageBands: ['3-5', '6-8'],
+      ageBands: ['0-2', '3-5', '6-8'],
       icon: 'moon',
       promptPack: {
         tempo: 'yavaş',
@@ -139,7 +139,7 @@ export async function seedStoryThemes(db: Database): Promise<number> {
       titleTr: 'Kardeşim Geliyor',
       subtitleTr: 'Kıskançlığı yok saymayan, ona yer açan bir masal',
       archetype: 'Kayıp sanılan → paylaşılan yer',
-      ageBands: ['3-5', '6-8'],
+      ageBands: ['0-2', '3-5', '6-8'],
       icon: 'heart',
       promptPack: {
         tempo: 'yavaş',
@@ -157,7 +157,7 @@ export async function seedStoryThemes(db: Database): Promise<number> {
       titleTr: '23 Nisan',
       subtitleTr: 'Bayrak, tören ve bir çocuğun günü',
       archetype: 'Hazırlık → sahne → paylaşma',
-      ageBands: ['6-8', '9-12'],
+      ageBands: ['6-8'],
       icon: 'flag',
       promptPack: {
         tempo: 'canlı',
@@ -175,7 +175,7 @@ export async function seedStoryThemes(db: Database): Promise<number> {
       titleTr: 'Ramazan Akşamı',
       subtitleTr: 'Sofra kurulurken geçen sıcak bir bekleyiş',
       archetype: 'Bekleyiş → buluşma',
-      ageBands: ['6-8', '9-12'],
+      ageBands: ['6-8'],
       icon: 'lantern',
       promptPack: {
         tempo: 'yavaş',
@@ -205,6 +205,54 @@ export async function seedStoryThemes(db: Database): Promise<number> {
       isReligious: false,
       culturalTag: null,
       sortOrder: 60,
+    },
+    /*
+     * The two themes below exist only for `0-2`. Without them the band would fall back to
+     * whatever older themes happen to list it, and a toddler would be handed a plot. At
+     * this age there is no conflict to resolve: the "story" is a naming ritual with a
+     * refrain, so the prompt pack forbids a problem rather than prescribing one.
+     */
+    {
+      code: 'gunluk_ritim',
+      titleTr: 'Günün Ritmi',
+      subtitleTr: 'Uyanmak, yemek, banyo, uyku — tanıdık sıra',
+      archetype: 'Tekrar → tanıma',
+      ageBands: ['0-2'],
+      icon: 'sun',
+      promptPack: {
+        tempo: 'çok yavaş',
+        cumle_uzunlugu: 'tek cümle',
+        sayfa_basina_kelime: [6, 14],
+        nakarat: 'Sonra ne oldu? Sonra {cocuk} güldü.',
+        cozum_bicimi: 'Gün, başladığı yatakta biter; çatışma yoktur.',
+        yasak: ['çatışma', 'kayıp', 'ayrılık', 'sürpriz olay', 'yan karakter kalabalığı'],
+        son_sayfa: 'Çocuğun adı + "iyi geceler" — fısıltı tonunda.',
+      },
+      sampleFirstLineTr: 'Güneş uyandı. {cocuk} da uyandı.',
+      isReligious: false,
+      culturalTag: null,
+      sortOrder: 5,
+    },
+    {
+      code: 'sesler_ve_hayvanlar',
+      titleTr: 'Sesler ve Hayvanlar',
+      subtitleTr: 'Miyav, hav, mö — birlikte söylenen sayfalar',
+      archetype: 'Çağırma → yanıt',
+      ageBands: ['0-2', '3-5'],
+      icon: 'paw',
+      promptPack: {
+        tempo: 'oyuncu',
+        cumle_uzunlugu: 'tek cümle',
+        sayfa_basina_kelime: [6, 14],
+        nakarat: 'Kim var orada?',
+        cozum_bicimi: 'Her sayfada bir hayvan seslenir; son sayfada hepsi uyur.',
+        yasak: ['korkutucu hayvan', 'kovalamaca', 'karanlık'],
+        son_sayfa: 'Bütün sesler susar, {cocuk} uyur.',
+      },
+      sampleFirstLineTr: 'Kim var orada? Miyav!',
+      isReligious: false,
+      culturalTag: null,
+      sortOrder: 6,
     },
   ];
 
@@ -366,7 +414,7 @@ export async function seedSystemVoices(db: Database): Promise<number> {
       gender: 'kadin',
       provider: 'mock',
       providerVoiceId: 'mock-voice-zeynep',
-      ageBands: ['3-5', '6-8', '9-12'],
+      ageBands: ['0-2', '3-5', '6-8'],
       sortOrder: 10,
     },
     {
@@ -376,7 +424,7 @@ export async function seedSystemVoices(db: Database): Promise<number> {
       gender: 'erkek',
       provider: 'mock',
       providerVoiceId: 'mock-voice-mert',
-      ageBands: ['6-8', '9-12'],
+      ageBands: ['0-2', '3-5', '6-8'],
       sortOrder: 20,
     },
     {
@@ -386,7 +434,7 @@ export async function seedSystemVoices(db: Database): Promise<number> {
       gender: 'notr',
       provider: 'mock',
       providerVoiceId: 'mock-voice-deniz',
-      ageBands: ['6-8', '9-12'],
+      ageBands: ['3-5', '6-8'],
       sortOrder: 30,
     },
   ];

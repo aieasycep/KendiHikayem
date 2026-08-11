@@ -142,6 +142,21 @@ export const CHILDREN: Child[] = [
     storyCount: 0,
     createdAt: '2026-08-05T08:05:00Z',
   },
+  /*
+   * `0-2` bandı burada temsil edilmezse bant yalnızca kâğıt üstünde var olur:
+   * sihirbaz, tema filtresi ve kısa (6-8 sayfa) uzunluk seçenekleri hiçbir mock
+   * akışında görünmez. Deniz bu yolun tek sınayıcısıdır.
+   */
+  {
+    id: IDS.childDeniz,
+    givenName: 'Deniz',
+    ageBand: '0-2',
+    birthYear: 2025,
+    genderPresentation: 'belirtilmemis',
+    interests: ['hayvanlar', 'muzik'],
+    storyCount: 1,
+    createdAt: '2026-08-09T20:11:00Z',
+  },
 ].map((child) => childSchema.parse(child));
 
 /* ── Hukuki metinler ─────────────────────────────────────────── */

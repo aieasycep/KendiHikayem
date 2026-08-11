@@ -25,10 +25,13 @@ export const IDS = {
   childElif: mockUuid(11),
   childAhmet: mockUuid(12),
   childZeynep: mockUuid(13),
+  /** `0-2` bandı örneği — bebek kitabı fixture'ının sahibi. */
+  childDeniz: mockUuid(14),
 
   storyElifIsik: mockUuid(21),
   storyAhmetDeniz: mockUuid(22),
   storyZeynepTaslak: mockUuid(23),
+  storyDenizNinni: mockUuid(24),
 
   characterElif: mockUuid(31),
   characterFindik: mockUuid(32),

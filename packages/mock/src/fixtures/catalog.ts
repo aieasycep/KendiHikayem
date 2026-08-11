@@ -26,7 +26,7 @@ export const THEMES: StoryTheme[] = [
     titleTr: 'Cesaret',
     subtitleTr: 'Korkuyla tanışmak ve bir adım atmak',
     icon: '🦁',
-    ageBands: ['3-5', '6-8', '9-12'],
+    ageBands: ['3-5', '6-8'],
     isReligious: false,
     sampleFirstLineTr: 'Merdivenin ilk basamağı gıcırdadı ama ayakları durmadı.',
   },
@@ -35,7 +35,7 @@ export const THEMES: StoryTheme[] = [
     titleTr: 'Dostluk',
     subtitleTr: 'Paylaşmak, beklemek, yanında olmak',
     icon: '🤝',
-    ageBands: ['3-5', '6-8', '9-12'],
+    ageBands: ['3-5', '6-8'],
     isReligious: false,
     sampleFirstLineTr: 'İki kişilik salıncakta üçüncü bir yer nasıl açılır?',
   },
@@ -44,7 +44,7 @@ export const THEMES: StoryTheme[] = [
     titleTr: 'Merak ve Keşif',
     subtitleTr: 'Sorular sormaktan korkmayan çocuklar',
     icon: '🔭',
-    ageBands: ['6-8', '9-12'],
+    ageBands: ['6-8'],
     isReligious: false,
     sampleFirstLineTr: 'Bahçedeki o küçük delik nereye gidiyordu acaba?',
   },
@@ -53,7 +53,7 @@ export const THEMES: StoryTheme[] = [
     titleTr: 'Uyku Zamanı',
     subtitleTr: 'Yumuşak, sakin, gözleri ağırlaştıran',
     icon: '🌙',
-    ageBands: ['3-5', '6-8'],
+    ageBands: ['0-2', '3-5', '6-8'],
     isReligious: false,
     sampleFirstLineTr: 'Ay, perdenin arasından içeri usulca süzüldü.',
   },
@@ -62,7 +62,7 @@ export const THEMES: StoryTheme[] = [
     titleTr: 'Aile',
     subtitleTr: 'Anneanne mutfağı, dede bahçesi, kardeş kavgası',
     icon: '🏡',
-    ageBands: ['3-5', '6-8', '9-12'],
+    ageBands: ['0-2', '3-5', '6-8'],
     isReligious: false,
     culturalTag: 'turkiye',
     sampleFirstLineTr: 'Anneannenin mutfağından mis gibi bir kokuydu gelen.',
@@ -72,7 +72,7 @@ export const THEMES: StoryTheme[] = [
     titleTr: 'Doğayı Koru',
     subtitleTr: 'Bir fidan, bir kuş, bir dere',
     icon: '🌳',
-    ageBands: ['6-8', '9-12'],
+    ageBands: ['6-8'],
     isReligious: false,
     sampleFirstLineTr: 'Derenin sesi bu yaz neden bu kadar kısılmıştı?',
   },
@@ -90,7 +90,7 @@ export const THEMES: StoryTheme[] = [
     titleTr: 'Masal Diyarı',
     subtitleTr: 'Keloğlan tadında, bizden bir masal',
     icon: '🪄',
-    ageBands: ['3-5', '6-8', '9-12'],
+    ageBands: ['3-5', '6-8'],
     isReligious: false,
     culturalTag: 'anadolu',
     sampleFirstLineTr: 'Evvel zaman içinde, kalbur saman içinde...',
@@ -110,9 +110,55 @@ export const THEMES: StoryTheme[] = [
     titleTr: 'Küçük Kahraman',
     subtitleTr: 'Sorumluluk almak, birine yardım etmek',
     icon: '⭐',
-    ageBands: ['6-8', '9-12'],
+    ageBands: ['6-8'],
     isReligious: false,
     sampleFirstLineTr: 'O gün kimse fark etmedi ama biri bir şeyi düzeltti.',
+  },
+
+  /*
+   * ── 0-2 bandına ÖZEL temalar ────────────────────────────────────────────
+   *
+   * Bu dört tema olmasaydı `0-2` yalnızca `uyku_zamani` + `aile` görürdü:
+   * ana sayfa öneri satırı (`themes.slice(0, 3)`) ve kategori satırı
+   * (`slice(0, 6)`) yarı boş kalırdı. Daha önemlisi bebeğe kurgu verilmiş
+   * olurdu — bu yaşta "hikaye" bir olay değil, adlandırma ve tekrar ritüelidir:
+   * çatışma yok, tek cümlelik sayfa, her sayfada dönen bir nakarat.
+   */
+  {
+    code: 'gunluk_ritim',
+    titleTr: 'Günün Ritmi',
+    subtitleTr: 'Uyanmak, yemek, banyo, uyku — tanıdık sıra',
+    icon: '🌞',
+    ageBands: ['0-2'],
+    isReligious: false,
+    sampleFirstLineTr: 'Güneş uyandı. Sen de uyandın.',
+  },
+  {
+    code: 'sesler_ve_hayvanlar',
+    titleTr: 'Sesler ve Hayvanlar',
+    subtitleTr: 'Miyav, hav, mö — birlikte söylenen sayfalar',
+    icon: '🐄',
+    ageBands: ['0-2', '3-5'],
+    isReligious: false,
+    sampleFirstLineTr: 'Kim var orada? Miyav!',
+  },
+  {
+    code: 'ilk_kelimeler',
+    titleTr: 'İlk Kelimeler',
+    subtitleTr: 'El, ayak, burun — göster ve söyle',
+    icon: '👋',
+    ageBands: ['0-2'],
+    isReligious: false,
+    sampleFirstLineTr: 'Bu senin elin. Şap şap!',
+  },
+  {
+    code: 'kucuk_kucuk',
+    titleTr: 'Küçük Küçük',
+    subtitleTr: 'Bir kaşık, bir kedi, bir yastık — dünyanın ilk turu',
+    icon: '🧸',
+    ageBands: ['0-2'],
+    isReligious: false,
+    sampleFirstLineTr: 'Küçük bir kaşık. Küçük bir el.',
   },
 ].map((theme) => storyThemeSchema.parse(theme));
 
@@ -236,7 +282,7 @@ export const SYSTEM_VOICES: SystemVoice[] = [
     descriptionTr: 'Sıcak kadın sesi, sakin tempo — uyku öncesi için',
     gender: 'kadin',
     sample: mockAudio('voice/deniz', 15_000),
-    ageBands: ['3-5', '6-8', '9-12'],
+    ageBands: ['0-2', '3-5', '6-8'],
   },
   {
     code: 'kerem',
@@ -244,7 +290,7 @@ export const SYSTEM_VOICES: SystemVoice[] = [
     descriptionTr: 'Derin erkek sesi, masalcı tonu',
     gender: 'erkek',
     sample: mockAudio('voice/kerem', 15_000),
-    ageBands: ['6-8', '9-12'],
+    ageBands: ['3-5', '6-8'],
   },
   {
     code: 'nur',
@@ -252,7 +298,7 @@ export const SYSTEM_VOICES: SystemVoice[] = [
     descriptionTr: 'Neşeli kadın sesi, hareketli hikayeler için',
     gender: 'kadin',
     sample: mockAudio('voice/nur', 15_000),
-    ageBands: ['3-5', '6-8'],
+    ageBands: ['0-2', '3-5'],
   },
   {
     code: 'ege',
@@ -260,7 +306,7 @@ export const SYSTEM_VOICES: SystemVoice[] = [
     descriptionTr: 'Genç, nötr ton — maceralarda enerjik',
     gender: 'notr',
     sample: mockAudio('voice/ege', 15_000),
-    ageBands: ['6-8', '9-12'],
+    ageBands: ['6-8'],
   },
 ].map((voice) => systemVoiceSchema.parse(voice));
 

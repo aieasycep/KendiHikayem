@@ -9,6 +9,9 @@
  *      kalanı üretimde (AŞAMALI TESLİM ekranı).
  *   3. Zeynep ve Kaybolan Ninni → `outline_ready`: ⏸ KAPI 1'de bekliyor,
  *      3 karakter varyantı seçim bekliyor (S09 ekranı).
+ *   4. Deniz'e İyi Geceler → `approved`: `0-2` bandı, 8 SAYFA. Diğer üçünün
+ *      kısaltılmışı değil; başka bir tür (tek cümlelik sayfa, nakarat, çatışma
+ *      yok). Bant farkının üründe gerçekten karşılığı olduğunu gösteren fixture.
  */
 
 import {
@@ -26,7 +29,7 @@ import {
 
 import { IDS, storyPageId } from './ids';
 import { mockImage } from './media';
-import { SAMPLE_STORY, SAMPLE_STORY_PAGES, SECOND_STORY } from './story-text';
+import { BABY_STORY, BABY_STORY_PAGES, SAMPLE_STORY, SAMPLE_STORY_PAGES, SECOND_STORY } from './story-text';
 import { RENDITIONS } from './audio';
 
 /* ── Karakterler ─────────────────────────────────────────────── */
@@ -264,7 +267,68 @@ export const ZEYNEP_STORY: Story = storySchema.parse({
   createdAt: '2026-08-10T19:26:00Z',
 });
 
-export const STORIES: Story[] = [ELIF_STORY, AHMET_STORY, ZEYNEP_STORY];
+/* ── 4. Hikaye: `0-2` bandı, 8 sayfalık bebek kitabı ────────── */
+
+export const DENIZ_OUTLINE: StoryOutline = storyOutlineSchema.parse({
+  titleTr: BABY_STORY.titleTr,
+  lessonTr: BABY_STORY.lessonTr,
+  scenes: BABY_STORY_PAGES.map((page) => ({
+    pageNo: page.pageNo,
+    summaryTr: page.summaryTr,
+    emotion: page.emotion,
+  })),
+});
+
+export const DENIZ_PAGES: StoryPage[] = BABY_STORY_PAGES.map((page) =>
+  storyPageSchema.parse({
+    id: storyPageId(IDS.storyDenizNinni, page.pageNo),
+    pageNo: page.pageNo,
+    textTr: page.textTr,
+    summaryTr: page.summaryTr,
+    emotion: page.emotion,
+    wordCount: page.textTr.trim().split(/\s+/).length,
+    image: mockImage(`story/deniz/sayfa-${page.pageNo}`, 2048, 2048),
+    safeZone: page.safeZone,
+    imageStatus: 'ready',
+    editedByUser: false,
+    revision: 0,
+  }),
+);
+
+export const DENIZ_STORY: Story = storySchema.parse({
+  id: IDS.storyDenizNinni,
+  title: BABY_STORY.titleTr,
+  status: 'approved',
+  childId: IDS.childDeniz,
+  heroName: BABY_STORY.heroName,
+  ageBand: BABY_STORY.ageBand,
+  themeCode: BABY_STORY.themeCode,
+  artStyleCode: BABY_STORY.artStyleCode,
+  // 12 değil 8: `PAGE_COUNT_OPTIONS_BY_AGE_BAND['0-2']` yalnızca 6 ve 8'e izin verir.
+  pageCount: 8,
+  lessonTr: BABY_STORY.lessonTr,
+  characters: [
+    storyCharacterSchema.parse({
+      id: storyPageId(IDS.storyDenizNinni, 90),
+      role: 'kahraman',
+      nameTr: 'Deniz',
+      isPrimary: true,
+      sheet: mockImage('character/deniz-sheet', 2048, 2048),
+      reusable: true,
+    }),
+  ],
+  outline: DENIZ_OUTLINE,
+  pages: DENIZ_PAGES,
+  audio: [],
+  activeJobs: [],
+  cover: mockImage('story/deniz/kapak', 2048, 2048),
+  isFavorite: false,
+  approvedAt: '2026-08-09T20:29:00Z',
+  createdAt: '2026-08-09T20:22:00Z',
+  readyAt: '2026-08-09T20:27:00Z',
+});
+
+export const STORIES: Story[] = [ELIF_STORY, AHMET_STORY, ZEYNEP_STORY, DENIZ_STORY];
 
 export const STORY_SUMMARIES: StorySummary[] = [
   {
@@ -305,5 +369,18 @@ export const STORY_SUMMARIES: StorySummary[] = [
     isFavorite: false,
     printedCount: 0,
     createdAt: ZEYNEP_STORY.createdAt,
+  },
+  {
+    id: DENIZ_STORY.id,
+    title: DENIZ_STORY.title!,
+    cover: DENIZ_STORY.cover,
+    childName: 'Deniz',
+    ageBand: '0-2',
+    status: 'approved',
+    hasAudio: false,
+    voiceLabels: [],
+    isFavorite: false,
+    printedCount: 0,
+    createdAt: DENIZ_STORY.createdAt,
   },
 ].map((summary) => storySummarySchema.parse(summary));

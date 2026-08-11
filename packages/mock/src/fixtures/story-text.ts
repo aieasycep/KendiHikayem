@@ -140,3 +140,85 @@ export const SECOND_STORY = {
   firstPageTr:
     'Ahmet’in kasabasında her gece yanan bir deniz feneri vardı. O akşam fener yanmadı. Balıkçılar iskelede toplandı, herkes birbirine baktı. Ahmet kimseye söylemeden fenere doğru yürüdü; cebinde bir el feneri, yüreğinde bir sürü soru vardı.',
 };
+
+/* ────────────────────────────────────────────────────────────────
+ * ÜÇÜNCÜ ÖRNEK: `0-2` BANDI — bebek kitabı
+ *
+ * ⚠️ Bu, kısaltılmış bir "büyük çocuk masalı" DEĞİLDİR; başka bir türdür.
+ * 0-2 yaşta çocuk olay örgüsü takip edemez: sayfa tek cümledir (6-14 kelime,
+ * bkz. `WORDS_PER_PAGE_BY_AGE_BAND`), her sayfada aynı nakarat döner
+ * ("İyi geceler ...") ve çatışma yoktur — kitap bir ninni ritmidir, 8 sayfa
+ * tek oturuşta biter. Elif metniyle yan yana konduğunda fark görünür olmalı:
+ * aynı üretim hattı bu bantta bambaşka bir şey üretmek zorundadır.
+ * ──────────────────────────────────────────────────────────────── */
+
+export const BABY_STORY = {
+  titleTr: 'Deniz’e İyi Geceler',
+  lessonTr: 'Gün biter, herkes uyur; Deniz de uyur.',
+  blurbTr:
+    'Sekiz sayfalık bir ninni. Her sayfada bir şey uykuya gider ve aynı cümle geri döner: "İyi geceler." Uyku öncesi kucakta, iki-üç dakikada okunur.',
+  heroName: 'Deniz',
+  ageBand: '0-2',
+  themeCode: 'uyku_zamani',
+  artStyleCode: 'pastel',
+  previewSentenceTr: 'İyi geceler Deniz. Yarın yine oynarız.',
+} as const;
+
+export const BABY_STORY_PAGES: StoryPageText[] = [
+  {
+    pageNo: 1,
+    textTr: 'Gökyüzü karardı. Ay geldi. İyi geceler ay.',
+    summaryTr: 'Gökyüzü kararır, ay çıkar.',
+    emotion: 'huzur',
+    safeZone: 'bottom',
+  },
+  {
+    pageNo: 2,
+    textTr: 'Kuşlar yuvaya girdi. Cik cik. İyi geceler kuşlar.',
+    summaryTr: 'Kuşlar yuvalarına döner.',
+    emotion: 'huzur',
+    safeZone: 'bottom',
+  },
+  {
+    pageNo: 3,
+    textTr: 'Kedi minderine kıvrıldı. Mırr. İyi geceler kedi.',
+    summaryTr: 'Kedi minderinde uyur.',
+    emotion: 'huzur',
+    safeZone: 'bottom',
+  },
+  {
+    pageNo: 4,
+    textTr: 'Kaşık tabağın yanına uzandı. İyi geceler kaşık.',
+    summaryTr: 'Mutfak susar, kaşık yerine konur.',
+    emotion: 'huzur',
+    safeZone: 'bottom',
+  },
+  {
+    pageNo: 5,
+    textTr: 'Toplar sepete girdi. Pat pat. İyi geceler toplar.',
+    summaryTr: 'Oyuncaklar toplanır.',
+    emotion: 'huzur',
+    safeZone: 'bottom',
+  },
+  {
+    pageNo: 6,
+    textTr: 'Ayıcık yastığa yattı. İyi geceler ayıcık.',
+    summaryTr: 'Peluş ayı yatağa alınır.',
+    emotion: 'huzur',
+    safeZone: 'bottom',
+  },
+  {
+    pageNo: 7,
+    textTr: 'Deniz esnedi. Gözler ağırlaştı, eller yavaşladı.',
+    summaryTr: 'Deniz uykusu gelir.',
+    emotion: 'huzur',
+    safeZone: 'bottom',
+  },
+  {
+    pageNo: 8,
+    textTr: 'İyi geceler Deniz. Yarın yine oynarız.',
+    summaryTr: 'Nakarat kapanışı: Deniz uyur.',
+    emotion: 'huzur',
+    safeZone: 'bottom',
+  },
+];
