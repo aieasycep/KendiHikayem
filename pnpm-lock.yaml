@@ -83,6 +83,9 @@ importers:
       '@kendihikayem/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@kendihikayem/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@tanstack/react-query':
         specifier: 5.101.4
         version: 5.101.4(react@19.2.8)

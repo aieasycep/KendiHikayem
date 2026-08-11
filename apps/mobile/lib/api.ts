@@ -1,16 +1,29 @@
 /**
  * The single place the mobile app talks to the outside world.
  *
- * No screen may call `fetch` directly — everything goes through here so that flipping
- * `EXPO_PUBLIC_API_MODE` between `mock` and `live` swaps the entire data source at once.
- * That is what makes the debug APK usable with no backend at all.
+ * No screen may call `fetch` directly — everything goes through the typed ts-rest
+ * client from `@kendihikayem/contract`. Flipping `EXPO_PUBLIC_API_MODE` between
+ * `mock` and `live` swaps the entire data source at once:
  *
- * STATUS: deliberate stub. A0-CONTRACT owns packages/contract + packages/mock and will
- * replace the bodies below with a typed ts-rest client and real MSW-backed fixtures.
- * Keep this module's *shape* (one async function per screen need) when doing so.
+ *   mock → `@kendihikayem/mock`'s msw/native server intercepts every request in
+ *          process; the APK works with no backend and no internet.
+ *   live → requests go to `EXPO_PUBLIC_API_BASE_URL`.
+ *
+ * The client is rebuilt whenever the access token changes (guest → OTP-verified),
+ * see `setAccessToken`. Screens obtain the current client with `api()` — never
+ * cache the returned object across auth changes.
  */
 
 import Constants from 'expo-constants';
+
+import {
+  API_BASE_URL_PROD,
+  apiErrorFrom,
+  apiErrorSchema,
+  createApiClient,
+  newIdempotencyKey,
+  type ApiError,
+} from '@kendihikayem/contract';
 
 import { DEMO_STORIES, DEMO_VOICE_PROFILES, type DemoStory } from './fixtures';
 
@@ -33,36 +46,89 @@ export const isMockMode = (): boolean => API_MODE === 'mock';
 export const apiModeLabelTr = (): string =>
   API_MODE === 'mock' ? 'Demo veri (mock)' : `Canlı API — ${API_BASE_URL}`;
 
-class NotImplementedError extends Error {
-  constructor(operation: string) {
-    super(`${operation}: live mode is not wired up yet (A0-CONTRACT)`);
-    this.name = 'NotImplementedError';
-  }
+/**
+ * In mock mode requests must still carry an absolute URL (React Native fetch
+ * rejects relative ones); msw matches paths with a `*` prefix so any host works.
+ * We use the production host so request logs read realistically.
+ */
+const CLIENT_VERSION = Constants.expoConfig?.version ?? '0.0.0';
+
+function resolveBaseUrl(): string {
+  return isMockMode() ? API_BASE_URL_PROD : API_BASE_URL;
 }
 
-/** Simulated latency so loading states are visible in the demo build. */
+export type Api = ReturnType<typeof createApiClient>;
+
+let accessToken: string | undefined;
+let client: Api = createApiClient({ baseUrl: resolveBaseUrl(), clientVersion: CLIENT_VERSION });
+
+/** The current typed client. Do NOT store the result — the token may rotate. */
+export function api(): Api {
+  return client;
+}
+
+/** Called by lib/session.ts whenever the session token changes. */
+export function setAccessToken(token: string | undefined): void {
+  accessToken = token;
+  client = createApiClient({
+    baseUrl: resolveBaseUrl(),
+    clientVersion: CLIENT_VERSION,
+    ...(token !== undefined ? { accessToken: token } : {}),
+  });
+}
+
+export function currentAccessToken(): string | undefined {
+  return accessToken;
+}
+
+/** Re-export so screens import everything API-ish from one module. */
+export { newIdempotencyKey };
+
+/* ── Error helpers ──────────────────────────────────────────────────────────
+ * Contract rule: every 4xx/5xx body is exactly `ApiError` and `messageTr` may be
+ * shown to the user verbatim. These helpers normalise the two remaining cases —
+ * a malformed body and a thrown network error — onto the same shape so screens
+ * always have a Turkish sentence to show.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/** Best-effort parse of an error response body into `ApiError`. */
+export function asApiError(body: unknown): ApiError {
+  const parsed = apiErrorSchema.safeParse(body);
+  if (parsed.success) return parsed.data;
+  return apiErrorFrom('INTERNAL');
+}
+
+/** For `catch` blocks: network failure, timeout, JSON parse crash… */
+export function toApiError(error: unknown): ApiError {
+  if (typeof error === 'object' && error !== null) {
+    const parsed = apiErrorSchema.safeParse(error);
+    if (parsed.success) return parsed.data;
+  }
+  return apiErrorFrom('PROVIDER_UNAVAILABLE', {
+    messageTr:
+      'Sunucuya ulaşılamadı. Bağlantınızı kontrol edin; işiniz kaybolmaz, tekrar deneyebilirsiniz.',
+  });
+}
+
+/* ── Legacy demo-data shims ─────────────────────────────────────────────────
+ * The kitaplık / hikaye stub screens (owner: F2) still render DemoStory fixtures.
+ * Keep these until F2 migrates them to the contract client; new code must not
+ * use them.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
 const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function listStories(): Promise<DemoStory[]> {
-  if (isMockMode()) {
-    await delay(250);
-    return DEMO_STORIES;
-  }
-  throw new NotImplementedError('listStories');
+  await delay(250);
+  return DEMO_STORIES;
 }
 
 export async function getStory(id: string): Promise<DemoStory | undefined> {
-  if (isMockMode()) {
-    await delay(150);
-    return DEMO_STORIES.find((story) => story.id === id);
-  }
-  throw new NotImplementedError('getStory');
+  await delay(150);
+  return DEMO_STORIES.find((story) => story.id === id);
 }
 
 export async function listVoiceProfiles(): Promise<typeof DEMO_VOICE_PROFILES> {
-  if (isMockMode()) {
-    await delay(150);
-    return DEMO_VOICE_PROFILES;
-  }
-  throw new NotImplementedError('listVoiceProfiles');
+  await delay(150);
+  return DEMO_VOICE_PROFILES;
 }

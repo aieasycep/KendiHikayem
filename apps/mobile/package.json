@@ -13,8 +13,12 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@kendihikayem/contract": "workspace:*",
+    "@kendihikayem/mock": "workspace:*",
     "@kendihikayem/shared": "workspace:*",
+    "@kendihikayem/ui": "workspace:*",
     "@tanstack/react-query": "5.101.4",
+    "@ts-rest/core": "3.52.1",
     "expo": "57.0.12",
     "expo-audio": "57.0.3",
     "expo-constants": "57.0.10",
@@ -33,7 +37,8 @@
     "react-native-reanimated": "4.5.3",
     "react-native-safe-area-context": "5.8.1",
     "react-native-screens": "4.27.0",
-    "react-native-worklets": "0.11.3"
+    "react-native-worklets": "0.11.3",
+    "zod": "3.25.76"
   },
   "devDependencies": {
     "@types/react": "19.2.18"

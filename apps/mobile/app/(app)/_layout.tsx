@@ -36,10 +36,12 @@ export default function AppLayout(): ReactNode {
         }}
       />
       <Tabs.Screen
-        name="sihirbaz/index"
+        name="sihirbaz"
         options={{
           title: 'Yeni Hikaye',
           tabBarIcon: ({ focused }) => <TabIcon glyph="✨" focused={focused} />,
+          // The wizard is a nested stack (W01–W07); popToTop on tab press restarts it.
+          popToTopOnBlur: true,
         }}
       />
       <Tabs.Screen
@@ -52,7 +54,7 @@ export default function AppLayout(): ReactNode {
 
       {/* Reachable by navigation, hidden from the tab bar. */}
       <Tabs.Screen name="hikaye/[id]" options={{ href: null }} />
-      <Tabs.Screen name="ses/index" options={{ href: null }} />
+      <Tabs.Screen name="ses" options={{ href: null }} />
       <Tabs.Screen name="bastir/[id]" options={{ href: null }} />
     </Tabs>
   );
