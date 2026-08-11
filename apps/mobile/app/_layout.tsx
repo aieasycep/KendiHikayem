@@ -1,13 +1,11 @@
-import {
-  Fraunces_600SemiBold,
-} from '@expo-google-fonts/fraunces';
-import {
-  Nunito_400Regular,
-  Nunito_500Medium,
-  Nunito_600SemiBold,
-  Nunito_700Bold,
-  Nunito_800ExtraBold,
-} from '@expo-google-fonts/nunito';
+// Alt-yol importları BİLEREK: paket kökü TÜM kesimleri require eder ve APK'ya
+// 30+ gereksiz TTF gömülür; alt yol yalnızca kullanılan kesimi paketler.
+import { Fraunces_600SemiBold } from '@expo-google-fonts/fraunces/600SemiBold';
+import { Nunito_400Regular } from '@expo-google-fonts/nunito/400Regular';
+import { Nunito_500Medium } from '@expo-google-fonts/nunito/500Medium';
+import { Nunito_600SemiBold } from '@expo-google-fonts/nunito/600SemiBold';
+import { Nunito_700Bold } from '@expo-google-fonts/nunito/700Bold';
+import { Nunito_800ExtraBold } from '@expo-google-fonts/nunito/800ExtraBold';
 import { Stack } from 'expo-router';
 import type { ErrorBoundaryProps } from 'expo-router';
 import { useFonts } from 'expo-font';
