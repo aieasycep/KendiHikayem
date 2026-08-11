@@ -29,7 +29,7 @@ export const c = initContract();
  * gövde/param alanlarına düz string yazabilir, yanıttan gelen değerler ise tiplidir.
  * ──────────────────────────────────────────────────────────────────────────── */
 
-const brandedId = <B extends string>(brand: B) => z.string().uuid().brand<B>();
+const brandedId = <B extends string>(_brand: B) => z.string().uuid().brand<B>();
 
 export const userIdSchema = brandedId('UserId');
 export const childIdSchema = brandedId('ChildId');

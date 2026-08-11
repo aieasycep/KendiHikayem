@@ -1,4 +1,14 @@
 {
   "extends": "../../tsconfig.base.json",
-  "include": ["src/**/*.ts"]
+  "compilerOptions": {
+    /**
+     * Bu paket KAYNAK olarak tüketilir (package.json → main: ./src/index.ts, ayrıca
+     * tsconfig paths). .d.ts üretilmez; ts-rest'in çıkarsanan router tipleri
+     * bildirim dosyasına serileştirilemeyecek kadar büyüktür (TS7056) ve
+     * bildirim üretimi bu pakette hiçbir işe yaramaz.
+     */
+    "declaration": false,
+    "declarationMap": false
+  },
+  "include": ["src/**/*.ts", "scripts/**/*.ts"]
 }
