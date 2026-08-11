@@ -118,7 +118,11 @@ export function buildSilentManifest(story: Story): PlayerManifest | undefined {
       fadeStartsAtPage: Math.max(1, pages.length - 2),
       targetEndVolume: 0.35,
     },
-    wordHighlightDefault: story.ageBand !== '3-5',
+    // Yalnızca `6-8` için açık. `!== '3-5'` yazımı `0-2` bandı eklenince
+    // bebekler için de doğru dönüyordu: henüz okumayan bir çocuğa kelime kelime
+    // vurgu yapmak dikkat dağıtır ve sözleşmenin kuralına aykırıdır
+    // (contract/audio.ts: "0-2 ve 3-5 bantlarında varsayılan KAPALI").
+    wordHighlightDefault: story.ageBand === '6-8',
     pages,
   } as PlayerManifest;
 }
