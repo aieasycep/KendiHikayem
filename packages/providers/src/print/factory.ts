@@ -40,6 +40,26 @@ export class PrintAdapterConfigError extends Error {
   }
 }
 
+/**
+ * `PRINT_SKU_MAP` is a JSON object mapping our format code to the partner's product id.
+ * A malformed value is a configuration error, not a reason to submit an order with no SKU.
+ */
+export function parsePrintSkuMap(json: string | undefined): Record<string, string> {
+  if (!json || json.trim() === '') return {};
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    throw new PrintAdapterConfigError('PRINT_SKU_MAP geçerli JSON değil');
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new PrintAdapterConfigError('PRINT_SKU_MAP bir nesne olmalı: {"format":"sku"}');
+  }
+  return Object.fromEntries(
+    Object.entries(parsed as Record<string, unknown>).map(([key, value]) => [key, String(value)]),
+  );
+}
+
 export function createPrintAdapter(config: PrintFactoryConfig): PrintAdapter {
   if (config.adapter === 'manual_tr') {
     if (!config.manual) {

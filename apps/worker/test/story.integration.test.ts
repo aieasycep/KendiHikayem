@@ -297,6 +297,74 @@ describe('story pipeline (mock vendor, real database)', () => {
     expect(Number(saved[0]?.saved_usd)).toBeGreaterThan(0);
   }, 60_000);
 
+  it('rewrites ONE page and leaves the other eleven — text hashes included', async () => {
+    const runtime = await runtimeFor();
+    const seed = await seedStory({ heroName: 'Elif', ageBand: '6-8', pageCount: 12 });
+
+    const outlineJob = await enqueueStoryJob(seed, 'story_outline', 'rw-outline');
+    await PROCESSORS.llm['story.outline']!(
+      runtime,
+      fakeJob({
+        jobId: outlineJob.jobId,
+        userId: seed.userId,
+        correlationId: 'trace-rw',
+        kind: 'story_outline',
+        ref: { storyId: seed.storyId },
+      }),
+    );
+    const fillJob = await enqueueStoryJob(seed, 'story_fill', 'rw-fill');
+    await PROCESSORS.llm['story.fill']!(
+      runtime,
+      fakeJob({
+        jobId: fillJob.jobId,
+        userId: seed.userId,
+        correlationId: 'trace-rw-fill',
+        kind: 'story_fill',
+        ref: { storyId: seed.storyId, pageCount: 12 },
+      }),
+    );
+
+    const before = await handle.db.execute<{ page_no: number; text_sha256: string }>(sql`
+      select page_no, text_sha256 from story_pages where story_id = ${seed.storyId} order by page_no
+    `);
+
+    // "5. sayfa çok korkutucu" — the fix a parent actually asks for.
+    const rewriteJob = await enqueueStoryJob(seed, 'story_fill', 'rw-page');
+    await PROCESSORS.llm['story.page_rewrite']!(
+      runtime,
+      fakeJob({
+        jobId: rewriteJob.jobId,
+        userId: seed.userId,
+        correlationId: 'trace-rw-page',
+        kind: 'story_page_rewrite',
+        pageNo: 5,
+        ref: { storyId: seed.storyId, pageNo: 5, instructionTr: 'biraz daha neşeli olsun' },
+      }),
+    );
+
+    const after = await handle.db.execute<{ page_no: number; text_sha256: string }>(sql`
+      select page_no, text_sha256 from story_pages where story_id = ${seed.storyId} order by page_no
+    `);
+
+    // Eleven hashes unchanged ⇒ eleven audio chunks and eleven illustrations stay cached.
+    const changed = after.filter(
+      (page) => page.text_sha256 !== before.find((row) => row.page_no === page.page_no)?.text_sha256,
+    );
+    expect(changed.map((page) => page.page_no)).toEqual([5]);
+
+    // The rewrite is reversible: the old text is still in the revision history.
+    const revisions = await handle.db.execute<{ revision: number; source: string }>(sql`
+      select r.revision, r.source from story_page_revisions r
+        join story_pages p on p.id = r.page_id
+       where p.story_id = ${seed.storyId} and p.page_no = 5 order by r.revision
+    `);
+    expect(revisions.map((row) => row.source)).toEqual(['ai', 'ai_rewrite']);
+
+    // Only ONE page was sent to the model.
+    const steps = await getJobSteps(handle.db, rewriteJob.jobId);
+    expect(steps.filter((step) => step.step_key.startsWith('llm:page_rewrite:'))).toHaveLength(1);
+  }, 60_000);
+
   it('produces a 0-2 book that is a lullaby, not a shortened storybook', async () => {
     const runtime = await runtimeFor();
     const seed = await seedStory({ heroName: 'Deniz', ageBand: '0-2', pageCount: 8 });
