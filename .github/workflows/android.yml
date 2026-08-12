@@ -8,6 +8,22 @@ name: Android APK
 # tamamlanamiyordu. Hizli geri bildirim zaten ci.yml'de (typecheck/lint/test, her push'ta).
 on:
   workflow_dispatch:
+    inputs:
+      # ⭐ APK'nin hangi backend'e bakacagi DERLEME aninda belirlenir: Expo
+      # EXPO_PUBLIC_* degiskenlerini JS paketine gomer (apps/mobile/app.config.ts).
+      # Calisan uygulamada degistirilebilen bir ayar DEGILDIR -- adres degisirse yeni
+      # bir APK gerekir. Bu yuzden iki girdi burada duruyor: mock APK ile canli APK
+      # arasindaki tek fark bunlar (docs/DEPLOY.md 4. adim).
+      api_mode:
+        description: 'API kipi: mock (demo veri, backend gerekmez) | live (gercek API)'
+        type: choice
+        options: ['mock', 'live']
+        default: 'mock'
+      api_base_url:
+        description: 'live icin API adresi, orn. https://kendihikayem-api.onrender.com'
+        type: string
+        required: false
+        default: ''
 
 concurrency:
   group: android-${{ github.ref }}
@@ -26,16 +42,28 @@ jobs:
     timeout-minutes: 60
 
     env:
-      # Uygulama tamamen demo veriyle calisir; hicbir AI saglayicisina veya
-      # backend'e ihtiyac duymaz. Telefonda internet olmadan da acilir.
-      API_MODE: mock
-      EXPO_PUBLIC_API_MODE: mock
+      # Varsayilan mock: uygulama tamamen demo veriyle calisir, hicbir AI saglayicisina
+      # veya backend'e ihtiyac duymaz, telefonda internet olmadan da acilir.
+      # live secilirse istekler asagidaki adrese gider.
+      API_MODE: ${{ inputs.api_mode || 'mock' }}
+      EXPO_PUBLIC_API_MODE: ${{ inputs.api_mode || 'mock' }}
+      EXPO_PUBLIC_API_BASE_URL: ${{ inputs.api_base_url }}
       # Expo hesabina baglanmayi engeller; prebuild tamamen yerel calisir.
       EXPO_NO_TELEMETRY: '1'
       CI: '1'
       GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.daemon=false
 
     steps:
+      - name: 0) live secildiyse API adresi zorunlu
+        # Adressiz bir live APK, apps/mobile/lib/api.ts'teki varsayilana (10.0.2.2 =
+        # Android emulatorunun ana makinesi) duser ve gercek bir telefonda hicbir istek
+        # tamamlanmaz. Bunu burada durdurmak, 10 dakikalik bir derlemeden sonra ise
+        # yaramayan bir APK dagitmaktan ucuz.
+        if: ${{ inputs.api_mode == 'live' && inputs.api_base_url == '' }}
+        run: |
+          echo "::error::api_mode=live secildi ama api_base_url bos. Render adresini girin."
+          exit 1
+
       - name: 1) Depoyu indir
         uses: actions/checkout@v4
 
