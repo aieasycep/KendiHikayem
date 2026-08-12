@@ -24,14 +24,37 @@ export interface VoiceTimbre {
   speakerBoost: boolean;
 }
 
+/** The free narrator's knobs. Prosody here is natural language, not numeric timbre. */
+export interface GoogleVoiceSettings {
+  baseUrl: string;
+  apiVersion: string;
+  apiKey: string | undefined;
+  model: string;
+  /** Used when a `provider_voice_id` is not in `voiceMap`. */
+  defaultVoice: string;
+  /** Raw `GOOGLE_TTS_VOICE_MAP` JSON; parsed by the adapter, which tolerates a typo. */
+  voiceMap: string;
+  languageCode: string;
+  /** Hz the vendor returns. The adapter resamples to the pipeline's 48 kHz. */
+  sampleRate: number;
+  /** Turkish style directive; empty disables it. See `GOOGLE_TTS_STYLE_PROMPT_TR`. */
+  stylePromptTr: string | undefined;
+}
+
 export interface TtsSettings {
   elevenlabs: VendorEndpoint;
   cartesia: VendorEndpoint;
+  google: GoogleVoiceSettings;
   models: {
     /** Keyed by contract `Tier`. */
     elevenlabs: { draft: string; quality: string };
     cartesia: { draft: string; quality: string };
   };
+  /**
+   * ⚠️ Cloning the parent's voice. `false` ⇒ a clone request is REFUSED with a Turkish
+   * explanation rather than silently served by a system voice (`VOICE_CLONING_ENABLED`).
+   */
+  cloningEnabled: boolean;
   outputFormat: 'mp3_44100_128' | 'pcm_48000' | 'opus_48000';
   timeouts: { synthesizeMs: number; createVoiceMs: number; alignMs: number };
   chunking: { maxChars: number; concurrency: number; gapMs: number };
@@ -57,6 +80,20 @@ export function ttsSettingsFromEnv(env: Env): TtsSettings {
       // Cartesia pins behaviour to a dated wire version; sending none is an error there.
       headers: { 'cartesia-version': env.CARTESIA_API_VERSION },
     },
+    google: {
+      // The SAME endpoint and the SAME key as text and illustration — one secret brings up
+      // the whole free stack.
+      baseUrl: trimSlash(env.GOOGLE_GENAI_BASE_URL),
+      apiVersion: env.GOOGLE_GENAI_API_VERSION,
+      apiKey: env.GOOGLE_GENAI_API_KEY,
+      model: env.GOOGLE_TTS_MODEL,
+      defaultVoice: env.GOOGLE_TTS_VOICE_DEFAULT,
+      voiceMap: env.GOOGLE_TTS_VOICE_MAP,
+      languageCode: env.GOOGLE_TTS_LANGUAGE_CODE,
+      sampleRate: env.GOOGLE_TTS_SAMPLE_RATE,
+      stylePromptTr: env.GOOGLE_TTS_STYLE_PROMPT_TR,
+    },
+    cloningEnabled: env.VOICE_CLONING_ENABLED,
     models: {
       elevenlabs: { draft: env.TTS_MODEL_DRAFT, quality: env.TTS_MODEL_QUALITY },
       cartesia: { draft: env.CARTESIA_MODEL_DRAFT, quality: env.CARTESIA_MODEL_QUALITY },

@@ -54,8 +54,37 @@ export type ApiMode = z.infer<typeof apiModeSchema>;
 export const nodeEnvSchema = z.enum(['development', 'test', 'production']);
 export type NodeEnv = z.infer<typeof nodeEnvSchema>;
 
-export const voiceProviderSchema = z.enum(['elevenlabs', 'cartesia', 'azure', 'system']);
+/**
+ * Who speaks. `google` is the FREE-TIER narrator (Gemini TTS): real Turkish narration from
+ * prebuilt voices, no voice cloning. `elevenlabs` is the paid one that can clone.
+ */
+export const voiceProviderSchema = z.enum([
+  'google',
+  'elevenlabs',
+  'cartesia',
+  'azure',
+  'system',
+]);
 export type VoiceProvider = z.infer<typeof voiceProviderSchema>;
+
+/**
+ * Who writes. `gemini` is the default because Google AI Studio is the only major vendor with
+ * a genuinely free tier — the product has to reach the store before it can pay for anything.
+ * The Anthropic and OpenAI adapters stay wired; switching back is this one variable.
+ */
+export const llmProviderSchema = z.enum(['gemini', 'anthropic', 'openai']);
+export type LlmProvider = z.infer<typeof llmProviderSchema>;
+
+/**
+ * Which price book the cost ledger uses.
+ *
+ * ⚠️ `free` does NOT mean "stop measuring". Every call still writes its `provider_usage` row
+ * with real `billed_units`; only `cost_usd` is zero. On a free tier the scarce resource is
+ * the vendor's request quota, not money, and a row that was never written cannot be compared
+ * against the paid tier later.
+ */
+export const costTierSchema = z.enum(['free', 'paid']);
+export type CostTier = z.infer<typeof costTierSchema>;
 
 export const printAdapterSchema = z.enum(['manual_tr', 'cloudprinter', 'gelato', 'lulu']);
 export type PrintAdapter = z.infer<typeof printAdapterSchema>;
@@ -65,7 +94,7 @@ export type PrintAdapter = z.infer<typeof printAdapterSchema>;
  * `none` = single-provider route (the default): a fallback nobody has ever exercised is a
  * liability, so it is opt-in per environment.
  */
-export const llmFallbackProviderSchema = z.enum(['none', 'openai']);
+export const llmFallbackProviderSchema = z.enum(['none', 'openai', 'anthropic']);
 export type LlmFallbackProvider = z.infer<typeof llmFallbackProviderSchema>;
 
 /**
@@ -223,11 +252,41 @@ export const envSchema = z
     VAPID_SUBJECT: zOptionalString(),
 
     // 7. AI providers — model ids live here, never hardcoded in code (SPEC §3 rule 6)
+
+    /* ── 7⭐. ÜCRETSİZ KATMAN ANAHTARLARI ──────────────────────────────────
+     * The product must reach the store before it can pay for anything, so the DEFAULT stack
+     * is the one with a free tier: Google AI Studio for text, illustration and narration,
+     * behind a SINGLE key (`GOOGLE_GENAI_API_KEY`). The paid adapters stay wired and are one
+     * variable away each — the exact list is in `.env.example` under "ÜCRETLİYE GEÇİŞ". */
+
+    /** ⭐ Who writes the story: gemini (free) | anthropic | openai. */
+    LLM_PROVIDER_PRIMARY: llmProviderSchema.default('gemini'),
+    /**
+     * ⭐ Which price book the ledger uses: free | paid.
+     * `free` records `cost_usd = 0` and keeps `billed_units` real — the quota is still a
+     * resource being consumed, and a row that is never written cannot be compared later.
+     */
+    PROVIDER_COST_TIER: costTierSchema.default('free'),
+
     ANTHROPIC_API_KEY: zOptionalString(),
     LLM_MODEL_OUTLINE: z.string().min(1).default('claude-sonnet-5'),
     LLM_MODEL_FILL: z.string().min(1).default('claude-opus-5'),
     LLM_MODEL_JUDGE: z.string().min(1).default('claude-haiku-4-5'),
     LLM_FILL_EFFORT: z.enum(['low', 'medium', 'high']).default('high'),
+
+    /**
+     * Model ids for the Gemini text route, used when `LLM_PROVIDER_PRIMARY=gemini`.
+     *
+     * Separate variables rather than reusing `LLM_MODEL_*` on purpose: keeping both sets
+     * populated is what makes the switch back to the paid vendor a single variable instead
+     * of a hunt for three model ids nobody wrote down.
+     *
+     * ⚠️ Free-tier availability is per model and changes without notice. A `judge` tier that
+     * answers 404/PERMISSION_DENIED is a model that is not in the free tier today, not a bug.
+     */
+    LLM_MODEL_GEMINI_OUTLINE: z.string().min(1).default('gemini-2.5-flash'),
+    LLM_MODEL_GEMINI_FILL: z.string().min(1).default('gemini-2.5-flash'),
+    LLM_MODEL_GEMINI_JUDGE: z.string().min(1).default('gemini-2.5-flash-lite'),
 
     /* ── 7a. Hikaye üretimi (A3) ───────────────────────────────────────────
      * Model ids above, wiring here. The story pipeline reads every one of these at boot;
@@ -282,7 +341,26 @@ export const envSchema = z
      */
     MODERATION_BLOCK_THRESHOLD: zNumber(0.5, 0),
 
+    /**
+     * ⭐ ONE KEY, THREE CAPABILITIES. The same AI Studio key serves text, illustration and
+     * narration — a parent-facing product can be brought up with a single secret.
+     */
     GOOGLE_GENAI_API_KEY: zOptionalString(),
+
+    /* ── Free-tier pacing ────────────────────────────────────────────────────
+     * Requests per minute we allow OURSELVES, per capability. The binding free-tier limit
+     * is requests per minute, and a burst of thirteen page renders answers it with thirteen
+     * 429s — each of which the router retries, hitting the limit again. Waiting before the
+     * call is strictly cheaper than being told to wait after it.
+     *
+     * ⚠️ The real ceilings change without notice and are per model; these are indicative.
+     * See `packages/providers/src/google/free-tier.ts` and the vendor's rate-limit page.
+     * `0` disables pacing (what a paid tier wants). */
+    GOOGLE_LLM_RPM: zInt(10, 0, 10_000),
+    GOOGLE_IMAGE_RPM: zInt(10, 0, 10_000),
+    /** ⚠️ The narrowest gate on the whole free tier — roughly one book of audio per day. */
+    GOOGLE_TTS_RPM: zInt(3, 0, 10_000),
+
     IMAGE_MODEL_PRIMARY: z.string().min(1).default('gemini-3-pro-image'),
     IMAGE_MODEL_FALLBACK: zOptionalString(),
     IMAGE_QA_FACE_THRESHOLD: zNumber(0.62, 0),
@@ -340,10 +418,78 @@ export const envSchema = z
     AZURE_SPEECH_REGION: z.string().default('westeurope'),
     TTS_MODEL_QUALITY: z.string().min(1).default('eleven_multilingual_v2'),
     TTS_MODEL_DRAFT: z.string().min(1).default('eleven_flash_v2_5'),
-    VOICE_PRIMARY: voiceProviderSchema.default('elevenlabs'),
-    VOICE_FALLBACK: voiceProviderSchema.default('cartesia'),
+    /**
+     * ⭐ Who narrates. Defaults to `google` — the free tier that can actually speak Turkish.
+     *
+     * `TTS_PROVIDER_PRIMARY` is the name the free-tier switch introduced and it WINS when
+     * set; `VOICE_PRIMARY` is the original name and stays valid so no existing `.env`
+     * breaks. Two names for one knob is a small cost against silently ignoring whichever
+     * one an operator happened to type.
+     */
+    VOICE_PRIMARY: voiceProviderSchema.default('google'),
+    TTS_PROVIDER_PRIMARY: voiceProviderSchema.optional(),
+    /**
+     * Second entry in the voice route. `system` means "no second entry": a vendor whose key
+     * is absent is skipped anyway, and naming a PAID fallback here is how a free-tier
+     * deployment quietly starts spending money the first time Google throttles.
+     */
+    VOICE_FALLBACK: voiceProviderSchema.default('system'),
     VOICE_SLOT_LIMIT: zInt(660, 1, 100000),
     WHISPERX_URL: zOptionalString(),
+
+    /* ── 7b⭐. Ücretsiz seslendirme (Gemini TTS) ─────────────────────────────
+     * Real Turkish narration from prebuilt voices. What it does NOT do is clone the
+     * parent's voice — no free provider does — which is why `VOICE_CLONING_ENABLED` exists
+     * as an explicit, off-by-default product switch rather than as a silent degradation. */
+
+    /**
+     * ⚠️ THE PRODUCT PROMISE SWITCH. `false` ⇒ a clone request is REFUSED with a Turkish
+     * explanation ("bu özellik şu an kapalı"), never quietly served by a system voice. A
+     * parent who was told they would hear themselves and got a stranger would only find out
+     * at bedtime, with the child already listening.
+     *
+     * Turn it on together with `TTS_PROVIDER_PRIMARY=elevenlabs` and a key — never alone.
+     */
+    VOICE_CLONING_ENABLED: zBool(false),
+    GOOGLE_TTS_MODEL: z.string().min(1).default('gemini-2.5-flash-preview-tts'),
+    /**
+     * Prebuilt voice used when a requested voice id is not in `GOOGLE_TTS_VOICE_MAP`.
+     * ⚠️ Turkish quality of any specific prebuilt voice is UNVERIFIED — first live call.
+     */
+    GOOGLE_TTS_VOICE_DEFAULT: z.string().min(1).default('Vindemiatrix'),
+    /**
+     * `system_voices.provider_voice_id` → the vendor's prebuilt voice name, as JSON.
+     *
+     * The seeded catalog carries `mock-voice-*` ids (packages/db is frozen), so without this
+     * bridge every narrator would fall back to the default voice and the three characters
+     * parents pick between would all sound identical.
+     */
+    GOOGLE_TTS_VOICE_MAP: z
+      .string()
+      .default(
+        '{"mock-voice-zeynep":"Vindemiatrix","mock-voice-mert":"Umbriel","mock-voice-deniz":"Aoede"}',
+      ),
+    /** BCP-47. The vendor infers language from the text too, but guessing is not a plan. */
+    GOOGLE_TTS_LANGUAGE_CODE: z.string().min(1).default('tr-TR'),
+    /**
+     * Sample rate the vendor returns, Hz. The pipeline assembles at 48 kHz, so the adapter
+     * resamples; getting this number wrong plays the whole story at the wrong pitch.
+     */
+    GOOGLE_TTS_SAMPLE_RATE: zInt(24_000, 8_000, 48_000),
+    /**
+     * Style directive prefixed to every chunk. This API takes prosody as natural language.
+     *
+     * ⚠️ FIRST-LIVE-CALL RISK: the directive is sent in the same text part as the story, and
+     * a model that decides to READ IT ALOUD would put "Aşağıdaki metni…" in front of a
+     * child's bedtime story. Empty string disables it — do that at the first sign of the
+     * directive being spoken.
+     */
+    GOOGLE_TTS_STYLE_PROMPT_TR: z
+      .string()
+      .default(
+        'Aşağıdaki masalı sıcak, sakin ve yavaş bir uyku öncesi anlatımıyla, doğru Türkçe ' +
+          'telaffuzla oku. Yalnızca masalı seslendir:',
+      ),
 
     /* ── 7b. Seslendirme ve ses klonlama (A5) ──────────────────────────────
      * Endpoints, budgets and voice-cloning policy. Same rule as everywhere else: no model
@@ -512,17 +658,41 @@ export const envSchema = z
     if (env.API_MODE !== 'live') return;
 
     // In live mode a missing credential is a silent, expensive failure at 3am. Fail at boot.
+    //
+    // ⚠️ Only the credentials the SELECTED providers need are demanded. Before the free-tier
+    // switch this list required `ANTHROPIC_API_KEY` unconditionally, which meant a
+    // Gemini-only deployment could not boot without buying a key it would never call.
     const requiredInLive: Array<[keyof typeof env, string]> = [
-      ['ANTHROPIC_API_KEY', 'story generation'],
+      // Moderation runs three times per story and is the one layer that must never be
+      // switched off to save money. The endpoint itself is FREE — the key is not a bill.
       ['OPENAI_API_KEY', 'moderation'],
       ['S3_ACCESS_KEY_ID', 'object storage'],
       ['S3_SECRET_ACCESS_KEY', 'object storage'],
     ];
+
+    /** Every Google surface shares ONE key — that is the whole free-tier onboarding story. */
+    let needsGoogleKey = false;
+
+    // Story text: whoever writes needs their own key, and only theirs.
+    if (env.LLM_PROVIDER_PRIMARY === 'gemini') needsGoogleKey = true;
+    else if (env.LLM_PROVIDER_PRIMARY === 'anthropic') {
+      requiredInLive.push(['ANTHROPIC_API_KEY', 'story generation']);
+    }
+    if (env.LLM_FALLBACK_PROVIDER === 'anthropic') {
+      requiredInLive.push(['ANTHROPIC_API_KEY', 'story generation fallback']);
+    }
+
     // Only the selected image provider's key is mandatory: `IMAGE_PROVIDER_PRIMARY=fake`
     // is how a live deployment runs the rest of the product before the Gemini key exists.
     const imageProviders = [env.IMAGE_PROVIDER_PRIMARY, env.IMAGE_PROVIDER_FALLBACK];
-    if (imageProviders.includes('google')) {
-      requiredInLive.push(['GOOGLE_GENAI_API_KEY', 'illustration']);
+    if (imageProviders.includes('google')) needsGoogleKey = true;
+
+    // Narration on the free tier is the same key again.
+    const voicePrimary = env.TTS_PROVIDER_PRIMARY ?? env.VOICE_PRIMARY;
+    if (voicePrimary === 'google' || env.VOICE_FALLBACK === 'google') needsGoogleKey = true;
+
+    if (needsGoogleKey) {
+      requiredInLive.push(['GOOGLE_GENAI_API_KEY', 'metin/görsel/seslendirme (tek anahtar)']);
     }
     for (const [key, purpose] of requiredInLive) {
       if (env[key] === undefined) {
@@ -572,16 +742,34 @@ export const envSchema = z
     }
 
     const voiceKeyByProvider: Record<VoiceProvider, string | undefined> = {
+      google: env.GOOGLE_GENAI_API_KEY,
       elevenlabs: env.ELEVENLABS_API_KEY,
       cartesia: env.CARTESIA_API_KEY,
       azure: env.AZURE_SPEECH_KEY,
       system: 'n/a',
     };
-    if (voiceKeyByProvider[env.VOICE_PRIMARY] === undefined) {
+    if (voiceKeyByProvider[voicePrimary] === undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ['VOICE_PRIMARY'],
-        message: `VOICE_PRIMARY=${env.VOICE_PRIMARY} but its API key is not set`,
+        path: [env.TTS_PROVIDER_PRIMARY ? 'TTS_PROVIDER_PRIMARY' : 'VOICE_PRIMARY'],
+        message: `seslendirme sağlayıcısı ${voicePrimary} seçili ama API anahtarı tanımlı değil`,
+      });
+    }
+
+    /**
+     * ⚠️ THE PROMISE CHECK. Voice cloning is the product's headline feature and the free
+     * narrator cannot do it. Turning the feature ON while the selected provider has no
+     * cloning would produce exactly the failure this whole switch exists to prevent: a
+     * parent told they will hear themselves, hearing a stranger.
+     */
+    if (env.VOICE_CLONING_ENABLED && (voicePrimary === 'google' || voicePrimary === 'system')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['VOICE_CLONING_ENABLED'],
+        message:
+          `VOICE_CLONING_ENABLED=true ama seslendirme sağlayıcısı "${voicePrimary}" ses ` +
+          'klonlamayı desteklemiyor. TTS_PROVIDER_PRIMARY=elevenlabs (+ ELEVENLABS_API_KEY) ' +
+          'yapın ya da klonlamayı kapalı bırakın.',
       });
     }
 

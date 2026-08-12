@@ -58,12 +58,50 @@ const CODE_BY_KIND: Record<ProviderErrorKind, ErrorCode> = {
   unknown: 'PROVIDER_UNAVAILABLE',
 };
 
+/**
+ * Kind → the Turkish sentence a parent may be shown.
+ *
+ * `apiErrorCode` already resolves to an `ERROR_CATALOG` message, but that catalog is frozen
+ * and speaks in transport terms ("üretim servisimize ulaşılamıyor"). A free-tier quota is a
+ * different situation with a different instruction ("yarın tekrar deneyin"), and a parent
+ * who is told the servers are down when the truth is "today's free allowance is spent" will
+ * retry uselessly for an hour. These are the DEFAULTS; an adapter that knows more — which
+ * limit fired, when it resets — passes a better sentence as `userMessageTr`.
+ *
+ * Rules for anything added here: no vendor names, no English, no numbers the parent cannot
+ * act on, and always an instruction ("biraz sonra deneyin", not "kota aşıldı").
+ */
+const USER_MESSAGE_TR_BY_KIND: Record<ProviderErrorKind, string> = {
+  rate_limited:
+    'Şu anda çok yoğunuz. Birkaç saniye içinde kendiliğinden yeniden deneyeceğiz, ekranı kapatmanıza gerek yok.',
+  timeout:
+    'Üretim beklediğimizden uzun sürdü. İşiniz kuyrukta duruyor, tekrar deniyoruz.',
+  unavailable:
+    'Üretim servisimize şu an ulaşılamıyor. İşiniz kuyrukta duruyor, hazır olunca bildirim göndereceğiz.',
+  auth: 'Servis ayarlarımızda bir sorun var ve ekibimize bildirildi. Krediniz harcanmadı.',
+  invalid_request:
+    'Beklenmedik bir sorun oldu ve ekibimize bildirildi. Birkaç dakika sonra tekrar deneyin.',
+  content_blocked:
+    'Bu içerik güvenlik süzgecimize takıldı. Konuyu biraz değiştirip tekrar deneyebilirsiniz.',
+  quota_exhausted:
+    'Üretim kotamız şimdilik doldu. Krediniz harcanmadı; biraz sonra tekrar deneyin.',
+  slot_exhausted:
+    'Ses profilleri için ayrılan yer doldu. Otomatik olarak yer açıp tekrar deneyeceğiz.',
+  not_found: 'Aradığınız içerik bulunamadı. Kitaplığınıza dönüp tekrar deneyin.',
+  unknown: 'Beklenmedik bir sorun oldu ve ekibimize bildirildi. Birkaç dakika sonra tekrar deneyin.',
+};
+
 export interface ProviderErrorInit {
   kind: ProviderErrorKind;
   provider: ProviderName;
   operation: ProviderOperation;
   /** Technical, English, never shown to a parent. */
   detail?: string;
+  /**
+   * Turkish, parent-facing, shown VERBATIM (`JobError.userMessageTr` in packages/db).
+   * Omitted ⇒ the per-kind default above. Never put a vendor name or a raw API string here.
+   */
+  userMessageTr?: string;
   /** Raw vendor code, kept for support tickets. */
   providerCode?: string;
   httpStatus?: number;
@@ -82,10 +120,13 @@ export class ProviderError extends Error {
   readonly httpStatus: number | undefined;
   readonly providerCode: string | undefined;
   readonly detail: string | undefined;
+  /** Always populated: a parent must never be shown an English vendor string. */
+  readonly userMessageTr: string;
 
   constructor(init: ProviderErrorInit) {
     super(init.detail ?? `${init.provider}:${init.operation} failed (${init.kind})`);
     this.name = 'ProviderError';
+    this.userMessageTr = init.userMessageTr ?? USER_MESSAGE_TR_BY_KIND[init.kind];
     this.kind = init.kind;
     this.provider = init.provider;
     this.operation = init.operation;
@@ -102,12 +143,20 @@ export class ProviderError extends Error {
     return CODE_BY_KIND[this.kind];
   }
 
-  /** Structured form for `jobs.error` / `job_steps.error` (JobError in schema/types.ts). */
+  /**
+   * Structured form for `jobs.error` / `job_steps.error` (JobError in schema/types.ts).
+   *
+   * `userMessageTr` is part of the row on purpose: `JobError.userMessageTr` is documented as
+   * "shown verbatim", and it is the only channel through which a failure that never reaches
+   * an HTTP handler — a background render that dies four minutes after the parent closed the
+   * app — can still explain itself in Turkish instead of as `PROVIDER_UNAVAILABLE`.
+   */
   toJobError(): {
     code: string;
     provider: string;
     retryable: boolean;
     kind: ProviderErrorKind;
+    userMessageTr: string;
     detail?: string;
   } {
     return {
@@ -115,6 +164,7 @@ export class ProviderError extends Error {
       provider: this.provider,
       retryable: this.retryable,
       kind: this.kind,
+      userMessageTr: this.userMessageTr,
       ...(this.detail ? { detail: this.detail } : {}),
     };
   }

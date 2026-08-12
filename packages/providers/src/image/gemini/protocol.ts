@@ -17,6 +17,12 @@
  */
 
 import type { ImageGenerateInput, ImageResolution } from '../../core/adapters';
+import { retryAfterMsFromEnvelope, retryAfterMsFromHeader } from '../../google/quota';
+import type { GoogleErrorEnvelope } from '../../google/quota';
+
+// Re-exported, not redefined: two copies of a retry-delay parser drift, and the one that
+// drifts is always the one the failing adapter happens to import.
+export { retryAfterMsFromEnvelope, retryAfterMsFromHeader };
 
 /* ── Request ───────────────────────────────────────────────────────────────── */
 
@@ -194,14 +200,12 @@ export interface GeminiGenerateResponse {
   modelVersion?: string;
 }
 
-export interface GeminiErrorEnvelope {
-  error?: {
-    code?: number;
-    message?: string;
-    status?: string;
-    details?: Array<Record<string, unknown>>;
-  };
-}
+/**
+ * The `google.rpc.Status` error body. Defined once in `../../google/quota.ts` — text,
+ * illustration and narration all receive the identical envelope — and aliased here so the
+ * name this file has always used keeps working.
+ */
+export type GeminiErrorEnvelope = GoogleErrorEnvelope;
 
 /**
  * Finish reasons that mean "the safety filter fired", not "the request was wrong".
@@ -299,34 +303,6 @@ export class ImageProtocolError extends Error {
     super(`unexpected image response: ${detail}`);
     this.name = 'ImageProtocolError';
   }
-}
-
-/**
- * Reads `RetryInfo.retryDelay` out of an error envelope's `details`.
- * Google returns `"23s"` / `"1.5s"`; a 429 without a delay falls back to the router's
- * exponential backoff.
- */
-export function retryAfterMsFromEnvelope(envelope: GeminiErrorEnvelope): number | undefined {
-  for (const detail of envelope.error?.details ?? []) {
-    const type = String(detail['@type'] ?? '');
-    if (!type.endsWith('RetryInfo')) continue;
-    const delay = detail['retryDelay'];
-    if (typeof delay === 'string') {
-      const seconds = Number.parseFloat(delay.replace(/s$/u, ''));
-      if (Number.isFinite(seconds)) return Math.round(seconds * 1000);
-    }
-  }
-  return undefined;
-}
-
-/** Header form of the same thing, for proxies that surface it there instead. */
-export function retryAfterMsFromHeader(value: string | null): number | undefined {
-  if (!value) return undefined;
-  const seconds = Number.parseFloat(value);
-  if (Number.isFinite(seconds)) return Math.round(seconds * 1000);
-  const date = Date.parse(value);
-  if (Number.isFinite(date)) return Math.max(0, date - Date.now());
-  return undefined;
 }
 
 /** Extracts image dimensions from a PNG/JPEG/WebP header without decoding the pixels. */

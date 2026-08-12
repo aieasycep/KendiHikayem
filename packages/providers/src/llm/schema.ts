@@ -145,6 +145,68 @@ function unwrap(schema: z.ZodTypeAny): z.ZodTypeAny {
   return schema;
 }
 
+/* ── Gemini `responseSchema` ───────────────────────────────────────────────── */
+
+/**
+ * Gemini's `responseSchema` is an OpenAPI 3.0 SUBSET, not JSON Schema, and it is strict
+ * about the difference: an unknown keyword is a 400, not an ignored field. Three concrete
+ * incompatibilities with the schema the other two vendors want:
+ *
+ *   1. `additionalProperties` DOES NOT EXIST there. It is the very keyword Anthropic and
+ *      OpenAI require for strict mode, so it has to be stripped rather than passed through.
+ *   2. `type` is a proto enum, spelled in upper case (`OBJECT`, not `object`).
+ *   3. `const` does not exist; a single-valued string is expressed as a one-entry `enum`.
+ *
+ * And one thing that must be ADDED: `propertyOrdering`. Without it Gemini emits properties
+ * in an order of its own choosing, and for a story schema that means it writes the
+ * illustration note for a page before the page's text exists — the model has then described
+ * a picture for a paragraph it has not written yet, and the quality drop is visible.
+ *
+ * Doing this translation inside the adapter rather than asking callers for
+ * `dialect: 'gemini'` is deliberate: the story pipeline builds one schema and must not have
+ * to know which vendor is configured today, and a caller who forgets the dialect would get a
+ * 400 on every single generation.
+ */
+export function toGeminiResponseSchema(schema: JsonSchema): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+
+  if (schema.type) out['type'] = schema.type.toUpperCase();
+  if (schema.description !== undefined) out['description'] = schema.description;
+
+  if (schema.enum) {
+    out['enum'] = [...schema.enum];
+    // An enum without a type is rejected; every enum we generate is of strings.
+    out['type'] ??= 'STRING';
+  }
+
+  // `const` has no equivalent. A one-entry enum constrains the model identically.
+  if (schema.const !== undefined) {
+    if (typeof schema.const === 'string') {
+      out['enum'] = [schema.const];
+      out['type'] = 'STRING';
+    } else if (schema.description === undefined) {
+      // Numbers and booleans cannot be pinned on the wire; say so where the model reads.
+      out['description'] = `Değer tam olarak: ${String(schema.const)}`;
+    }
+  }
+
+  if (schema.properties) {
+    const properties: Record<string, unknown> = {};
+    for (const [key, child] of Object.entries(schema.properties)) {
+      properties[key] = toGeminiResponseSchema(child);
+    }
+    out['properties'] = properties;
+    // Declaration order, which `toJsonSchema` preserved, IS the generation order.
+    out['propertyOrdering'] = schema.propertyOrdering ?? Object.keys(schema.properties);
+  }
+
+  if (schema.required && schema.required.length > 0) out['required'] = [...schema.required];
+  if (schema.items) out['items'] = toGeminiResponseSchema(schema.items);
+
+  // `additionalProperties` is intentionally not copied — see point 1 above.
+  return out;
+}
+
 /**
  * Human-readable zod issues for the repair turn. The model is handed exactly this text, so
  * it names paths ("sayfalar.3.metin") instead of receiving a serialised zod error object.

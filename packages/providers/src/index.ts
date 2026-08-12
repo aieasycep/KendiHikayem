@@ -8,6 +8,7 @@
 export const PACKAGE_NAME = '@kendihikayem/providers' as const;
 
 export * from './core/index';
+export * from './google/index';
 export * from './image/index';
 export * from './llm/index';
 export * from './moderation/index';

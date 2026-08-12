@@ -50,6 +50,16 @@ export { ElevenLabsTtsAdapter } from './elevenlabs/adapter';
 export type { ElevenLabsAdapterOptions } from './elevenlabs/adapter';
 export { CartesiaTtsAdapter } from './cartesia/adapter';
 export type { CartesiaAdapterOptions } from './cartesia/adapter';
+/** ⭐ The free narrator. Real Turkish, prebuilt voices, no cloning — see its header. */
+export { GoogleTtsAdapter } from './google/adapter';
+export type { GoogleTtsAdapterOptions } from './google/adapter';
+export {
+  buildSynthesizeRequest as buildGoogleTtsRequest,
+  parseSynthesizeResponse as parseGoogleTtsResponse,
+  parseVoiceMap as parseGoogleVoiceMap,
+  sampleRateFromMimeType,
+  GoogleTtsProtocolError,
+} from './google/wire';
 export { WhisperXAlignAdapter } from './align/whisperx';
 export type { WhisperXAdapterOptions } from './align/whisperx';
 

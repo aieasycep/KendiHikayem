@@ -16,6 +16,7 @@ import type { ImageAdapter } from '../core/adapters';
 import { FakeImageAdapter } from '../core/fakes/adapters';
 import type { FailurePlan } from '../core/fakes/support';
 import type { PriceBook } from '../core/pricing';
+import { RequestPacer, minIntervalMsForRpm } from '../google/pacing';
 import { GeminiImageAdapter, type ImageFetchLike } from './gemini/adapter';
 import type { ImageReferenceResolver } from './references';
 import { InMemoryReferenceResolver } from './references';
@@ -44,6 +45,13 @@ export interface ImageAdapterFactoryOptions {
   references?: ImageReferenceResolver;
   priceBook?: PriceBook;
   fetchImpl?: ImageFetchLike;
+  /**
+   * Free-tier requests-per-minute for the Google adapters. `0` = no pacing (paid tier).
+   * From `GOOGLE_IMAGE_RPM`.
+   */
+  rpm?: number;
+  /** Injected by tests so pacing does not actually sleep. */
+  pacer?: RequestPacer;
   /** Fakes only. */
   failures?: FailurePlan;
   latencyMs?: number;
@@ -72,6 +80,7 @@ function buildOne(
     references: options.references ?? new InMemoryReferenceResolver(),
     ...(options.priceBook ? { priceBook: options.priceBook } : {}),
     ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+    ...(options.pacer ? { pacer: options.pacer } : {}),
   });
 }
 
@@ -84,11 +93,20 @@ function buildOne(
  */
 export function createImageAdapterRoute(options: ImageAdapterFactoryOptions): ImageAdapter[] {
   const primaryProvider: ImageProviderName = options.mode === 'mock' ? 'fake' : options.primary;
-  const route: ImageAdapter[] = [buildOne(primaryProvider, options.models.primary, options)];
+  // ⚠️ ONE pacer for the whole route: the free tier's per-minute budget belongs to the API
+  // KEY, so primary and fallback must draw from the same bucket rather than one each.
+  const resolved: ImageAdapterFactoryOptions = {
+    ...options,
+    pacer:
+      options.pacer ??
+      (options.rpm ? new RequestPacer({ minIntervalMs: minIntervalMsForRpm(options.rpm) }) : undefined),
+  };
 
-  if (options.mode === 'live' && options.fallback) {
+  const route: ImageAdapter[] = [buildOne(primaryProvider, resolved.models.primary, resolved)];
+
+  if (resolved.mode === 'live' && resolved.fallback) {
     route.push(
-      buildOne(options.fallback, options.models.fallback ?? options.models.primary, options),
+      buildOne(resolved.fallback, resolved.models.fallback ?? resolved.models.primary, resolved),
     );
   }
   return route;

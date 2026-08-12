@@ -13,5 +13,6 @@ export * from './http';
 export * from './structured';
 export * from './anthropic';
 export * from './openai';
+export * from './gemini';
 export * from './mock-story';
 export * from './factory';

@@ -88,6 +88,53 @@ export const DEFAULT_PRICE_BOOK: PriceBook = {
   batchMultiplier: 0.5,
 };
 
+/**
+ * The free-tier book: every rate zero, `batchMultiplier` still 1.
+ *
+ * ⚠️ ZERO COST IS NOT ZERO CONSUMPTION. A free-tier call still spends a request out of a
+ * per-minute and per-day ceiling, and that ceiling is the resource that actually runs out
+ * (see `google/free-tier.ts`). Every adapter therefore keeps writing its `provider_usage`
+ * row with the real `billedUnits` — tokens, characters, images — and only `costUsd` goes to
+ * zero. Skipping the row instead would be the tempting shortcut and it would cost twice:
+ * the day the paid tier is switched on there would be no baseline to compare against, and
+ * until then nobody could answer "how close are we to the daily cap?".
+ *
+ * The consequence to keep in mind: `COST_CAP_PER_STORY_USD` and `COST_CAP_DAILY_USD` can
+ * never fire under this book. On a free tier the vendor's own quota IS the cap.
+ */
+export const FREE_TIER_PRICE_BOOK: PriceBook = {
+  llm: {
+    outline: { inputPerMTokUsd: 0, outputPerMTokUsd: 0, cachedInputPerMTokUsd: 0 },
+    fill: { inputPerMTokUsd: 0, outputPerMTokUsd: 0, cachedInputPerMTokUsd: 0 },
+    judge: { inputPerMTokUsd: 0, outputPerMTokUsd: 0, cachedInputPerMTokUsd: 0 },
+    character_dna: { inputPerMTokUsd: 0, outputPerMTokUsd: 0, cachedInputPerMTokUsd: 0 },
+    illustration_prompt: { inputPerMTokUsd: 0, outputPerMTokUsd: 0, cachedInputPerMTokUsd: 0 },
+    page_rewrite: { inputPerMTokUsd: 0, outputPerMTokUsd: 0, cachedInputPerMTokUsd: 0 },
+  },
+  image: {
+    preview_1k: { perImageUsd: 0 },
+    screen_2k: { perImageUsd: 0 },
+    print_4k: { perImageUsd: 0 },
+  },
+  tts: {
+    draft: { per1kCharsUsd: 0 },
+    quality: { per1kCharsUsd: 0 },
+  },
+  moderation: { perCallUsd: 0 },
+  align: { perMinuteUsd: 0 },
+  // Our own compute is NOT free: ffmpeg, PDF rendering and the worker's CPU are billed by
+  // whoever hosts them, whatever the model costs.
+  compute: { perJobUsd: DEFAULT_PRICE_BOOK.compute.perJobUsd },
+  batchMultiplier: 1,
+};
+
+/** Which book a process runs on. `free` = AI Studio free tier, `paid` = the list prices. */
+export type CostTier = 'free' | 'paid';
+
+export function priceBookFor(tier: CostTier): PriceBook {
+  return tier === 'free' ? FREE_TIER_PRICE_BOOK : DEFAULT_PRICE_BOOK;
+}
+
 /* ── Priced helpers ────────────────────────────────────────────────────────── */
 
 export interface LlmTokenCounts {

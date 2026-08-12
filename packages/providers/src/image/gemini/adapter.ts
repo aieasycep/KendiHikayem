@@ -29,6 +29,7 @@ import type {
 import type { AdapterResult, ProviderCallContext, ProviderUsage } from '../../core/types';
 import { ProviderError } from '../../core/errors';
 import { DEFAULT_PRICE_BOOK, priceImageCall, roundUsd, type PriceBook } from '../../core/pricing';
+import type { RequestPacer } from '../../google/pacing';
 import { assertPhotoFreeReferences } from '../prompt/character-dna';
 import type { ImageReferenceResolver } from '../references';
 import { mapGeminiHttpError, mapGeminiTransportError } from './errors';
@@ -74,6 +75,12 @@ export interface GeminiImageAdapterConfig {
   fetchImpl?: ImageFetchLike;
   /** Injected in tests. */
   now?: () => number;
+  /**
+   * Free-tier pacing. A thirteen-page book fires thirteen renders as fast as the queue
+   * allows; against a ~10 rpm free ceiling that is thirteen 429s, each retried, hitting the
+   * same ceiling again. Waiting for a turn costs less than being told to wait.
+   */
+  pacer?: RequestPacer;
 }
 
 /**
@@ -161,6 +168,10 @@ export class GeminiImageAdapter implements ImageAdapter {
     const body = JSON.stringify(buildGenerateRequest({ input, references }));
 
     /* ── The call ─────────────────────────────────────────────────────────── */
+
+    // Paced BEFORE the clock starts: a page that queued for six seconds still gets its
+    // full `IMAGE_REQUEST_TIMEOUT_MS`, and the recorded latency is the vendor's, not ours.
+    await this.config.pacer?.acquire(ctx.signal);
 
     const startedAt = Date.now();
     const { signal, cancel, timedOut } = withTimeout(this.config.timeoutMs, ctx.signal);

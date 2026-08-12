@@ -1,21 +1,31 @@
 /**
- * llm/factory.ts — ONE env var flips the whole story pipeline from mock to live.
+ * llm/factory.ts — TWO env vars decide who writes the story, and neither is in code.
  *
- *   API_MODE=mock  → MockStoryLlmAdapter, no key needed, deterministic Turkish
- *   API_MODE=live  → AnthropicLlmAdapter [, OpenAiLlmAdapter as the second route entry]
+ *   API_MODE=mock            → MockStoryLlmAdapter, no key, deterministic Turkish
+ *   API_MODE=live +
+ *     LLM_PROVIDER_PRIMARY=gemini     → GeminiLlmAdapter   ⭐ default: the free tier
+ *                          =anthropic → AnthropicLlmAdapter
+ *                          =openai    → OpenAiLlmAdapter
  *
- * That is the entire day-the-key-arrives procedure: fill in `ANTHROPIC_API_KEY` and
- * `OPENAI_API_KEY`, set `API_MODE=live`, restart. `packages/config` already refuses to boot
- * in `live` without those keys (superRefine), so the failure mode is a clear message at
- * startup rather than a 3am surprise mid-generation.
+ * ⭐ WHY GEMINI IS THE DEFAULT. Not a quality judgement — Google AI Studio is the only
+ * major vendor with a genuinely free tier, and this product has to reach the store before it
+ * can earn the money to pay for a better one. Both paid adapters stay fully wired: moving to
+ * the paid tier is `LLM_PROVIDER_PRIMARY=anthropic` plus that vendor's key, with no code
+ * change and no model id to hunt down (they are already in `packages/config`).
+ *
+ * `packages/config` refuses to boot in `live` without the SELECTED provider's key
+ * (superRefine), so a misconfiguration is a startup message naming the variable rather than
+ * a 3am failure halfway through a paid generation.
  */
 
 import type { Env } from '@kendihikayem/config';
 
 import type { LlmAdapter, LlmPurpose } from '../core/adapters';
 import type { ModerationAdapter } from '../core/adapters';
-import type { PriceBook } from '../core/pricing';
+import { DEFAULT_PRICE_BOOK, FREE_TIER_PRICE_BOOK, type PriceBook } from '../core/pricing';
+import { RequestPacer, minIntervalMsForRpm } from '../google/pacing';
 import { AnthropicLlmAdapter } from './anthropic';
+import { GeminiLlmAdapter } from './gemini';
 import { MockStoryLlmAdapter } from './mock-story';
 import { OpenAiLlmAdapter } from './openai';
 import { OpenAiModerationAdapter } from '../moderation/openai';
@@ -29,6 +39,22 @@ export interface LlmRouteOptions {
   fetchImpl?: FetchLike;
   /** Forces the mock adapter regardless of `API_MODE` (used by the e2e pipeline test). */
   forceMock?: boolean;
+  /** Injected by tests so free-tier pacing does not actually sleep. */
+  pacer?: RequestPacer;
+}
+
+/**
+ * Which price book the adapters meter with.
+ *
+ * ⚠️ `PROVIDER_COST_TIER=free` OVERRIDES a caller-supplied book, deliberately. The cost tier
+ * is a property of the ACCOUNT, not of the call site: on a free tier every rate genuinely is
+ * zero, and a caller passing list prices would fill `provider_usage.cost_usd` with money
+ * nobody spent — which then trips `COST_CAP_DAILY_USD` and blocks parents over an imaginary
+ * bill. `billed_units` stays real either way, so quota consumption is still measured.
+ */
+export function priceBookFromEnv(env: Env, override?: PriceBook): PriceBook {
+  if (env.PROVIDER_COST_TIER === 'free') return FREE_TIER_PRICE_BOOK;
+  return override ?? DEFAULT_PRICE_BOOK;
 }
 
 /** Model id per stage, straight from config. No literal ever appears in code. */
@@ -52,6 +78,18 @@ function fallbackModelsFor(env: Env): Record<LlmPurpose, string> {
     character_dna: env.LLM_MODEL_FALLBACK_OUTLINE,
     illustration_prompt: env.LLM_MODEL_FALLBACK_OUTLINE,
     page_rewrite: env.LLM_MODEL_FALLBACK_OUTLINE,
+  };
+}
+
+/** The Gemini text route's model ids. Kept separate so switching back is one variable. */
+function geminiModelsFor(env: Env): Record<LlmPurpose, string> {
+  return {
+    outline: env.LLM_MODEL_GEMINI_OUTLINE,
+    fill: env.LLM_MODEL_GEMINI_FILL,
+    judge: env.LLM_MODEL_GEMINI_JUDGE,
+    character_dna: env.LLM_MODEL_GEMINI_OUTLINE,
+    illustration_prompt: env.LLM_MODEL_GEMINI_OUTLINE,
+    page_rewrite: env.LLM_MODEL_GEMINI_OUTLINE,
   };
 }
 
@@ -91,43 +129,70 @@ function profilesFor(env: Env): Record<LlmPurpose, PurposeProfile> {
  */
 export function createLlmRoute(options: LlmRouteOptions): LlmAdapter[] {
   const { env } = options;
+  const priceBook = priceBookFromEnv(env, options.priceBook);
 
   if (options.forceMock || env.API_MODE === 'mock') {
-    return [
-      new MockStoryLlmAdapter({
-        models: modelsFor(env),
-        ...(options.priceBook ? { priceBook: options.priceBook } : {}),
-      }),
-    ];
+    return [new MockStoryLlmAdapter({ models: modelsFor(env), priceBook })];
   }
 
-  const primary = new AnthropicLlmAdapter({
-    apiKey: env.ANTHROPIC_API_KEY,
-    baseUrl: env.ANTHROPIC_BASE_URL,
-    apiVersion: env.ANTHROPIC_API_VERSION,
-    beta: env.ANTHROPIC_BETA,
-    models: modelsFor(env),
-    profiles: profilesFor(env),
+  const shared = {
+    priceBook,
     maxOutputTokens: maxTokensFor(env),
     timeoutMs: env.LLM_REQUEST_TIMEOUT_MS,
-    ...(options.priceBook ? { priceBook: options.priceBook } : {}),
     ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
-  });
+  };
 
-  if (env.LLM_FALLBACK_PROVIDER === 'none') return [primary];
+  const gemini = (): LlmAdapter =>
+    new GeminiLlmAdapter({
+      apiKey: env.GOOGLE_GENAI_API_KEY,
+      baseUrl: env.GOOGLE_GENAI_BASE_URL,
+      apiVersion: env.GOOGLE_GENAI_API_VERSION,
+      models: geminiModelsFor(env),
+      profiles: profilesFor(env),
+      // ⚠️ ONE pacer per route, built here rather than inside the adapter: the free tier's
+      // requests-per-minute budget belongs to the KEY, so two adapter instances each with
+      // their own pacer would happily spend it twice over.
+      pacer: options.pacer ?? new RequestPacer({ minIntervalMs: minIntervalMsForRpm(env.GOOGLE_LLM_RPM) }),
+      ...shared,
+    });
 
-  return [
-    primary,
+  const anthropic = (): LlmAdapter =>
+    new AnthropicLlmAdapter({
+      apiKey: env.ANTHROPIC_API_KEY,
+      baseUrl: env.ANTHROPIC_BASE_URL,
+      apiVersion: env.ANTHROPIC_API_VERSION,
+      beta: env.ANTHROPIC_BETA,
+      models: modelsFor(env),
+      profiles: profilesFor(env),
+      ...shared,
+    });
+
+  const openai = (models: Record<LlmPurpose, string>) => (): LlmAdapter =>
     new OpenAiLlmAdapter({
       apiKey: env.OPENAI_API_KEY,
       baseUrl: env.OPENAI_BASE_URL,
-      models: fallbackModelsFor(env),
-      maxOutputTokens: maxTokensFor(env),
-      timeoutMs: env.LLM_REQUEST_TIMEOUT_MS,
-      ...(options.priceBook ? { priceBook: options.priceBook } : {}),
-      ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
-    }),
-  ];
+      models,
+      ...shared,
+    });
+
+  const build: Record<'gemini' | 'anthropic' | 'openai', () => LlmAdapter> = {
+    gemini,
+    anthropic,
+    // As a PRIMARY, OpenAI runs on the main model ids; as a FALLBACK it runs on the
+    // `LLM_MODEL_FALLBACK_*` set. Same adapter, different rows in config.
+    openai: openai(modelsFor(env)),
+  };
+
+  const primary = build[env.LLM_PROVIDER_PRIMARY]();
+  if (env.LLM_FALLBACK_PROVIDER === 'none') return [primary];
+
+  const fallback =
+    env.LLM_FALLBACK_PROVIDER === 'anthropic'
+      ? anthropic()
+      : openai(fallbackModelsFor(env))();
+
+  // A fallback that IS the primary is a route that retries the same broken vendor twice.
+  return fallback.provider === primary.provider ? [primary] : [primary, fallback];
 }
 
 export interface ModerationRouteOptions {
