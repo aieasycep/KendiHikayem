@@ -73,4 +73,9 @@ jobs:
         run: pnpm --filter @kendihikayem/db db:migrate
 
       - name: 8) Testler
-        run: pnpm -w test
+        # --concurrency=2: bazi paketler CPU-yogun (goruntu QA piksel analizi,
+        # ses DSP olcumleri, PDF rasterlemesi). Turbo'nun varsayilan paralelligiyle
+        # 4 cekirdekli runner'da bunlar birbirinin CPU'sunu aliyor ve 5 sn'lik
+        # vitest zaman asimina takiliyorlar — testin kendisi degil, sirasi
+        # kirmiziya dusuruyor. Sinirli paralellik hem hizli hem kararli.
+        run: npx turbo run test --concurrency=2
