@@ -90,6 +90,40 @@ export type PrintColorSpace = z.infer<typeof printColorSpaceSchema>;
 export const logLevelSchema = z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']);
 export type LogLevel = z.infer<typeof logLevelSchema>;
 
+/**
+ * Which halves of the product this process runs.
+ *
+ * `api` and `worker` are the REAL topology (SPEC §2): two deployments, scaled apart,
+ * because an image fan-out must never be able to starve `GET /v1/jobs/:id`. `all` is a
+ * DEPLOYMENT CONVENIENCE, not a third architecture — it exists because free hosting tiers
+ * (Render, Fly's smallest allowance) give you exactly one always-on process, and a product
+ * nobody can afford to host is a product nobody uses.
+ *
+ * What `all` does NOT do is merge the two: the Fastify server and the BullMQ workers are
+ * still built by the same two functions, from the same two entry points, with the same
+ * dependencies. They just share one Node process, one Postgres pool and one queue
+ * registry. Splitting back apart is one environment variable, no code change — which is
+ * the property that keeps this from becoming an architecture.
+ */
+export const processModeSchema = z.enum(['api', 'worker', 'all']);
+export type ProcessMode = z.infer<typeof processModeSchema>;
+
+/**
+ * Where BullMQ's Redis lives.
+ *
+ *  `external`  — a Redis/Valkey somewhere else: the compose stack, Upstash, a managed
+ *                instance. `REDIS_URL` points at it and nothing is started locally.
+ *  `embedded`  — a `redis-server` started INSIDE this container by the entrypoint, on
+ *                loopback. The choice free-tier hosting forces, and defensible here
+ *                because the source of truth is Postgres: BullMQ holds pointers only
+ *                (`apps/worker/src/queues.ts`), so losing the whole of Redis is a
+ *                re-enqueue (`resumeRecoverableJobs`), not a lost book.
+ *
+ * Switching between them is this one variable plus `REDIS_URL` — no code path differs.
+ */
+export const redisModeSchema = z.enum(['external', 'embedded']);
+export type RedisMode = z.infer<typeof redisModeSchema>;
+
 /* ── schema ───────────────────────────────────────────────────────────────── */
 
 export const envSchema = z
@@ -101,6 +135,11 @@ export const envSchema = z
      * providers and makes the provider credentials below mandatory (see superRefine).
      */
     API_MODE: apiModeSchema.default('mock'),
+    /**
+     * api | worker | all. Defaults to `api` so the historical `node apps/api` behaviour is
+     * unchanged; `all` is what the single free web service on Render runs.
+     */
+    PROCESS_MODE: processModeSchema.default('api'),
     PORT: zInt(3001, 1, 65535),
     HOST: z.string().default('0.0.0.0'),
     PUBLIC_BASE_URL: z.string().url().default('http://localhost:3001'),
@@ -111,13 +150,51 @@ export const envSchema = z
     DATABASE_URL: z.string().min(1).default('postgresql://kendihikayem:kendihikayem@localhost:5432/kendihikayem'),
     DATABASE_MIGRATION_URL: zOptionalString(),
     DATABASE_POOL_MAX: zInt(10, 1, 200),
+    /**
+     * ⚠️ SUPABASE / PGBOUNCER. postgres.js opens a named prepared statement per distinct
+     * query. A TRANSACTION-mode pooler (Supabase's Supavisor on port 6543, PgBouncer in
+     * `transaction` mode) hands each transaction a different backend connection, so the
+     * statement the driver prepared on connection A is missing when the next query lands on
+     * connection B — the failure mode is an intermittent
+     * `prepared statement "s1" does not exist` / `already exists` under load, never at boot
+     * and never in a test.
+     *
+     * `auto` (the default) reads the connection string: a `pgbouncer=true` parameter, or a
+     * Supabase pooler host on the transaction port, turns prepared statements OFF and leaves
+     * them ON everywhere else — a direct connection loses nothing. `on`/`off` force it when
+     * a pooler this heuristic has not met is in front.
+     */
+    DATABASE_PREPARED_STATEMENTS: z.enum(['auto', 'on', 'off']).default('auto'),
 
     // 3. queue
     REDIS_URL: z.string().min(1).default('redis://localhost:6379'),
     QUEUE_PREFIX: z.string().min(1).default('kh'),
+    /**
+     * `external` (default) or `embedded`. See `redisModeSchema`. The application code is
+     * identical either way — this only tells the container entrypoint whether it has to
+     * start a `redis-server`, and tells the boot log which of the two it is talking to.
+     */
+    REDIS_MODE: redisModeSchema.default('external'),
+    /**
+     * TLS for the queue connection. `auto` derives it from the scheme (`rediss://` ⇒ on),
+     * which is what every managed provider (Upstash, Redis Cloud) hands you. Forcing it is
+     * for the provider that serves TLS on a `redis://` URL.
+     */
+    REDIS_TLS: z.enum(['auto', 'on', 'off']).default('auto'),
 
     // 4. object storage
+    /**
+     * S3 API root. Three shapes are known to work with the driver in `packages/media`:
+     *   MinIO     `http://localhost:9000`
+     *   AWS S3    `https://s3.eu-central-1.amazonaws.com`
+     *   Supabase  `https://<proje-ref>.storage.supabase.co/storage/v1/s3`
+     *
+     * ⚠️ The Supabase form carries a PATH PREFIX. The driver keeps it and signs it (it is
+     * part of the SigV4 canonical request); an endpoint whose prefix is dropped signs a
+     * different request than it sends and every call comes back 403 SignatureDoesNotMatch.
+     */
     S3_ENDPOINT: zOptionalString(),
+    /** Must match the bucket's real region: SigV4 puts it in the credential scope. */
     S3_REGION: z.string().default('eu-central-1'),
     S3_ACCESS_KEY_ID: zOptionalString(),
     S3_SECRET_ACCESS_KEY: zOptionalString(),
@@ -398,6 +475,30 @@ export const envSchema = z
         }
       }
     }
+    /**
+     * `embedded` means the CONTAINER starts a redis-server on loopback. Pointing the app at
+     * a remote host while the entrypoint boots a local one leaves two Redises — the workers
+     * consume from the remote, the enqueues land on the local, and the product looks like a
+     * queue that silently swallows work. Neither half errors; that is what makes it worth
+     * refusing at boot.
+     */
+    if (env.REDIS_MODE === 'embedded') {
+      let host = '';
+      try {
+        host = new URL(env.REDIS_URL).hostname;
+      } catch {
+        host = '';
+      }
+      const loopback = ['localhost', '127.0.0.1', '::1', ''];
+      if (!loopback.includes(host)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['REDIS_URL'],
+          message: `REDIS_MODE=embedded starts redis inside this container, but REDIS_URL points at "${host}" — set REDIS_MODE=external or point REDIS_URL at 127.0.0.1`,
+        });
+      }
+    }
+
     if (env.PRINT_COLOR_SPACE === 'cmyk' && env.PRINT_ICC_PROFILE_PATH === undefined) {
       // Converting to CMYK without a profile silently uses a generic one, and the
       // printed black text separates into four inks (SPEC §9 step 9b).
@@ -541,3 +642,66 @@ export function resetEnvCache(): void {
 
 export const isMockMode = (env: Env): boolean => env.API_MODE === 'mock';
 export const isLiveMode = (env: Env): boolean => env.API_MODE === 'live';
+
+/* ── derived process topology ─────────────────────────────────────────────── */
+
+/** Does this process serve HTTP? True for `api` and `all`. */
+export const runsHttpServer = (env: Pick<Env, 'PROCESS_MODE'>): boolean =>
+  env.PROCESS_MODE === 'api' || env.PROCESS_MODE === 'all';
+
+/** Does this process consume queues and run the schedulers? True for `worker` and `all`. */
+export const runsQueueWorkers = (env: Pick<Env, 'PROCESS_MODE'>): boolean =>
+  env.PROCESS_MODE === 'worker' || env.PROCESS_MODE === 'all';
+
+/* ── derived connection policy ────────────────────────────────────────────── */
+
+/**
+ * Whether postgres.js may use named prepared statements against this URL.
+ *
+ * The heuristic recognises the two spellings a transaction-mode pooler arrives in:
+ *   1. `?pgbouncer=true` — the parameter Prisma popularised and every pooler doc now shows.
+ *   2. A Supabase pooler host (`*.pooler.supabase.com`) on port 6543. Supabase serves
+ *      SESSION mode on 5432 and TRANSACTION mode on 6543 from the same hostname, and only
+ *      the transaction port breaks prepared statements — so the port is the signal, not
+ *      the host.
+ *
+ * Getting this wrong in the safe direction costs a re-parse per query; getting it wrong in
+ * the other direction costs an intermittent production error nobody can reproduce locally.
+ */
+export function usePreparedStatements(
+  url: string,
+  setting: Env['DATABASE_PREPARED_STATEMENTS'] = 'auto',
+): boolean {
+  if (setting === 'on') return true;
+  if (setting === 'off') return false;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return true;
+  }
+
+  const pgbouncerFlag = (parsed.searchParams.get('pgbouncer') ?? '').toLowerCase();
+  if (TRUTHY.has(pgbouncerFlag)) return false;
+
+  const host = parsed.hostname.toLowerCase();
+  const port = parsed.port || '5432';
+  if (host.endsWith('.pooler.supabase.com') && port === '6543') return false;
+
+  return true;
+}
+
+/**
+ * Whether the queue connection should be wrapped in TLS. `rediss://` is how every managed
+ * provider (Upstash, Redis Cloud, Aiven) publishes its endpoint.
+ */
+export function useRedisTls(url: string, setting: Env['REDIS_TLS'] = 'auto'): boolean {
+  if (setting === 'on') return true;
+  if (setting === 'off') return false;
+  try {
+    return new URL(url).protocol === 'rediss:';
+  } catch {
+    return false;
+  }
+}

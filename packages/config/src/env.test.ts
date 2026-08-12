@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { EnvValidationError, parseEnv } from './env';
+import {
+  EnvValidationError,
+  parseEnv,
+  runsHttpServer,
+  runsQueueWorkers,
+  usePreparedStatements,
+  useRedisTls,
+} from './env';
 import { isSecretKey, maskSecret, redactEnv } from './redaction';
 
 const MIN: Record<string, string> = {
@@ -55,6 +62,116 @@ describe('parseEnv', () => {
       ELEVENLABS_API_KEY: 'el-x',
     });
     expect(env.API_MODE).toBe('live');
+  });
+});
+
+/* ── process topology and free-tier deployment (A7) ───────────────────────── */
+
+describe('PROCESS_MODE', () => {
+  it('defaults to api, so the historical two-process topology is unchanged', () => {
+    const env = parseEnv(MIN);
+    expect(env.PROCESS_MODE).toBe('api');
+    expect(runsHttpServer(env)).toBe(true);
+    expect(runsQueueWorkers(env)).toBe(false);
+  });
+
+  it('runs both halves in `all` — the single-service free-tier mode', () => {
+    const env = parseEnv({ ...MIN, PROCESS_MODE: 'all' });
+    expect(runsHttpServer(env)).toBe(true);
+    expect(runsQueueWorkers(env)).toBe(true);
+  });
+
+  it('runs only the queue consumers in `worker`', () => {
+    const env = parseEnv({ ...MIN, PROCESS_MODE: 'worker' });
+    expect(runsHttpServer(env)).toBe(false);
+    expect(runsQueueWorkers(env)).toBe(true);
+  });
+
+  it('rejects an unknown mode instead of silently defaulting', () => {
+    expect(() => parseEnv({ ...MIN, PROCESS_MODE: 'both' })).toThrow(EnvValidationError);
+  });
+});
+
+describe('redis mode', () => {
+  it('defaults to an external Redis', () => {
+    expect(parseEnv(MIN).REDIS_MODE).toBe('external');
+  });
+
+  it('accepts embedded redis on loopback', () => {
+    const env = parseEnv({
+      ...MIN,
+      REDIS_MODE: 'embedded',
+      REDIS_URL: 'redis://127.0.0.1:6379',
+    });
+    expect(env.REDIS_MODE).toBe('embedded');
+  });
+
+  it('refuses embedded redis pointed at a remote host — that is two Redises, silently', () => {
+    let issues: readonly string[] = [];
+    try {
+      parseEnv({
+        ...MIN,
+        REDIS_MODE: 'embedded',
+        REDIS_URL: 'rediss://default:pw@eu1-x.upstash.io:6379',
+      });
+    } catch (error) {
+      issues = (error as EnvValidationError).issues;
+    }
+    expect(issues.join('\n')).toContain('REDIS_URL');
+  });
+
+  it('derives TLS from the scheme, and lets it be forced either way', () => {
+    // Upstash and every other managed provider publish `rediss://`.
+    expect(useRedisTls('rediss://default:pw@eu1-x.upstash.io:6379')).toBe(true);
+    expect(useRedisTls('redis://127.0.0.1:6379')).toBe(false);
+    expect(useRedisTls('redis://127.0.0.1:6379', 'on')).toBe(true);
+    expect(useRedisTls('rediss://eu1-x.upstash.io:6379', 'off')).toBe(false);
+  });
+});
+
+describe('prepared statements against a pooler', () => {
+  it('keeps prepared statements on for a direct connection', () => {
+    expect(usePreparedStatements('postgresql://u:p@db.abc.supabase.co:5432/postgres')).toBe(true);
+    expect(usePreparedStatements('postgresql://kendihikayem@localhost:5432/kendihikayem')).toBe(
+      true,
+    );
+  });
+
+  it('turns them off for the Supabase TRANSACTION pooler (port 6543)', () => {
+    expect(
+      usePreparedStatements(
+        'postgresql://postgres.abc:p@aws-0-eu-central-1.pooler.supabase.com:6543/postgres',
+      ),
+    ).toBe(false);
+  });
+
+  it('keeps them on for the Supabase SESSION pooler (port 5432) — same host, different port', () => {
+    expect(
+      usePreparedStatements(
+        'postgresql://postgres.abc:p@aws-0-eu-central-1.pooler.supabase.com:5432/postgres',
+      ),
+    ).toBe(true);
+  });
+
+  it('honours ?pgbouncer=true for any other transaction-mode pooler', () => {
+    expect(usePreparedStatements('postgresql://u:p@pool.internal:6432/app?pgbouncer=true')).toBe(
+      false,
+    );
+  });
+
+  it('lets the operator force the answer when the heuristic has not met their pooler', () => {
+    const direct = 'postgresql://u:p@db.abc.supabase.co:5432/postgres';
+    expect(usePreparedStatements(direct, 'off')).toBe(false);
+    expect(
+      usePreparedStatements(
+        'postgresql://postgres.abc:p@aws-0-eu-central-1.pooler.supabase.com:6543/postgres',
+        'on',
+      ),
+    ).toBe(true);
+  });
+
+  it('does not throw on a connection string it cannot parse', () => {
+    expect(usePreparedStatements('not a url')).toBe(true);
   });
 });
 
