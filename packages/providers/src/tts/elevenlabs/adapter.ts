@@ -36,6 +36,7 @@ import {
   retryAfterMs,
 } from '../http';
 import type { TtsSettings } from '../settings';
+import { assertVoiceCloningAvailable } from '../cloning';
 import { wordTimingsFromCharacters } from '../alignment';
 import { audioDurationMs } from '../audio/duration';
 import {
@@ -90,6 +91,12 @@ export class ElevenLabsTtsAdapter implements TtsAdapter {
     input: CreateVoiceInput,
     ctx: ProviderCallContext,
   ): Promise<AdapterResult<CreateVoiceOutput>> {
+    // ⚠️ PRODUCT gate, before the KVKK one. This vendor CAN clone, but the feature has its
+    // own switch (`VOICE_CLONING_ENABLED`) because it is the thing the free tier cannot do
+    // — and a flag that is only enforced on the provider that cannot do it anyway is not a
+    // flag, it is a comment. Checked here so "off" means off on every provider.
+    assertVoiceCloningAvailable(this.settings, this.provider);
+
     // ⚠️ KVKK gate, enforced at the last possible moment. Everything upstream also checks
     // consent; this is the check that cannot be skipped by a caller who forgot, because it
     // sits between the reference audio and the vendor.

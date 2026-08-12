@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest';
 
 import { GoogleTtsAdapter } from './adapter';
 import { parseVoiceMap, sampleRateFromMimeType } from './wire';
+import { assertVoiceCloningAvailable, voiceCloningAvailable } from '../cloning';
 import type { HttpRequest, HttpResponse, HttpTransport } from '../http';
 import type { TtsSettings } from '../settings';
 import { pcm16ToFloat } from '../audio/assemble';
@@ -197,6 +198,25 @@ describe('⭐ voice cloning on the free tier', () => {
     expect(error.retryable).toBe(false);
     // `isFailoverWorthy` covers auth / quota_exhausted / not_found only, so this stops here.
     expect(error.kind).toBe('invalid_request');
+  });
+
+  it('the switch is enforced on the PAID provider too, so "off" means off everywhere', async () => {
+    // A flag only enforced on the vendor that cannot clone anyway is not a flag, it is a
+    // comment. `VOICE_CLONING_ENABLED=false` must also stop a failover to ElevenLabs from
+    // quietly re-enabling the feature the product told the parent was off.
+    const paidSettings = settings();
+    expect(voiceCloningAvailable(paidSettings, 'elevenlabs')).toBe(false);
+    expect(() => assertVoiceCloningAvailable(paidSettings, 'elevenlabs')).toThrow(
+      /VOICE_CLONING_ENABLED=false/u,
+    );
+
+    const enabled: TtsSettings = { ...paidSettings, cloningEnabled: true };
+    expect(voiceCloningAvailable(enabled, 'elevenlabs')).toBe(true);
+    // …and turning it on still cannot make the free narrator clone.
+    expect(voiceCloningAvailable(enabled, 'google')).toBe(false);
+    expect(() => assertVoiceCloningAvailable(enabled, 'google')).toThrow(
+      /cannot clone voices/u,
+    );
   });
 
   it('reports deletion as done — it never held a voice, and a stuck erasure task hides real ones', async () => {

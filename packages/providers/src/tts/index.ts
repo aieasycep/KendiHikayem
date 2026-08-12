@@ -31,6 +31,8 @@ export type { FormPart, HttpRequest, HttpResponse, HttpTransport } from './http'
 export * from './chunking';
 export * from './alignment';
 export * from './consent';
+/** ⭐ The gate the recording flow must check BEFORE asking a parent to record. */
+export * from './cloning';
 export * from './slots';
 
 export * from './audio/wav';

@@ -28,6 +28,12 @@ function settings(overrides: Record<string, string> = {}) {
     parseEnv({
       AUTH_SECRET: 'x'.repeat(40),
       ELEVENLABS_API_KEY: 'sk-test-key',
+      TTS_PROVIDER_PRIMARY: 'elevenlabs',
+      // ⚠️ Cloning is OFF by default now — the free narrator cannot do it, and the switch
+      // is enforced on EVERY provider so that "off" means off rather than "off unless we
+      // happened to fail over to a vendor that can". These tests are the paid path, so they
+      // say so explicitly.
+      VOICE_CLONING_ENABLED: 'true',
       ...overrides,
     }),
   );

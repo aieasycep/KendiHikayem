@@ -53,7 +53,6 @@ import type { AdapterResult, ProviderCallContext, ProviderUsage } from '../../co
 import { ProviderError } from '../../core/errors';
 import { DEFAULT_PRICE_BOOK, type PriceBook, priceTtsCall, roundUsd } from '../../core/pricing';
 import { mapGoogleHttpError, mapGoogleTransportError } from '../../google/errors';
-import { FREE_TIER_UNSUPPORTED_TR } from '../../google/free-tier';
 import type { RequestPacer } from '../../google/pacing';
 import type { GoogleErrorEnvelope } from '../../google/quota';
 import {
@@ -67,6 +66,7 @@ import {
   retryAfterMs,
 } from '../http';
 import type { TtsSettings } from '../settings';
+import { assertVoiceCloningAvailable } from '../cloning';
 import { floatToPcm16, pcm16ToFloat } from '../audio/assemble';
 import { resample } from '../audio/wav';
 import { buildSynthesizeRequest, parseSynthesizeResponse, parseVoiceMap } from './wire';
@@ -124,15 +124,11 @@ export class GoogleTtsAdapter implements TtsAdapter {
     _input: CreateVoiceInput,
     _ctx: ProviderCallContext,
   ): Promise<AdapterResult<CreateVoiceOutput>> {
-    throw new ProviderError({
-      kind: 'invalid_request',
-      provider: this.provider,
-      operation: 'tts.voice.create',
-      detail:
-        'voice cloning is not available on the free tier. Set TTS_PROVIDER_PRIMARY=elevenlabs ' +
-        'with ELEVENLABS_API_KEY and VOICE_CLONING_ENABLED=true to enable it.',
-      userMessageTr: FREE_TIER_UNSUPPORTED_TR.voiceCloning,
-    });
+    // Always throws for this provider — `google` is not in `CLONING_PROVIDERS`. Routed
+    // through the shared gate so the sentence a parent reads is written in exactly one
+    // place, whichever layer refuses first.
+    assertVoiceCloningAvailable(this.settings, this.provider);
+    throw new Error('unreachable: assertVoiceCloningAvailable always throws for google');
   }
 
   /**

@@ -43,6 +43,7 @@ import {
   retryAfterMs,
 } from '../http';
 import type { TtsSettings } from '../settings';
+import { assertVoiceCloningAvailable } from '../cloning';
 import { audioDurationMs } from '../audio/duration';
 
 export interface CartesiaAdapterOptions {
@@ -125,6 +126,10 @@ export class CartesiaTtsAdapter implements TtsAdapter {
     input: CreateVoiceInput,
     ctx: ProviderCallContext,
   ): Promise<AdapterResult<CreateVoiceOutput>> {
+    // Same product switch as the primary vendor: "cloning is off" must not become "cloning
+    // is off unless we happened to fail over" (see `../cloning.ts`).
+    assertVoiceCloningAvailable(this.settings, this.provider);
+
     if (!input.consentId) {
       throw this.error('invalid_request', 'tts.voice.create', {
         detail: 'refusing to clone a voice without a recorded consent id',
