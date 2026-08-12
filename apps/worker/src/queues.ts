@@ -148,14 +148,24 @@ export class QueueRegistry {
   }
 }
 
-/** Parses `REDIS_URL` into BullMQ's connection options. */
-export function connectionFromUrl(url: string): ConnectionOptions {
+/**
+ * Parses `REDIS_URL` into BullMQ's connection options.
+ *
+ * `rediss://` is how every managed provider (Upstash, Redis Cloud, Aiven) publishes its
+ * endpoint, and ioredis will not infer TLS from a URL it never sees — it sees the parsed
+ * options. Without the `tls` block the socket opens in plaintext against a TLS listener and
+ * the connection fails with a timeout rather than with anything that names the cause, which
+ * is why the scheme is honoured here rather than left to each caller.
+ */
+export function connectionFromUrl(url: string, options: { tls?: boolean } = {}): ConnectionOptions {
   const parsed = new URL(url);
+  const tls = options.tls ?? parsed.protocol === 'rediss:';
   return {
     host: parsed.hostname,
     port: Number(parsed.port || 6379),
-    ...(parsed.password ? { password: parsed.password } : {}),
-    ...(parsed.username ? { username: parsed.username } : {}),
+    ...(parsed.password ? { password: decodeURIComponent(parsed.password) } : {}),
+    ...(parsed.username ? { username: decodeURIComponent(parsed.username) } : {}),
+    ...(tls ? { tls: { servername: parsed.hostname } } : {}),
     // BullMQ requires this: with a retry cap, a reconnect storm silently drops jobs.
     maxRetriesPerRequest: null,
   };

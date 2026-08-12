@@ -25,3 +25,10 @@ export * from './flows/audio.flow';
 export * from './processors/run-step';
 export * from './processors/index';
 export * from './schedulers/index';
+/**
+ * The worker's own bootstrap. Exported so `apps/api` can start the queue consumers in the
+ * same process under `PROCESS_MODE=all` (packages/config) by CALLING the worker's start
+ * function rather than reimplementing it — importing this module does not start anything;
+ * `main.ts` self-starts only when it is the process entry point.
+ */
+export * from './main';

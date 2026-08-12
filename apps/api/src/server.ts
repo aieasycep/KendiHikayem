@@ -10,6 +10,7 @@
  */
 
 import Fastify, { type FastifyInstance } from 'fastify';
+import { sql as sqlTag } from 'drizzle-orm';
 import { initServer } from '@ts-rest/fastify';
 import type { Database } from '@kendihikayem/db';
 import type { Env } from '@kendihikayem/config';
@@ -163,16 +164,61 @@ export function buildServer(options: BuildServerOptions): BuiltServer {
     void reply.status(500).send(buildApiError('INTERNAL', traceId, { detail: message }));
   });
 
-  /** Liveness. Outside the contract on purpose — infrastructure, not product surface. */
+  /**
+   * LIVENESS. Outside the contract on purpose — infrastructure, not product surface.
+   *
+   * ⚠️ Touches NOTHING. This is the path a platform health check polls (Render, Fly, a
+   * load balancer), and a liveness probe that queries Postgres turns a slow database into
+   * a restart loop: the probe times out, the platform kills the process, the new one finds
+   * the same slow database, and the product is down for a reason that was survivable.
+   * Readiness — "can this process actually serve?" — is `/health/ready` below.
+   *
+   * It also answers instantly, which matters on a free tier that suspends the service:
+   * the first request after a wake pays the cold start, and it should not also pay a
+   * round trip to a pooler that is itself waking up.
+   */
   app.get('/health', async () => ({
     ok: true,
     service: 'kendihikayem-api',
+    /** api | worker | all — so "is the worker actually running here?" is answerable. */
+    processMode: options.env.PROCESS_MODE,
+    queues: options.queues ? 'connected' : 'unavailable',
+    uptimeSec: Math.round(process.uptime()),
     endpoints: {
       implemented: IMPLEMENTED_ENDPOINTS.length,
       pending: PENDING_ENDPOINTS.length,
     },
     sseConnections: sse.openConnections,
   }));
+
+  /**
+   * READINESS. Actually asks Postgres whether it is there, and answers 503 when it is not.
+   *
+   * Separate from `/health` because the two answer different questions and a platform that
+   * conflates them will restart a healthy process for an unhealthy dependency. Point
+   * deployment health checks at `/health`; point a human, or a smoke test after a deploy,
+   * at this one.
+   */
+  app.get('/health/ready', async (_request, reply) => {
+    const started = Date.now();
+    try {
+      await options.db.execute(sqlTag`select 1`);
+    } catch (error) {
+      void reply.status(503).send({
+        ok: false,
+        database: 'unreachable',
+        detail: error instanceof Error ? error.message : String(error),
+      });
+      return;
+    }
+    return {
+      ok: true,
+      database: 'reachable',
+      databaseLatencyMs: Date.now() - started,
+      processMode: options.env.PROCESS_MODE,
+      queues: options.queues ? 'connected' : 'unavailable',
+    };
+  });
 
   /** Which endpoints are real, for the other agents and for ops. */
   app.get('/internal/endpoints', async () => ENDPOINT_STATUS);

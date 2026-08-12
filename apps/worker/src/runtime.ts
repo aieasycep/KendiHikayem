@@ -9,6 +9,8 @@
 import type { Database, DbHandle } from '@kendihikayem/db';
 import { createDbFromEnv } from '@kendihikayem/db';
 import type { Env } from '@kendihikayem/config';
+import { useRedisTls } from '@kendihikayem/config';
+import { createBucketedObjectStore } from '@kendihikayem/media';
 import {
   type AdapterRegistry,
   type CostLedger,
@@ -29,7 +31,7 @@ import {
 
 import { PgCostLedger } from './cost/ledger.pg';
 import type { CostCaps } from './cost/reservation';
-import { QueueRegistry, connectionFromUrl } from './queues';
+import { QueueRegistry, type QueueSetupOptions, connectionFromUrl } from './queues';
 import { InMemoryObjectStore, type ObjectStore } from './processors/audio-storage';
 
 export interface WorkerRuntime {
@@ -76,8 +78,16 @@ export interface BuildRuntimeOptions {
   queues?: QueueRegistry;
   /** Fakes only: shrink simulated provider latency to zero in tests. */
   fakeLatencyMs?: number;
-  /** Defaults to an in-memory store; production passes the S3-backed one. */
+  /**
+   * Defaults to the driver-backed store built from `MEDIA_STORAGE_DRIVER`. Tests pass
+   * `InMemoryObjectStore` so the deletion-chain test can inspect what actually remains.
+   */
   objectStore?: ObjectStore;
+  /**
+   * Tests that hand over their own adapters get the in-memory store by default too — a
+   * test should not have to remember to opt out of touching the disk.
+   */
+  inMemoryStorage?: boolean;
 }
 
 /**
@@ -91,6 +101,55 @@ export function capsFromEnv(env: Env): CostCaps {
     dailyGlobalUsdCap: env.COST_CAP_DAILY_USD,
     reservationTtlMinutes: 30,
   };
+}
+
+/**
+ * The queue connection, from configuration. One place, because `apps/api` and the worker
+ * halves must reach the SAME Redis — in `PROCESS_MODE=all` they share the registry outright,
+ * and when they are split apart a divergence here is a queue that silently swallows work.
+ */
+export function queueOptionsFromEnv(env: Env): QueueSetupOptions {
+  return {
+    connection: connectionFromUrl(env.REDIS_URL, {
+      tls: useRedisTls(env.REDIS_URL, env.REDIS_TLS),
+    }),
+    prefix: env.QUEUE_PREFIX,
+  };
+}
+
+/**
+ * Where audio and print bytes live, from configuration.
+ *
+ * ⚠️ Until this existed, `buildRuntime` fell back to `InMemoryObjectStore` in EVERY
+ * environment, so a production worker wrote each narration into a `Map` and lost it on the
+ * next restart. The in-memory store stays the default for tests — the deletion-chain test
+ * has to be able to inspect what remains — but a process that booted from real config gets
+ * a real store.
+ *
+ * Bucket-per-call, not bucket-per-store: ⚠️ KVKK (SPEC §2, §10.1) keeps raw voice takes in
+ * their own bucket, and making the bucket a parameter is what stops a reference clip from
+ * landing beside a page illustration.
+ */
+export function bucketedObjectStoreFromEnv(env: Env): ObjectStore {
+  return createBucketedObjectStore({
+    config: {
+      driver: env.MEDIA_STORAGE_DRIVER,
+      localRoot: env.MEDIA_LOCAL_ROOT,
+      // A dedicated media signing key when one exists; the session secret otherwise. Both
+      // are secrets of the same blast radius (see `processors/image-context.ts`).
+      signingSecret: env.MEDIA_URL_SIGNING_SECRET ?? env.AUTH_SECRET,
+      publicBaseUrl: env.PUBLIC_BASE_URL,
+      region: env.S3_REGION,
+      endpoint: env.S3_ENDPOINT,
+      accessKeyId: env.S3_ACCESS_KEY_ID,
+      secretAccessKey: env.S3_SECRET_ACCESS_KEY,
+      forcePathStyle: env.S3_FORCE_PATH_STYLE,
+      kmsKeyId: env.S3_KMS_KEY_ID,
+    },
+    // The raw-voice bucket's objects carry their retention class as object metadata, so the
+    // purge sweep can classify an object whose `assets` row is gone.
+    retentionByBucket: { [env.S3_BUCKET_VOICE_RAW]: 'ephemeral_30d' },
+  });
 }
 
 /**
@@ -119,12 +178,7 @@ export function buildRuntime(options: BuildRuntimeOptions): WorkerRuntime {
   const dbHandle = options.db ? undefined : createDbFromEnv(env);
   const db = options.db ?? dbHandle!.db;
 
-  const queues =
-    options.queues ??
-    new QueueRegistry({
-      connection: connectionFromUrl(env.REDIS_URL),
-      prefix: env.QUEUE_PREFIX,
-    });
+  const queues = options.queues ?? new QueueRegistry(queueOptionsFromEnv(env));
 
   // API_MODE=live will select the real adapters here once A3–A6 land. Until then every
   // path runs on the deterministic fakes — including in `live`, loudly, rather than
@@ -231,7 +285,17 @@ export function buildRuntime(options: BuildRuntimeOptions): WorkerRuntime {
     priceBook,
     caps: capsFromEnv(env),
     breakers,
-    objectStore: options.objectStore ?? new InMemoryObjectStore(),
+    /**
+     * A caller that injected its own adapters is a test (see the `routers` block above,
+     * which reads the same signal), and a test must not write a narration to disk or to a
+     * bucket. Everything else — including `API_MODE=mock` in a real deployment — gets the
+     * configured driver, because losing the bytes is not part of what `mock` mocks.
+     */
+    objectStore:
+      options.objectStore ??
+      (options.inMemoryStorage ?? Boolean(options.adapters)
+        ? new InMemoryObjectStore()
+        : bucketedObjectStoreFromEnv(env)),
     buckets: {
       media: env.S3_BUCKET_MEDIA,
       voiceRaw: env.S3_BUCKET_VOICE_RAW,
