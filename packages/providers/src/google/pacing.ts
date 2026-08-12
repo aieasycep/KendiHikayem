@@ -46,7 +46,13 @@ export class RequestPacer {
   private readonly sleepImpl: (ms: number) => Promise<void>;
   /** Tail of the queue. Each waiter chains onto the previous one's completion. */
   private tail: Promise<void> = Promise.resolve();
-  private lastStartedAt = 0;
+  /**
+   * ⚠️ `-Infinity`, not `0`. Zero would mean "a call started at the epoch", which is only
+   * harmlessly in the past when `now()` is the wall clock — with an injected clock (tests,
+   * and anything that fakes timers) it makes the FIRST call wait a full interval for a call
+   * that never happened. A worker's very first render is not the place to burn six seconds.
+   */
+  private lastStartedAt = Number.NEGATIVE_INFINITY;
 
   constructor(options: RequestPacerOptions) {
     this.minIntervalMs = Math.max(0, options.minIntervalMs);

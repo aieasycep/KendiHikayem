@@ -132,7 +132,14 @@ export function createLlmRoute(options: LlmRouteOptions): LlmAdapter[] {
   const priceBook = priceBookFromEnv(env, options.priceBook);
 
   if (options.forceMock || env.API_MODE === 'mock') {
-    return [new MockStoryLlmAdapter({ models: modelsFor(env), priceBook })];
+    // ⚠️ The DOUBLE is priced at LIST prices even while `PROVIDER_COST_TIER=free`, and that
+    // is not an oversight. `mock` means no vendor is called at all, so there is no free tier
+    // to be on; the double exists precisely to exercise reservations, cost caps and the
+    // ledger before any key exists. Zeroing it here would leave every one of those tests
+    // asserting against 0 and quietly stop testing the thing they were written for.
+    return [
+      new MockStoryLlmAdapter({ models: modelsFor(env), priceBook: options.priceBook ?? DEFAULT_PRICE_BOOK }),
+    ];
   }
 
   const shared = {

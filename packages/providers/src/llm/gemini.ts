@@ -53,7 +53,7 @@ import {
   mapGoogleTransportError,
   type GoogleErrorEnvelope,
 } from '../google/errors';
-import { RequestPacer } from '../google/pacing';
+import type { RequestPacer } from '../google/pacing';
 import { defaultFetch, type FetchLike, type HttpResponseLike } from './http';
 import { toGeminiResponseSchema } from './schema';
 import { type LlmThinkingMode, type PurposeProfile, jsonSchemaOf } from './types';

@@ -391,7 +391,15 @@ describe('the deletion chain really deletes', () => {
     const handlers = buildDeletionHandlers({
       db: handle.db,
       store,
-      adapters: { fake: runtime.adapters.tts, elevenlabs: runtime.adapters.tts },
+      // ⚠️ Keyed by the vendor the BINDING ROW names, which follows `VOICE_PRIMARY` /
+      // `TTS_PROVIDER_PRIMARY` — `google` since the free narrator became the default. An
+      // unroutable erasure throws rather than silently completing, so every vendor a
+      // binding can name must be registered here.
+      adapters: {
+        fake: runtime.adapters.tts,
+        google: runtime.adapters.tts,
+        elevenlabs: runtime.adapters.tts,
+      },
       ctx: { requestId: randomUUID(), correlationId: randomUUID(), userId: user.userId },
     });
 

@@ -38,16 +38,31 @@ describe('parseEnv', () => {
     expect(env.ANTHROPIC_API_KEY).toBeUndefined();
   });
 
-  it('demands provider credentials in live mode', () => {
+  it('demands the credentials the DEFAULT (free) stack needs in live mode', () => {
     let issues: readonly string[] = [];
     try {
       parseEnv({ ...MIN, API_MODE: 'live' });
     } catch (error) {
       issues = (error as EnvValidationError).issues;
     }
-    expect(issues.join('\n')).toContain('ANTHROPIC_API_KEY');
+    // ⭐ One AI key covers text, illustration and narration.
     expect(issues.join('\n')).toContain('GOOGLE_GENAI_API_KEY');
     expect(issues.join('\n')).toContain('VOICE_PRIMARY');
+    // Moderation is free but still needs an account, and is never optional (SPEC §10.4).
+    expect(issues.join('\n')).toContain('OPENAI_API_KEY');
+    // ⚠️ And a key for a vendor this deployment never calls is NOT demanded — that was the
+    // bug that stopped a Gemini-only deployment from booting at all.
+    expect(issues.join('\n')).not.toContain('ANTHROPIC_API_KEY');
+  });
+
+  it('demands the paid vendor key only once that vendor is selected', () => {
+    let issues: readonly string[] = [];
+    try {
+      parseEnv({ ...MIN, API_MODE: 'live', LLM_PROVIDER_PRIMARY: 'anthropic' });
+    } catch (error) {
+      issues = (error as EnvValidationError).issues;
+    }
+    expect(issues.join('\n')).toContain('ANTHROPIC_API_KEY');
   });
 
   it('accepts live mode once every credential is present', () => {
@@ -193,12 +208,15 @@ describe('image pipeline env', () => {
     expect(env.PRINT_COLOR_SPACE).toBe('srgb');
   });
 
-  it('does not demand a Gemini key in live mode when the image provider is the fake', () => {
-    // How a live deployment runs everything else while the illustration key is pending.
+  it('does not demand a Gemini key when NO capability is pointed at Google', () => {
+    // How an all-paid deployment runs with the illustration double: the one Google key is
+    // demanded per SELECTED capability, so switching all three away stops demanding it.
     const env = parseEnv({
       ...MIN,
       API_MODE: 'live',
       IMAGE_PROVIDER_PRIMARY: 'fake',
+      LLM_PROVIDER_PRIMARY: 'anthropic',
+      TTS_PROVIDER_PRIMARY: 'elevenlabs',
       ANTHROPIC_API_KEY: 'sk-ant-x',
       OPENAI_API_KEY: 'sk-x',
       S3_ACCESS_KEY_ID: 'id',
@@ -206,6 +224,7 @@ describe('image pipeline env', () => {
       ELEVENLABS_API_KEY: 'el-x',
     });
     expect(env.IMAGE_PROVIDER_PRIMARY).toBe('fake');
+    expect(env.GOOGLE_GENAI_API_KEY).toBeUndefined();
   });
 
   it('demands the Gemini key when google is only the FALLBACK', () => {

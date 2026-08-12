@@ -30,7 +30,7 @@
 import type { Env } from '@kendihikayem/config';
 
 import type { AlignAdapter, TtsAdapter } from '../core/adapters';
-import type { PriceBook } from '../core/pricing';
+import { DEFAULT_PRICE_BOOK, type PriceBook } from '../core/pricing';
 import { FakeAlignAdapter, FakeTtsAdapter } from '../core/fakes/adapters';
 import { RequestPacer, minIntervalMsForRpm } from '../google/pacing';
 import { priceBookFromEnv } from '../llm/factory';
@@ -76,6 +76,10 @@ export function createVoiceRoute(options: VoiceRouteOptions): VoiceRoute {
   const priceBook = priceBookFromEnv(env, options.priceBook);
 
   if (env.API_MODE !== 'live') {
+    // ⚠️ The doubles keep LIST prices even on the free tier: `mock` calls no vendor, so
+    // there is no free tier to be on, and the whole point of the doubles is to exercise the
+    // reservation/cap/ledger machinery before a key exists. See `createLlmRoute`.
+    const mockPriceBook = options.priceBook ?? DEFAULT_PRICE_BOOK;
     return {
       tts: [
         new FakeTtsAdapter({
@@ -83,7 +87,7 @@ export function createVoiceRoute(options: VoiceRouteOptions): VoiceRoute {
           model: env.TTS_MODEL_QUALITY,
           latencyMs: options.fakeLatencyMs ?? 0,
           slotLimit: env.VOICE_SLOT_LIMIT,
-          priceBook,
+          priceBook: mockPriceBook,
         }),
       ],
       align: [
@@ -91,7 +95,7 @@ export function createVoiceRoute(options: VoiceRouteOptions): VoiceRoute {
           provider: 'fake',
           model: env.ALIGN_MODEL,
           latencyMs: options.fakeLatencyMs ?? 0,
-          priceBook,
+          priceBook: mockPriceBook,
         }),
       ],
       settings,

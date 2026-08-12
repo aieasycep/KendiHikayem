@@ -17,6 +17,7 @@ import {
   type PriceBook,
   CircuitBreakerRegistry,
   DEFAULT_PRICE_BOOK,
+  priceBookFromEnv,
   ProviderRouter,
   type TtsSettings,
   createFakeRegistry,
@@ -185,7 +186,20 @@ export function buildRuntime(options: BuildRuntimeOptions): WorkerRuntime {
   // pretending a key exists.
   const adapters = options.adapters ?? fakeAdaptersFromEnv(env, options.fakeLatencyMs ?? 0);
   const ledger = options.ledger ?? new PgCostLedger(db);
+  /**
+   * ⚠️ `PROVIDER_COST_TIER=free` zeroes the rates. It is NOT "stop measuring": every call
+   * still writes its `provider_usage` row with real `billed_units`, because on a free tier
+   * the resource that runs out is the vendor's request quota, not money — and a row that was
+   * never written cannot be compared against the paid tier later. Filling `cost_usd` with
+   * list prices nobody was charged would be worse than useless: `COST_CAP_DAILY_USD` would
+   * start refusing parents over an imaginary bill.
+   *
+   * The RESERVATION path deliberately keeps whatever book it was given: reserving against
+   * list prices is a conservative ceiling, and a free tier that reserved zero would have no
+   * cap at all if the tier were flipped mid-flight.
+   */
   const priceBook = options.priceBook ?? DEFAULT_PRICE_BOOK;
+  const meteringPriceBook = priceBookFromEnv(env, options.priceBook);
   const breakers = new CircuitBreakerRegistry();
 
   const routerOptions = { ledger, breakers };
@@ -224,6 +238,10 @@ export function buildRuntime(options: BuildRuntimeOptions): WorkerRuntime {
                 apiVersion: env.GOOGLE_GENAI_API_VERSION,
                 timeoutMs: env.IMAGE_REQUEST_TIMEOUT_MS,
               },
+              priceBook: meteringPriceBook,
+              // Free-tier pacing: thirteen page renders fired at once against a ~10 rpm
+              // ceiling is thirteen 429s, each retried into the same ceiling again.
+              rpm: env.GOOGLE_IMAGE_RPM,
               // The image processors swap in a store-backed resolver; this default only
               // matters if something calls the router without going through them.
               references: { async resolve() { throw new Error('no reference resolver'); } },
