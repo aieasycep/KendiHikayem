@@ -3,7 +3,7 @@
 # TEK servis, çünkü ücretsiz plan tam olarak bunu veriyor: Render'ın ücretsiz katmanında
 # web servisi var, arka plan worker'ı (Background Worker) YOK — o ücretli. Bu yüzden
 # PROCESS_MODE=all: Fastify ve BullMQ worker'ları aynı süreçte çalışıyor
-# (apps/api/src/main.ts, packages/config `processModeSchema`).
+# (apps/api/src/bootstrap.ts, packages/config `processModeSchema`).
 #
 # ⚠️ ÜCRETSİZ KATMANIN SINIRLARI — dağıtmadan önce docs/DEPLOY.md §Ücretsiz katman
 # sınırları bölümünü okuyun. Özeti: servis 15 dakika trafiksizlikten sonra UYUR, ilk

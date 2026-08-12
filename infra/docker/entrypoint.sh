@@ -79,6 +79,6 @@ fi
 # ── 4. Sunucu ─────────────────────────────────────────────────────────────────────
 #
 # `exec`: Node bu kabuğun YERİNE geçer, böylece Render'ın SIGTERM'i doğrudan ona ulaşır
-# ve apps/api/src/main.ts'teki kapanış eli (kuyrukları boşalt, havuzu kapat) çalışır.
+# ve apps/api/src/bootstrap.ts'teki kapanış eli (kuyrukları boşalt, havuzu kapat) çalışır.
 log "sunucu başlatılıyor (PROCESS_MODE=${PROCESS_MODE:-all}, PORT=${PORT:-10000})"
 exec node "${APP_DIR}/server.mjs"

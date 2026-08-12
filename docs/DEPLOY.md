@@ -34,6 +34,8 @@ Dürüst olmak gerekiyor, çünkü bir dağıtım kılavuzunda "çalışıyor" d
   gerçek bir HTTP sunucusuna karşı sınandı — Supabase'in yol ön ekli uç nokta biçimi dahil.
 - `db:migrate` ve `db:seed`, üretimde çalışacak paketlenmiş hâlleriyle gerçek bir
   PostgreSQL'e uygulandı.
+- Üç çalışma kipi de (`api`, `worker`, `all`) paketlenmiş çıktıyla ayrı ayrı çalıştırıldı;
+  `SIGTERM` ile kapanış eli tetiklendi ve süreç temiz kapandı.
 
 **Denenmeyen — çünkü bu ortamda ne hesap ne de ağ erişimi var:**
 
@@ -336,7 +338,10 @@ Servis sayfası → **Logs**. Şu sırayı görmelisiniz:
 
 ⭐ `mode: all` satırı kritiktir: **API ve worker aynı süreçte** çalışıyor demektir.
 `mode: api` görürseniz `PROCESS_MODE` değişkeni yanlış ve hiçbir masal üretilmez —
-istekler kabul edilir, kuyruğa girer ve orada durur.
+istekler kabul edilir, kuyruğa girer ve orada durur. Hata da görmezsiniz; log sessizdir.
+Tersi de aynı derecede sessizdi ve bu kurulum sırasında bir kez gerçekten oldu (paket
+içinde `api` kipi worker'ı da açıyordu), o yüzden `apps/api/test/process-mode.integration.test.ts`
+artık her iki yönü de sabitliyor.
 
 ---
 
