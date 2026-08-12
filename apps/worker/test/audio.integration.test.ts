@@ -37,6 +37,13 @@ import { enqueueJob } from '../src/jobs/repository';
 import { requestHash } from '../src/jobs/hashing';
 import { createTestUser, deleteTestUser, newIdempotencyKey, openDb, testEnv } from './helpers';
 
+/**
+ * These tests share one PostgreSQL with every other suite in the workspace, which vitest
+ * runs in parallel. The default 5 s deadline then measures contention rather than
+ * correctness, so it is raised deliberately — none of them takes more than ~3 s alone.
+ */
+const TEST_TIMEOUT_MS = 45_000;
+
 let handle: DbHandle;
 let runtime: WorkerRuntime;
 let store: InMemoryObjectStore;
@@ -257,7 +264,7 @@ describe('the consent chain gates cloning', () => {
     `);
     expect(rows[0]!.status).toBe('failed');
     expect(rows[0]!.failure_reason).toBe('CONSENT_REQUIRED');
-  });
+  }, TEST_TIMEOUT_MS);
 
   it('refuses when the spoken consent clip never passed the read-back check', async () => {
     const user = await createTestUser(handle.db);
@@ -268,7 +275,7 @@ describe('the consent chain gates cloning', () => {
     await expect(PROCESSORS.voice['voice.create']!(runtime, job)).rejects.toThrow(
       /did not match the server-issued sentence/,
     );
-  });
+  }, TEST_TIMEOUT_MS);
 
   it('clones when both consents are present and records the proof', async () => {
     const user = await createTestUser(handle.db);
@@ -320,7 +327,7 @@ describe('the consent chain gates cloning', () => {
     `);
     expect(binding[0]!.state).toBe('active');
     expect(binding[0]!.occupies_slot).toBe(true);
-  });
+  }, TEST_TIMEOUT_MS);
 });
 
 /* ── (b) The deletion chain ────────────────────────────────────────────────── */
@@ -492,7 +499,7 @@ describe('the deletion chain really deletes', () => {
       select count(*)::text from stories where id = ${storyId} and deleted_at is null
     `);
     expect(story[0]!.count).toBe('1');
-  });
+  }, TEST_TIMEOUT_MS);
 
   it('schedules the +30 day destruction of the raw reference on accept', async () => {
     const user = await createTestUser(handle.db);
@@ -519,7 +526,7 @@ describe('the deletion chain really deletes', () => {
     // ...and it does NOT run early.
     const swept = await runVoiceRawDestruction(handle.db, {});
     expect(swept.completed).toBe(0);
-  });
+  }, TEST_TIMEOUT_MS);
 });
 
 /* ── (c) The chunk cache ───────────────────────────────────────────────────── */
@@ -625,7 +632,7 @@ describe('editing one page re-renders one chunk', () => {
       `[cache] 12 chunks, one page edited → ${cached} cache hits, ${rendered} re-render, ` +
         `saved_usd=${saved.toFixed(5)}`,
     );
-  });
+  }, TEST_TIMEOUT_MS);
 
   async function savedUsd(): Promise<number> {
     const rows = await handle.db.execute<{ saved: string }>(sql`

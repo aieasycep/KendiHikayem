@@ -12,7 +12,7 @@
  * field corpus, and is tracked as an open item.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ERROR_CATALOG, VOICE_QUALITY_THRESHOLDS } from '@kendihikayem/contract';
 
 import { decodeWav, encodeWav } from '../audio/wav';
@@ -29,6 +29,13 @@ import {
   synthesizeSpeech,
   type SpeechOptions,
 } from '../testing/synth';
+
+/**
+ * Each case synthesises and analyses 15–42 seconds of audio: a few hundred milliseconds
+ * alone, but several seconds when `turbo` runs every package's suite at once on a shared
+ * CPU. The default 5 s deadline then measures machine load rather than correctness.
+ */
+vi.setConfig({ testTimeout: 60_000 });
 
 /**
  * The real passage 1 from the voice-onboarding fixtures: 65 words of bedtime narration.
