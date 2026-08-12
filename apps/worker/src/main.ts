@@ -1,5 +1,5 @@
 /**
- * main.ts — the worker half: its queue consumers, its schedulers, and its entry point.
+ * main.ts — the worker half: its queue consumers and its schedulers.
  *
  * Two things live here on purpose.
  *
@@ -10,8 +10,20 @@
  *     reuse it verbatim in `PROCESS_MODE=all` instead of reimplementing it — see the note
  *     on `processModeSchema` in packages/config for why that mode exists at all.
  *
- *  2. `main()` — the standalone `PROCESS_MODE=worker` process. It builds the runtime from
- *     the environment, calls the same function, and wires the signals.
+ *  2. `runWorkerProcess()` — builds the runtime from the environment, calls the same
+ *     function, and wires the signals.
+ *
+ * ⚠️ THIS MODULE STARTS NOTHING ON IMPORT, and there is no `import.meta.url === argv[1]`
+ * guard trying to make that safe. Such a guard was here and it was WRONG: the deployable
+ * artefact is an esbuild bundle (infra/bundle/server.mjs), and inside a bundle every
+ * module's `import.meta.url` is the bundle's own URL — so the guard was true in every
+ * process, and `PROCESS_MODE=api` silently ran six queue consumers it was explicitly
+ * configured not to run. Nothing announced it; the API just quietly did the worker's job
+ * too. The only reliable rule is the one now in force: modules do not self-start.
+ *
+ * The single process entry point for all three modes is `apps/api/src/main.ts`, which
+ * reads `PROCESS_MODE` and calls into here when it says so. Running the worker alone is
+ * `PROCESS_MODE=worker` on that same entry — one binary, one entry, three topologies.
  *
  * A redeploy that kills workers mid-job must leave the database consistent: jobs stay
  * `running`, their holds expire, and the reconcile sweeper reclaims them.
@@ -254,8 +266,14 @@ export async function startWorkerRuntime(
   };
 }
 
-/* ── Standalone entry point (PROCESS_MODE=worker) ──────────────────────────── */
+/* ── The worker process, assembled (PROCESS_MODE=worker) ───────────────────── */
 
+/**
+ * Builds a runtime from the environment, starts the worker half, and owns the signals.
+ *
+ * Called by `apps/api/src/main.ts` — never on import. See the ⚠️ note in the file header
+ * for what happened the last time this module tried to start itself.
+ */
 export async function runWorkerProcess(env: Env = loadEnv()): Promise<void> {
   const runtime = buildRuntime({ env });
   const handle = await startWorkerRuntime(runtime);
@@ -271,18 +289,4 @@ export async function runWorkerProcess(env: Env = loadEnv()): Promise<void> {
   process.on('SIGINT', () => void shutdown('SIGINT'));
 
   console.info(`[worker] listening on queues: ${QUEUE_NAMES.join(', ')}`);
-}
-
-/**
- * Only self-starts when this module IS the process entry. `apps/api` imports the functions
- * above in `PROCESS_MODE=all`; importing a module must not start six queue consumers.
- */
-const isEntryPoint =
-  process.argv[1] !== undefined && import.meta.url === `file://${process.argv[1]}`;
-
-if (isEntryPoint) {
-  runWorkerProcess().catch((error) => {
-    console.error('[worker] fatal', error);
-    process.exit(1);
-  });
 }
