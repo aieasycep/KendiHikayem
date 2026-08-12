@@ -1,0 +1,67 @@
+# Docker derleme bağlamından çıkarılanlar.
+#
+# Amaç iki türlü: derleme bağlamını küçültmek (her `docker build` bunu daemon'a gönderir)
+# ve bir SIRRIN imaja kazara girmesini engellemek. Aşağıdaki .env kuralları ikinci sebebi
+# taşıyor — imaja giren bir dosya imajı okuyan herkese girer.
+
+# ── Bağımlılıklar ve derleme çıktıları (imajda yeniden üretiliyor) ─────────────────
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+build/
+**/build/
+.turbo/
+**/.turbo/
+coverage/
+**/coverage/
+*.tsbuildinfo
+
+# ── ⚠️ Sırlar ─────────────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p8
+*.p12
+*.keystore
+*.jks
+
+# ── Yerel durum ───────────────────────────────────────────────────────────────────
+.data/
+**/.data/
+dump.rdb
+*.rdb
+*.log
+.DS_Store
+
+# ── Sürüm kontrolü ve CI ──────────────────────────────────────────────────────────
+.git/
+.github/
+.gitignore
+
+# ── Sunucunun ihtiyacı olmayan uygulamalar ────────────────────────────────────────
+# ⚠️ package.json'lar İSTİSNA: pnpm bağımlılık grafiğini kurmak için workspace'teki her
+# manifest'e ihtiyaç duyar, dosya yoksa `pnpm install --frozen-lockfile` başarısız olur.
+apps/mobile/*
+!apps/mobile/package.json
+apps/web/*
+!apps/web/package.json
+apps/ops/*
+!apps/ops/package.json
+packages/ui/*
+!packages/ui/package.json
+design/
+docs/
+android/
+ios/
+.expo/
+
+# ── Testler ───────────────────────────────────────────────────────────────────────
+# İmajda test yok; kalite kapısı CI'da (pnpm -w typecheck && lint && turbo run test).
+**/*.test.ts
+**/*.test.tsx
+**/test/
+**/__tests__/
+**/__fixtures__/

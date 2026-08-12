@@ -17,7 +17,17 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator';
 
 import { createDb, resolveCliDatabaseUrl } from './client';
 
-const migrationsFolder = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
+/**
+ * Where the `.sql` files are.
+ *
+ * ⚠️ `MIGRATIONS_DIR` exists for the container image. The migration SQL is DATA — Drizzle
+ * reads it from disk at run time — so it cannot be bundled with the runner, and in the
+ * image the runner and the SQL do not sit in the same relative positions they do in the
+ * repository. The default is the repository layout, which is what `pnpm db:migrate` uses.
+ */
+const migrationsFolder =
+  process.env['MIGRATIONS_DIR']?.trim() ||
+  resolve(dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
 
 async function main(): Promise<void> {
   const url = resolveCliDatabaseUrl();

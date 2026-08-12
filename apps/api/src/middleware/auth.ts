@@ -114,7 +114,9 @@ export function registerClientVersionGate(
   options: { minimumVersion?: string } = {},
 ): void {
   app.addHook('onRequest', async (request) => {
-    if (request.url === '/health' || request.url.startsWith('/internal/')) return;
+    // Infrastructure, not product surface: a platform health check (Render, a load
+    // balancer, `curl` after a deploy) has no client version and never will.
+    if (request.url.startsWith('/health') || request.url.startsWith('/internal/')) return;
 
     const raw = request.headers['x-client-version'];
     const version = Array.isArray(raw) ? raw[0] : raw;
