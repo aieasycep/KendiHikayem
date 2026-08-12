@@ -31,11 +31,28 @@ export interface S3ObjectStoreOptions {
   region: string;
   accessKeyId: string;
   secretAccessKey: string;
-  /** `S3_ENDPOINT` — MinIO or a regional S3 endpoint. */
+  /**
+   * `S3_ENDPOINT` — the S3 API root. Three shapes are supported:
+   *
+   *   MinIO     `http://localhost:9000`
+   *   AWS S3    `https://s3.eu-central-1.amazonaws.com`
+   *   Supabase  `https://<ref>.storage.supabase.co/storage/v1/s3`
+   *
+   * ⚠️ The Supabase form has a PATH PREFIX, and the prefix is part of the SigV4 canonical
+   * request. Dropping it signs `/kh-media/key` while sending `/storage/v1/s3/kh-media/key`,
+   * and every call comes back `403 SignatureDoesNotMatch` — the exact failure that is
+   * impossible to debug from the response body. `locate()` keeps it.
+   */
   endpoint: string;
-  /** MinIO needs path style; real S3 prefers virtual host style. */
+  /**
+   * MinIO and Supabase need path style; real S3 prefers virtual host style. Path style is
+   * the default because it is the one that works against an endpoint with a prefix.
+   */
   forcePathStyle?: boolean;
-  /** `S3_KMS_KEY_ID`; sent as SSE-KMS headers when present. */
+  /**
+   * `S3_KMS_KEY_ID`; sent as SSE-KMS headers when present. AWS only — MinIO and Supabase
+   * Storage have no SSE-KMS, and Supabase rejects the header, so leave it unset there.
+   */
   kmsKeyId?: string | undefined;
   fetchImpl?: typeof fetch;
   now?: () => Date;
@@ -236,7 +253,7 @@ export class S3ObjectStore implements ObjectStore {
     const date = this.now();
     const { amzDate, dateStamp } = amzDates(date);
     const scope = `${dateStamp}/${this.options.region}/${SERVICE}/aws4_request`;
-    const { host, path } = this.locate(key);
+    const { host, path, url } = this.locate(key);
 
     const query: Record<string, string> = {
       'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
@@ -265,11 +282,11 @@ export class S3ObjectStore implements ObjectStore {
       .map((k) => `${uriEncode(k)}=${uriEncode(query[k] ?? '')}`)
       .join('&');
 
-    const base = this.options.endpoint.replace(/\/+$/u, '');
-    const origin = new URL(base).origin;
-
+    // `locate()` already produced the exact URL that matches the signed canonical path —
+    // including the endpoint prefix and, in virtual-host style, the bucket subdomain.
+    // Rebuilding it from the endpoint's origin here is how the two silently drift apart.
     return {
-      url: `${origin}${path}?${search}&X-Amz-Signature=${signature}`,
+      url: `${url}?${search}&X-Amz-Signature=${signature}`,
       expiresInSec,
       expiresAt: new Date(date.getTime() + expiresInSec * 1000).toISOString(),
     };
@@ -277,16 +294,24 @@ export class S3ObjectStore implements ObjectStore {
 
   /* ── internals ────────────────────────────────────────────────────────── */
 
+  /**
+   * Endpoint + bucket + key → the host to sign, the canonical path, and the URL to call.
+   *
+   * `prefix` is the endpoint's own path (`/storage/v1/s3` on Supabase, empty on MinIO and
+   * AWS). It has to appear in BOTH the request line and the canonical request, which is why
+   * one function produces both and nothing else in this file builds a path.
+   */
   private locate(key: string): { host: string; path: string; url: string } {
     const endpoint = new URL(this.options.endpoint);
+    const prefix = endpoint.pathname.replace(/\/+$/u, '');
     const encodedKey = uriEncode(key.replace(/^\/+/u, ''), false);
 
     if (this.options.forcePathStyle ?? true) {
-      const path = `/${this.bucket}/${encodedKey}`;
+      const path = `${prefix}/${this.bucket}/${encodedKey}`;
       return { host: endpoint.host, path, url: `${endpoint.origin}${path}` };
     }
     const host = `${this.bucket}.${endpoint.host}`;
-    const path = `/${encodedKey}`;
+    const path = `${prefix}/${encodedKey}`;
     return { host, path, url: `${endpoint.protocol}//${host}${path}` };
   }
 

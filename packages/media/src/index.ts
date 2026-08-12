@@ -24,3 +24,4 @@ export * from './storage/types';
 export * from './storage/filesystem';
 export * from './storage/s3';
 export * from './storage/factory';
+export * from './storage/bucketed';
