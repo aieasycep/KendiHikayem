@@ -72,6 +72,19 @@ jobs:
       - name: 7) Veritabani semasini kur (migration'lar)
         run: pnpm --filter @kendihikayem/db db:migrate
 
+      - name: 7b) Katalog verisini yukle (sanat stilleri, temalar, planlar)
+        # Sanat stilleri ve temalar REFERANS VERISIDIR: stories.art_style_code
+        # bunlara foreign key ile bagli, yani bos tabloyla hicbir hikaye
+        # yazilamaz. Migration'lar semayi kurar ama veriyi yuklemez, bu yuzden
+        # entegrasyon testleri "suluboya stili yok" diye duserdi.
+        #
+        # NODE_ENV=production: seed'in ikinci bolumu (sahte ebeveyn Ayse, iki
+        # cocuk, ornek hikaye) atlanir. Test veritabanina hazir kullanici
+        # yerlestirmek, testlerin kendi kurdugu durumu gizler.
+        env:
+          NODE_ENV: production
+        run: pnpm --filter @kendihikayem/db db:seed
+
       - name: 8) Testler
         # --concurrency=2: bazi paketler CPU-yogun (goruntu QA piksel analizi,
         # ses DSP olcumleri, PDF rasterlemesi). Turbo'nun varsayilan paralelligiyle
