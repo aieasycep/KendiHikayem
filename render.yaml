@@ -1,0 +1,166 @@
+# render.yaml — Render Blueprint (https://render.com/docs/blueprint-spec)
+#
+# TEK servis, çünkü ücretsiz plan tam olarak bunu veriyor: Render'ın ücretsiz katmanında
+# web servisi var, arka plan worker'ı (Background Worker) YOK — o ücretli. Bu yüzden
+# PROCESS_MODE=all: Fastify ve BullMQ worker'ları aynı süreçte çalışıyor
+# (apps/api/src/main.ts, packages/config `processModeSchema`).
+#
+# ⚠️ ÜCRETSİZ KATMANIN SINIRLARI — dağıtmadan önce docs/DEPLOY.md §Ücretsiz katman
+# sınırları bölümünü okuyun. Özeti: servis 15 dakika trafiksizlikten sonra UYUR, ilk
+# istek 30–60 saniye bekler, aylık 750 örnek-saat vardır, disk KALICI DEĞİLDİR.
+#
+# Para harcamaya hazır olunca ölçeklenme yolu: bu dosyayı iki servise bölün
+# (PROCESS_MODE=api ve PROCESS_MODE=worker), REDIS_MODE=external yapıp yönetilen bir
+# Redis bağlayın. Kodda hiçbir değişiklik gerekmez.
+
+services:
+  - type: web
+    name: kendihikayem-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    region: frankfurt # Türkiye'ye en yakın Render bölgesi; gecikme burada belirlenir.
+    branch: main
+
+    # ⚠️ Render'ın kendi HTTP sağlık kontrolü. Bilerek /health — HİÇBİR ŞEYE dokunmaz.
+    # /health/ready Postgres'e sorar ve ulaşılamazsa 503 döner; onu buraya koymak yavaş
+    # bir veritabanını yeniden başlatma döngüsüne çevirir (apps/api/src/server.ts).
+    healthCheckPath: /health
+
+    # ⚠️ Ücretsiz plan TEK örnek çalıştırır ve ölçeklenemez. Aşağıdaki
+    # RUN_MIGRATIONS_ON_BOOT=true tam olarak buna dayanıyor: iki örnek olsaydı ikisi aynı
+    # anda migration çalıştırırdı. Ücretli plana geçip örnek sayısını artırırsanız
+    # migration'ı ayrı bir adıma taşıyın.
+
+    envVars:
+      # ── Çalışma kipi ───────────────────────────────────────────────────────────
+      - key: NODE_ENV
+        value: production
+      # ⭐ TEK SERVİS KİPİ. Ücretsiz katmanın tüm gerekçesi bu satır.
+      - key: PROCESS_MODE
+        value: all
+      # mock → hiçbir AI sağlayıcısına çıkılmaz, anahtar gerekmez, uygulama uçtan uca
+      # çalışır. Anahtarlar geldiğinde `live` yapın; başka değişiklik gerekmez.
+      - key: API_MODE
+        value: mock
+      - key: LOG_LEVEL
+        value: info
+      # Render dinlenecek portu kendisi enjekte eder; Dockerfile 10000'i varsayılıyor.
+      - key: PORT
+        value: 10000
+      - key: HOST
+        value: 0.0.0.0
+
+      # ── Dışarıya görünen adres ─────────────────────────────────────────────────
+      # ⚠️ ELLE GİRİLİR, otomatik türetilmez. Render'ın `fromService … property: host`
+      # ifadesi yalnızca ana makine adını verir ("kendihikayem-api.onrender.com"), oysa
+      # buraya TAM URL gerekiyor — zod `z.string().url()` bekliyor ve şemasız değeri
+      # açılışta reddeder. Servis ilk kez oluşturulduktan sonra Render'ın verdiği adresi
+      # panodan kopyalayıp başına https:// koyun (docs/DEPLOY.md 3. adım).
+      #
+      # İmzalı medya URL'leri bunun üzerine kuruluyor; NODE_ENV=production altında
+      # http:// açılışta reddedilir.
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: AUTH_BASE_URL
+        sync: false
+
+      # ── Kimlik ─────────────────────────────────────────────────────────────────
+      # generateValue: Render 32+ karakter rastgele bir değer üretir ve saklar.
+      # Değiştirirseniz tüm oturumlar düşer (sessions.refresh_token_hash bununla değil,
+      # ama imzalı medya URL'leri bununla türetiliyor).
+      - key: AUTH_SECRET
+        generateValue: true
+
+      # ── Veritabanı: Supabase ───────────────────────────────────────────────────
+      # ⚠️ DEĞERLER BURADA YOK. Render panosundan girilir (sync: false), çünkü bu dosya
+      # depoda duruyor ve bir bağlantı dizesi parola içerir.
+      #
+      # DATABASE_URL       → Supabase TRANSACTION pooler'ı, port 6543
+      #                      (postgres.js prepared statement'ları otomatik kapanır —
+      #                       packages/config `usePreparedStatements`)
+      # DATABASE_MIGRATION_URL → SESSION pooler'ı, port 5432. DDL oturum kipinde çalışmalı.
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_MIGRATION_URL
+        sync: false
+      # Supabase ücretsiz katmanında pooler istemci sınırı düşük ve bu TEK süreçte hem
+      # API hem worker var. 5 bağlantı ikisine birden yetiyor, 20 kotayı tüketiyor.
+      - key: DATABASE_POOL_MAX
+        value: 5
+      # auto: bağlantı dizesinden karar verilir. Havuzlayıcınızı sezgisel tanımıyorsa
+      # `off` yapın — yanlış yön aralıklı ve tekrarlanamaz üretim hatası demektir.
+      - key: DATABASE_PREPARED_STATEMENTS
+        value: auto
+
+      # ── Kuyruk: konteyner içi Redis ────────────────────────────────────────────
+      # ⭐ Gerekçe: docs/DEPLOY.md §Redis kararı. Özet: ücretsiz yönetilen Redis yok,
+      # Upstash'in ücretsiz komut kotası BullMQ'nun boşta bile ürettiği trafiğe yetmiyor.
+      # Bu Redis her uyanışta BOŞ başlar ve bu KABUL EDİLEBİLİR: durum kaynağı Postgres,
+      # açılışta resumeRecoverableJobs() kuyruğu Postgres'ten yeniden kuruyor.
+      #
+      # Upstash'e geçmek: REDIS_MODE=external + REDIS_URL=rediss://… (TLS şemadan çıkar).
+      - key: REDIS_MODE
+        value: embedded
+      - key: REDIS_URL
+        value: redis://127.0.0.1:6379
+      - key: QUEUE_PREFIX
+        value: kh
+
+      # ── Depolama: Supabase Storage (S3 uyumlu) ─────────────────────────────────
+      # S3_ENDPOINT → https://<proje-ref>.storage.supabase.co/storage/v1/s3
+      # ⚠️ Yol ön ekiyle birlikte girin; sürücü onu imzalıyor (packages/media/storage/s3.ts).
+      # S3_REGION   → Supabase proje bölgesi, örn. eu-central-1. SigV4 kapsamına giriyor.
+      - key: MEDIA_STORAGE_DRIVER
+        value: s3
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_REGION
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      # Supabase yol stili ister (sanal host stili yok).
+      - key: S3_FORCE_PATH_STYLE
+        value: true
+      - key: S3_BUCKET_MEDIA
+        value: kh-media
+      # ⚠️ KVKK (SPEC §2, §10.1): ham ses referans kayıtları AYRI bucket'ta durur.
+      # Supabase'de KMS yok; S3_KMS_KEY_ID / S3_VOICE_KMS_KEY_ID BOŞ BIRAKILMALI —
+      # gönderilen SSE-KMS başlığını Supabase reddeder.
+      - key: S3_BUCKET_VOICE_RAW
+        value: kh-voice-raw
+      - key: MEDIA_SIGNED_URL_TTL_SEC
+        value: 900
+
+      # ── Açılış görevleri ───────────────────────────────────────────────────────
+      # ⚠️ İkisi de yalnızca TEK örnek olduğu için güvenli. numInstances > 1 yaparsanız
+      # KAPATIN, yoksa iki örnek aynı anda migration çalıştırır.
+      # Seed her satırı deterministik UUID ile yazıyor, ikinci çalıştırma no-op.
+      - key: RUN_MIGRATIONS_ON_BOOT
+        value: true
+      - key: RUN_SEED_ON_BOOT
+        value: true
+
+      # ── Sağlayıcı anahtarları ──────────────────────────────────────────────────
+      # API_MODE=mock iken hiçbiri gerekmez ve hiçbiri okunmaz. `live`'a geçtiğiniz gün
+      # panodan doldurun; eksik anahtar AÇILIŞTA hata verir, sessizce sahteye düşmez.
+      - key: GOOGLE_GENAI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+
+      # ── Maliyet tavanları ──────────────────────────────────────────────────────
+      # ⚠️ API_MODE=mock iken harcama sıfır. `live`'a geçmeden önce bu iki sayıyı
+      # bilinçli olarak ayarlayın — bunlar sizin ile beklenmedik bir fatura arasındaki
+      # tek şey (apps/worker/src/cost/reservation.ts).
+      - key: COST_CAP_PER_STORY_USD
+        value: 6
+      - key: COST_CAP_DAILY_USD
+        value: 5
