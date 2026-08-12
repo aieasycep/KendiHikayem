@@ -111,8 +111,28 @@ export function toContractJob(row: JobRow, steps: JobStepRow[]): Job {
       typeof stored['code'] === 'string' && stored['code'] in ERROR_CATALOG
         ? (stored['code'] as ErrorCode)
         : 'INTERNAL';
+
+    /**
+     * ⭐ `userMessageTr` OVERRIDES the catalog sentence, and only it may.
+     *
+     * It is OUR Turkish text, from `ProviderError`'s own per-kind table (packages/providers
+     * `core/errors.ts`) — a vendor string is never eligible, which is the invariant the
+     * comment above protects. What it buys is precision the frozen catalog cannot express:
+     * a spent free-tier daily quota and a vendor outage both map to `PROVIDER_UNAVAILABLE`,
+     * but one means "yarın tekrar deneyin" and the other means "işiniz kuyrukta duruyor".
+     * A parent told the servers are down when the truth is "today's free allowance is gone"
+     * refreshes uselessly for an hour.
+     *
+     * The catalog stays the fallback, so a job row written before this existed — or by any
+     * path that does not set the field — still renders exactly as it always did.
+     */
+    const userMessageTr = stored['userMessageTr'];
+
     job.error = apiErrorFrom(code, {
       traceId: row.correlation_id,
+      ...(typeof userMessageTr === 'string' && userMessageTr.trim() !== ''
+        ? { messageTr: userMessageTr }
+        : {}),
       ...(typeof stored['detail'] === 'string' ? { detail: stored['detail'] } : {}),
     });
   }

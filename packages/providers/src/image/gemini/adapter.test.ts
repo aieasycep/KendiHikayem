@@ -300,6 +300,45 @@ describe('error mapping', () => {
     expect(error.retryable).toBe(false);
   });
 
+  /**
+   * ⭐ THE FREE-TIER TRAP, in the one place a book can be lost to it.
+   *
+   * Google answers a per-MINUTE throttle with byte-for-byte the same sentence it uses for a
+   * spent billing quota ("You exceeded your current quota, please check your plan and
+   * billing details"). The old message-text classifier saw "quota"/"billing"/"free tier" and
+   * called BOTH of them `quota_exhausted` — non-retryable — so on the free tier every
+   * eighteen-second throttle abandoned a page that would have rendered fine. Only the
+   * structured `QuotaFailure.quotaId` distinguishes them.
+   */
+  it('⭐ maps a free-tier per-MINUTE throttle to a RETRYABLE rate limit', async () => {
+    const { adapter } = makeAdapter([
+      { status: 429, body: fixture('error-429-free-tier-minute.json') },
+    ]);
+    const error = (await adapter.generate(INPUT, CTX).catch((e: unknown) => e)) as ProviderError;
+
+    expect(error.kind).toBe('rate_limited');
+    expect(error.retryable).toBe(true);
+    expect(error.retryAfterMs).toBe(18_000);
+    // …and the parent is told to wait seconds, not to come back tomorrow.
+    expect(error.userMessageTr).toMatch(/birkaç saniye/iu);
+  });
+
+  it('⭐ maps a free-tier per-DAY allowance to quota_exhausted — identical prose', async () => {
+    const minute = fixture('error-429-free-tier-minute.json') as { error: { message: string } };
+    const day = fixture('error-429-free-tier-day.json') as { error: { message: string } };
+    // The premise of the test: the message text cannot tell them apart.
+    expect(day.error.message).toBe(minute.error.message);
+
+    const { adapter } = makeAdapter([{ status: 429, body: day }]);
+    const error = (await adapter.generate(INPUT, CTX).catch((e: unknown) => e)) as ProviderError;
+
+    expect(error.kind).toBe('quota_exhausted');
+    expect(error.retryable).toBe(false);
+    expect(error.userMessageTr).toMatch(/yarın/iu);
+    // Never the vendor's English sentence, which the parent cannot act on.
+    expect(error.userMessageTr).not.toMatch(/quota|billing/iu);
+  });
+
   it('maps 401 to a non-retryable auth failure', async () => {
     const { adapter } = makeAdapter([
       { status: 401, body: fixture('error-401-unauthenticated.json') },

@@ -8,6 +8,7 @@
 
 export const SERVICE_NAME = 'kendihikayem-api' as const;
 
+export * from './bootstrap';
 export * from './context';
 export * from './errors';
 export * from './server';

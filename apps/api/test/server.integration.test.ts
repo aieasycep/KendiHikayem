@@ -9,7 +9,10 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { sql } from 'drizzle-orm';
+import { ERROR_CATALOG } from '@kendihikayem/contract';
 import type { DbHandle } from '@kendihikayem/db';
+import { FREE_TIER_MESSAGE_TR, ProviderError } from '@kendihikayem/providers';
 import { enqueueJob, requestHash, transitionJob } from '@kendihikayem/worker';
 
 import {
@@ -148,6 +151,69 @@ describe('GET /v1/jobs/:jobId — the mobile polling path', () => {
     });
     expect(response.statusCode).toBe(404);
     expect(response.json()).toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  /**
+   * ⭐ THE END OF THE FREE-TIER QUOTA PATH.
+   *
+   * A spent daily allowance and a vendor outage both carry the code `PROVIDER_UNAVAILABLE`
+   * — the contract's catalog is frozen and has no row for "today's free quota is gone". So
+   * the worker writes the precise Turkish sentence onto the job row and this endpoint
+   * prefers it. Without that, a parent whose story stopped because the free quota ran out is
+   * told the servers are down, and refreshes uselessly for an hour instead of coming back
+   * tomorrow.
+   */
+  it('⭐ shows the provider’s own Turkish sentence when the worker recorded one', async () => {
+    const job = await makeJob(server.userId);
+    // Exactly what `ProviderError.toJobError()` writes for a free-tier daily exhaustion.
+    const quotaError = new ProviderError({
+      kind: 'quota_exhausted',
+      provider: 'google',
+      operation: 'llm.complete',
+      detail: 'You exceeded your current quota, please check your plan and billing details.',
+      userMessageTr: FREE_TIER_MESSAGE_TR.daily,
+    }).toJobError();
+
+    await transitionJob(handle.db, job.id, 'running');
+    await handle.db.execute(
+      sql`update jobs set error = ${JSON.stringify(quotaError)}::jsonb where id = ${job.id}`,
+    );
+
+    const body = (
+      await server.app.inject({
+        method: 'GET',
+        url: `/v1/jobs/${job.id}`,
+        headers: server.headers(),
+      })
+    ).json() as { error?: { code: string; messageTr: string; detail?: string } };
+
+    expect(body.error?.code).toBe('PROVIDER_UNAVAILABLE');
+    // The actionable half: come back tomorrow, and you were not charged.
+    expect(body.error?.messageTr).toMatch(/yarın/iu);
+    expect(body.error?.messageTr).toMatch(/krediniz harcanmadı/iu);
+    // ⚠️ The vendor's English sentence stays in `detail` (logs only) and never in the text
+    // the app renders.
+    expect(body.error?.detail).toContain('exceeded your current quota');
+    expect(body.error?.messageTr).not.toMatch(/quota|billing|google/iu);
+  });
+
+  it('falls back to the catalog sentence for a job row without one', async () => {
+    const job = await makeJob(server.userId);
+    await transitionJob(handle.db, job.id, 'running');
+    await handle.db.execute(
+      sql`update jobs set error = ${JSON.stringify({ code: 'PROVIDER_UNAVAILABLE' })}::jsonb where id = ${job.id}`,
+    );
+
+    const body = (
+      await server.app.inject({
+        method: 'GET',
+        url: `/v1/jobs/${job.id}`,
+        headers: server.headers(),
+      })
+    ).json() as { error?: { messageTr: string } };
+
+    // Rows written before `userMessageTr` existed still render exactly as they always did.
+    expect(body.error?.messageTr).toBe(ERROR_CATALOG.PROVIDER_UNAVAILABLE.messageTr);
   });
 
   it('lists the account\'s jobs newest first', async () => {
