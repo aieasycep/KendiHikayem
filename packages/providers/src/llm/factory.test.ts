@@ -10,6 +10,9 @@
  *      ever stops being true it stops here, rather than during a migration.
  */
 
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
 import { parseEnv } from '@kendihikayem/config';
 
@@ -234,6 +237,61 @@ describe('boot-time credential checks', () => {
         TTS_PROVIDER_PRIMARY: 'elevenlabs',
       }),
     ).toThrow(/TTS_PROVIDER_PRIMARY/u);
+  });
+});
+
+/**
+ * ⭐ The shipped `.env.example` is the onboarding document. A default in it that the schema
+ * rejects — or that quietly selects a paid vendor — is a first-run failure for the one
+ * person who cannot afford one, and it would never be caught by a test that builds its own
+ * env object from scratch (as every other test in this file does).
+ */
+describe('the shipped .env.example', () => {
+  function exampleEnv(): Record<string, string> {
+    const path = fileURLToPath(new URL('../../../../.env.example', import.meta.url));
+    const source: Record<string, string> = {};
+    for (const line of readFileSync(path, 'utf8').split('\n')) {
+      const trimmed = line.trim();
+      if (trimmed === '' || trimmed.startsWith('#')) continue;
+      const eq = trimmed.indexOf('=');
+      if (eq > 0) source[trimmed.slice(0, eq)] = trimmed.slice(eq + 1);
+    }
+    return source;
+  }
+
+  it('boots the free stack in live mode with only the free-tier keys filled in', () => {
+    const env = parseEnv({ ...exampleEnv(), ...BASE, API_MODE: 'live', ...FREE_TIER_KEYS });
+
+    expect(env.LLM_PROVIDER_PRIMARY).toBe('gemini');
+    expect(env.IMAGE_PROVIDER_PRIMARY).toBe('google');
+    expect(env.TTS_PROVIDER_PRIMARY).toBe('google');
+    expect(env.PROVIDER_COST_TIER).toBe('free');
+    expect(env.VOICE_CLONING_ENABLED).toBe(false);
+    // ⚠️ No PAID vendor is reachable by default: a fallback behind a free primary is how a
+    // free-tier deployment starts spending money the first time Google throttles it.
+    expect(env.LLM_FALLBACK_PROVIDER).toBe('none');
+    expect(env.VOICE_FALLBACK).toBe('system');
+  });
+
+  it('ships a voice map that keeps the seeded narrators distinct', () => {
+    const env = parseEnv({ ...exampleEnv(), ...BASE, API_MODE: 'live', ...FREE_TIER_KEYS });
+    const map = JSON.parse(env.GOOGLE_TTS_VOICE_MAP) as Record<string, string>;
+
+    // The seeded catalog (packages/db, frozen) carries these ids. Without the bridge all
+    // three narrators a parent chooses between would speak in the same voice.
+    expect(Object.keys(map).sort()).toEqual([
+      'mock-voice-deniz',
+      'mock-voice-mert',
+      'mock-voice-zeynep',
+    ]);
+    expect(new Set(Object.values(map)).size).toBe(3);
+  });
+
+  it('routes all three capabilities through the single documented key', () => {
+    const env = parseEnv({ ...exampleEnv(), ...BASE, API_MODE: 'live', ...FREE_TIER_KEYS });
+    expect(createLlmRoute({ env })[0]).toBeInstanceOf(GeminiLlmAdapter);
+    expect(createVoiceRoute({ env }).tts[0]).toBeInstanceOf(GoogleTtsAdapter);
+    expect(env.GOOGLE_GENAI_API_KEY).toBe(FREE_TIER_KEYS.GOOGLE_GENAI_API_KEY);
   });
 });
 

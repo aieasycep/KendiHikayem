@@ -46,6 +46,18 @@ const zOptionalString = () =>
     .optional()
     .transform((value) => (value === undefined || value === '' ? undefined : value));
 
+/**
+ * An optional enum that treats "" as "not set".
+ *
+ * ⚠️ `someEnum.optional()` alone does NOT: an empty value fails with
+ * `Invalid enum value ... received ''`, which is exactly what a deployment gets when it
+ * copies `.env.example` verbatim and leaves an optional line blank — the documented way to
+ * say "no second provider". A confusing enum error at boot, from a file we told them to
+ * copy, is a self-inflicted first-run failure.
+ */
+const zOptionalEnum = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess((value) => (value === '' ? undefined : value), schema.optional());
+
 /* ── enums ────────────────────────────────────────────────────────────────── */
 
 export const apiModeSchema = z.enum(['mock', 'live']);
@@ -370,7 +382,7 @@ export const envSchema = z
      * pipeline reads at boot; none of it may appear as a literal in code. */
     IMAGE_PROVIDER_PRIMARY: imageProviderSchema.default('google'),
     /** Second adapter in the `ProviderRouter` route. Empty = single-provider route. */
-    IMAGE_PROVIDER_FALLBACK: imageProviderSchema.optional(),
+    IMAGE_PROVIDER_FALLBACK: zOptionalEnum(imageProviderSchema),
     GOOGLE_GENAI_BASE_URL: z
       .string()
       .url()
@@ -427,7 +439,7 @@ export const envSchema = z
      * one an operator happened to type.
      */
     VOICE_PRIMARY: voiceProviderSchema.default('google'),
-    TTS_PROVIDER_PRIMARY: voiceProviderSchema.optional(),
+    TTS_PROVIDER_PRIMARY: zOptionalEnum(voiceProviderSchema),
     /**
      * Second entry in the voice route. `system` means "no second entry": a vendor whose key
      * is absent is skipped anyway, and naming a PAID fallback here is how a free-tier
