@@ -113,6 +113,21 @@ export default tseslint.config(
     },
   },
 
+  /**
+   * ESM tooling scripts that run under Node directly and are never bundled for a client:
+   * this file, and the deploy bundlers in `infra/bundle/`. They need Node's globals
+   * (`process`, `console`) — without this block `no-undef` reports every one of them,
+   * because the TypeScript block below only matches `.ts`/`.tsx`/`.mts`.
+   */
+  {
+    files: ['**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: 'module',
+      globals: { ...globals.node },
+    },
+  },
+
   {
     files: ['**/*.ts', '**/*.tsx', '**/*.mts'],
     languageOptions: {
